@@ -1,0 +1,1156 @@
+// @ts-nocheck
+import { useEffect, useState } from "react";
+import { Sparkles, X, Search, Ticket, Trash2 } from "lucide-react";
+import { cn } from "@/utils/matchUtils";
+
+// --- Helper Components ---
+
+function GuideButton({ darkMode, open, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        onClick(e);
+      }}
+      className={cn(
+        "text-[11px] font-extrabold px-3 py-1.5 rounded-2xl border transition active:scale-[0.99]",
+        darkMode
+          ? "border-white/10 bg-white/5 hover:bg-white/10 text-gray-200"
+          : "border-gray-200 bg-white hover:bg-gray-50 text-gray-800"
+      )}
+    >
+      {open ? "Hide Guide" : "Guide"}
+    </button>
+  );
+}
+
+function GuidePanel({ darkMode, children }) {
+  return (
+    <div
+      className={cn(
+        "mt-3 rounded-2xl border p-3 text-[11px] leading-5 animate-in fade-in slide-in-from-top-2",
+        darkMode
+          ? "border-white/10 bg-white/[0.04] text-gray-300"
+          : "border-gray-200 bg-gray-50 text-gray-700"
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+function SectionHeader({ title, darkMode, guideOpen, onToggleGuide }) {
+  return (
+    <div className="flex items-center justify-between gap-3 mb-2">
+      <div
+        className={cn(
+          "text-xs font-bold",
+          darkMode ? "text-gray-300" : "text-gray-600"
+        )}
+      >
+        {title}
+      </div>
+      {onToggleGuide && (
+        <GuideButton
+          darkMode={darkMode}
+          open={guideOpen}
+          onClick={onToggleGuide}
+        />
+      )}
+    </div>
+  );
+}
+
+const themeColors = {
+  blue: {
+    dark: "border-blue-500/50 bg-blue-500/15 text-blue-200 shadow-[0_0_10px_rgba(59,130,246,0.15)]",
+    light: "border-blue-200 bg-blue-50 text-blue-700 shadow-sm",
+  },
+  violet: {
+    dark: "border-violet-500/50 bg-violet-500/15 text-violet-200 shadow-[0_0_10px_rgba(139,92,246,0.15)]",
+    light: "border-violet-200 bg-violet-50 text-violet-700 shadow-sm",
+  },
+  emerald: {
+    dark: "border-emerald-500/50 bg-emerald-500/15 text-emerald-200 shadow-[0_0_10px_rgba(16,185,129,0.15)]",
+    light: "border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm",
+  },
+  indigo: {
+    dark: "border-indigo-500/50 bg-indigo-500/15 text-indigo-200 shadow-[0_0_10px_rgba(99,102,241,0.15)]",
+    light: "border-indigo-200 bg-indigo-50 text-indigo-700 shadow-sm",
+  },
+  amber: {
+    dark: "border-amber-500/50 bg-amber-500/15 text-amber-200 shadow-[0_0_10px_rgba(245,158,11,0.15)]",
+    light: "border-amber-200 bg-amber-50 text-amber-700 shadow-sm",
+  },
+  cyan: {
+    dark: "border-cyan-500/50 bg-cyan-500/15 text-cyan-200 shadow-[0_0_10px_rgba(6,182,212,0.15)]",
+    light: "border-cyan-200 bg-cyan-50 text-cyan-700 shadow-sm",
+  },
+  rose: {
+    dark: "border-rose-500/50 bg-rose-500/15 text-rose-200 shadow-[0_0_10px_rgba(244,63,94,0.15)]",
+    light: "border-rose-200 bg-rose-50 text-rose-700 shadow-sm",
+  },
+};
+
+function SelectableButton({
+  active,
+  darkMode,
+  theme = "blue",
+  onClick,
+  disabled,
+  className,
+  children,
+}) {
+  const baseClasses =
+    "text-[11px] font-extrabold px-3 py-2 rounded-2xl border transition-all active:scale-[0.99] text-center sm:text-xs flex items-center justify-center";
+  const inactiveDark =
+    "border-white/10 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-gray-200";
+  const inactiveLight =
+    "border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-800";
+  const disabledClasses = disabled
+    ? "opacity-40 cursor-not-allowed grayscale"
+    : "";
+
+  const activeClasses = darkMode
+    ? themeColors[theme]?.dark
+    : themeColors[theme]?.light;
+  const currentClasses = active
+    ? activeClasses
+    : darkMode
+    ? inactiveDark
+    : inactiveLight;
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        if (!disabled && onClick) onClick(e);
+      }}
+      disabled={disabled}
+      className={cn(baseClasses, currentClasses, disabledClasses, className)}
+    >
+      {children}
+    </button>
+  );
+}
+
+// --- Main Component ---
+
+export default function AutoPickModal({
+  open,
+  darkMode,
+  onClose,
+  isPremiumAccess = true,
+
+  autoRange,
+  setAutoRange,
+  autoCustomRange,
+  setAutoCustomRange,
+  autoSelectedLeagues,
+  setAutoSelectedLeagues,
+  availableLeagues,
+
+  autoStyle,
+  setAutoStyle,
+  autoCount,
+  setAutoCount,
+
+  autoMarkets,
+  setAutoMarkets,
+  auto1x2Options,
+  setAuto1x2Options,
+  autoOUOptions,
+  setAutoOUOptions,
+  autoBTTSOptions,
+  setAutoBTTSOptions,
+  autoDoubleChanceOptions,
+  setAutoDoubleChanceOptions,
+  autoHAOU15Options,
+  setAutoHAOU15Options,
+
+  autoPreview,
+  setAutoPreview,
+  onPreview,
+  onConfirm,
+}) {
+  useEffect(() => {
+    if (open) {
+      setAutoRange((v) => v || "today");
+      setAutoStyle((v) => v || "safe");
+      setAutoCount((v) => v || 5);
+    }
+  }, [open, setAutoRange, setAutoStyle, setAutoCount]);
+
+  const [leagueSearch, setLeagueSearch] = useState("");
+  const [openGuides, setOpenGuides] = useState({
+    dateRange: false,
+    leagues: false,
+    risk: false,
+    market: false,
+    count: false,
+    preview: false,
+  });
+
+  const toggleGuide = (key) => {
+    setOpenGuides((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  if (!open || !isPremiumAccess) return null;
+
+  const ranges = [
+    { key: "today", label: "Today" },
+    { key: "tomorrow", label: "Tomorrow" },
+    { key: "next3", label: "Next 3 days" },
+    { key: "week", label: "This Week" },
+    { key: "next7", label: "Next 7 days" },
+    { key: "manual", label: "Manual Range" },
+  ];
+
+  const leagueOptions = Array.from(
+    new Set(
+      (availableLeagues || [])
+        .map((item) => {
+          if (typeof item === "string") return item.trim();
+          if (item?.fullLeague) return String(item.fullLeague).trim();
+          if (item?.league) return String(item.league).trim();
+          if (item?.name) return String(item.name).trim();
+          return "";
+        })
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b));
+
+  const toggleLeague = (league) => {
+    setAutoSelectedLeagues((prev) =>
+      prev.includes(league)
+        ? prev.filter((l) => l !== league)
+        : [...prev, league]
+    );
+  };
+
+  const risks = [
+    { key: "safe", label: "Safe" },
+    { key: "balanced", label: "Balanced" },
+    { key: "edge", label: "Edge" },
+  ];
+
+  const counts = [4, 5, 10, 15, 20];
+  const csSelected = !!autoMarkets?.correctScore;
+
+  const setMarket = (key, val) => {
+    setAutoMarkets((prev) => {
+      const next = { ...(prev || {}) };
+
+      if (key === "correctScore" && val) {
+        return {
+          all: false,
+          m1x2: false,
+          doubleChance: false,
+          overUnder: false,
+          btts: false,
+          haOverUnder15: false,
+          correctScore: true,
+        };
+      }
+
+      if (key !== "correctScore" && next.correctScore)
+        next.correctScore = false;
+      next[key] = val;
+
+      if (key === "all" && val) {
+        return {
+          all: true,
+          m1x2: true,
+          doubleChance: true,
+          overUnder: true,
+          btts: true,
+          haOverUnder15: false,
+          correctScore: false,
+        };
+      }
+
+      const anyOn =
+        next.all ||
+        next.m1x2 ||
+        next.doubleChance ||
+        next.overUnder ||
+        next.btts ||
+        next.haOverUnder15 ||
+        next.correctScore;
+      if (!anyOn) next.overUnder = true;
+      if (key !== "all") next.all = false;
+
+      return next;
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 animate-in fade-in duration-200">
+      <div
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onClose(e);
+        }}
+        aria-hidden="true"
+      />
+      <div
+        className={cn(
+          "relative w-full max-w-lg rounded-3xl border shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-8 duration-300",
+          darkMode
+            ? "border-white/10 bg-gradient-to-b from-[#0a0a0a] to-[#111] text-white shadow-black/50"
+            : "border-gray-200 bg-white text-gray-900 shadow-xl"
+        )}
+      >
+        {/* Header */}
+        <div
+          className={cn(
+            "flex items-start justify-between gap-3 p-4 border-b",
+            darkMode
+              ? "border-white/10 bg-white/[0.02]"
+              : "border-gray-200 bg-gray-50/80"
+          )}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className={cn(
+                "h-10 w-10 rounded-2xl flex items-center justify-center ring-1 shadow-sm",
+                darkMode
+                  ? "bg-amber-500/10 ring-amber-500/30 text-amber-400"
+                  : "bg-amber-50 ring-amber-200 text-amber-600"
+              )}
+            >
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-black tracking-tight">
+                Auto Pick Intelligence
+              </h3>
+              <p
+                className={cn(
+                  "text-xs mt-0.5 tracking-wide opacity-80",
+                  darkMode ? "text-gray-400" : "text-gray-600"
+                )}
+              >
+                Build a premium slip instantly.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              onClose(e);
+            }}
+            className={cn(
+              "p-2.5 rounded-xl border transition-all active:scale-[0.95]",
+              darkMode
+                ? "border-white/10 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white"
+                : "border-gray-200 bg-white hover:bg-gray-100 text-gray-500 hover:text-gray-900"
+            )}
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-5 overflow-y-auto flex-1 custom-scrollbar">
+          {/* Date Range Section */}
+          <div>
+            <SectionHeader
+              title="Date Range"
+              darkMode={darkMode}
+              guideOpen={openGuides.dateRange}
+              onToggleGuide={() => toggleGuide("dateRange")}
+            />
+            {openGuides.dateRange && (
+              <GuidePanel darkMode={darkMode}>
+                <p className="font-bold mb-1">How this works</p>
+                <p>
+                  Date Range tells Auto Pick which match window to scan before
+                  it builds your selections.
+                </p>
+              </GuidePanel>
+            )}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+              {ranges.map((r) => (
+                <SelectableButton
+                  key={r.key}
+                  active={autoRange === r.key}
+                  darkMode={darkMode}
+                  theme="blue"
+                  onClick={() => setAutoRange(r.key)}
+                >
+                  {r.label}
+                </SelectableButton>
+              ))}
+            </div>
+
+            {autoRange === "manual" && (
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-2xl border border-white/5 bg-black/20">
+                {["startDate", "endDate"].map((field) => (
+                  <div key={field}>
+                    <div
+                      className={cn(
+                        "text-[10px] font-black uppercase tracking-widest mb-1.5",
+                        darkMode ? "text-gray-400" : "text-gray-600"
+                      )}
+                    >
+                      {field === "startDate" ? "Start Date" : "End Date"}
+                    </div>
+                    <input
+                      type="date"
+                      value={autoCustomRange?.[field] || ""}
+                      onChange={(e) =>
+                        setAutoCustomRange((prev) => ({
+                          ...(prev || {}),
+                          [field]: e.target.value,
+                        }))
+                      }
+                      className={cn(
+                        "w-full px-3 py-2.5 rounded-xl border text-xs font-semibold outline-none transition-all",
+                        darkMode
+                          ? "border-white/10 bg-white/5 text-white focus:border-blue-500/50"
+                          : "border-gray-200 bg-white text-gray-900 focus:border-blue-400"
+                      )}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Select Leagues Section */}
+          <div
+            className={cn(
+              "rounded-[24px] border p-4 sm:p-5 transition-all",
+              darkMode
+                ? "bg-white/[0.01] border-white/5"
+                : "bg-gray-50/50 border-gray-100"
+            )}
+          >
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <SectionHeader
+                title="Select Leagues"
+                darkMode={darkMode}
+                guideOpen={openGuides.leagues}
+                onToggleGuide={() => toggleGuide("leagues")}
+              />
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setAutoSelectedLeagues(leagueOptions);
+                  }}
+                  className={cn(
+                    "text-[10px] font-extrabold px-3 py-1.5 rounded-xl border transition active:scale-[0.99]",
+                    darkMode
+                      ? "border-white/10 bg-white/5 hover:bg-white/10 text-gray-200"
+                      : "border-gray-200 bg-white hover:bg-gray-50 text-gray-800"
+                  )}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setAutoSelectedLeagues([]);
+                  }}
+                  className={cn(
+                    "text-[10px] font-extrabold px-3 py-1.5 rounded-xl border transition active:scale-[0.99]",
+                    darkMode
+                      ? "border-white/10 bg-white/5 hover:bg-white/10 text-gray-200"
+                      : "border-gray-200 bg-white hover:bg-gray-50 text-gray-800"
+                  )}
+                >
+                  None
+                </button>
+              </div>
+            </div>
+
+            {openGuides.leagues && (
+              <GuidePanel darkMode={darkMode}>
+                <p className="font-bold mb-1">How this works</p>
+                <p>
+                  League selection lets you control where Auto Pick searches for
+                  matches.
+                </p>
+              </GuidePanel>
+            )}
+
+            <div className="relative mb-4 group mt-2">
+              <Search
+                className={cn(
+                  "absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors",
+                  darkMode
+                    ? "text-gray-500 group-focus-within:text-violet-400"
+                    : "text-gray-400 group-focus-within:text-violet-500"
+                )}
+              />
+              <input
+                type="text"
+                placeholder="Search specific leagues..."
+                value={leagueSearch}
+                onChange={(e) => setLeagueSearch(e.target.value)}
+                className={cn(
+                  "w-full pl-10 pr-4 py-3 rounded-xl border text-xs font-semibold outline-none transition-all",
+                  darkMode
+                    ? "bg-black/40 border-white/10 text-white focus:border-violet-500/50 focus:bg-black/60 shadow-inner"
+                    : "bg-white border-gray-200 text-gray-900 focus:border-violet-400 shadow-sm"
+                )}
+              />
+            </div>
+
+            <div
+              className={cn(
+                "text-[9px] mb-3 font-black uppercase tracking-[0.2em]",
+                darkMode ? "text-gray-500" : "text-gray-400"
+              )}
+            >
+              {
+                leagueOptions.filter((l) =>
+                  l.toLowerCase().includes(leagueSearch.toLowerCase())
+                ).length
+              }{" "}
+              Available • No selection = All Leagues
+            </div>
+
+            {!leagueOptions.length ? (
+              <div
+                className={cn(
+                  "text-xs text-center py-4 rounded-xl border border-dashed",
+                  darkMode
+                    ? "text-gray-500 border-white/10"
+                    : "text-gray-400 border-gray-200"
+                )}
+              >
+                No league options available.
+              </div>
+            ) : (
+              <div className="max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+                <div className="flex flex-wrap gap-1.5">
+                  {leagueOptions
+                    .filter((l) =>
+                      l.toLowerCase().includes(leagueSearch.toLowerCase())
+                    )
+                    .map((league) => (
+                      <SelectableButton
+                        key={league}
+                        active={autoSelectedLeagues.includes(league)}
+                        darkMode={darkMode}
+                        theme="violet"
+                        onClick={() => toggleLeague(league)}
+                        className="px-3 py-1.5 text-[10px] shadow-sm"
+                      >
+                        {league}
+                      </SelectableButton>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Risk Level Section */}
+          <div>
+            <SectionHeader
+              title="Risk Level"
+              darkMode={darkMode}
+              guideOpen={openGuides.risk}
+              onToggleGuide={() => toggleGuide("risk")}
+            />
+            {openGuides.risk && (
+              <GuidePanel darkMode={darkMode}>
+                <p className="font-bold mb-1">How this works</p>
+                <p>
+                  Risk Level adjusts the style of picks Auto Pick prefers when
+                  building your slip.
+                </p>
+              </GuidePanel>
+            )}
+            <div className="grid grid-cols-3 gap-2 mt-2">
+              {risks.map((r) => (
+                <SelectableButton
+                  key={r.key}
+                  active={autoStyle === r.key}
+                  darkMode={darkMode}
+                  theme="emerald"
+                  onClick={() => setAutoStyle(r.key)}
+                >
+                  {r.label}
+                </SelectableButton>
+              ))}
+            </div>
+          </div>
+
+          {/* Betting Market Section */}
+          <div>
+            <SectionHeader
+              title="Betting Market"
+              darkMode={darkMode}
+              guideOpen={openGuides.market}
+              onToggleGuide={() => toggleGuide("market")}
+            />
+            {openGuides.market && (
+              <GuidePanel darkMode={darkMode}>
+                <p className="font-bold mb-1">How this works</p>
+                <p>
+                  Betting Market tells Auto Pick which prediction types it is
+                  allowed to use.
+                </p>
+              </GuidePanel>
+            )}
+
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <SelectableButton
+                active={autoMarkets?.all}
+                darkMode={darkMode}
+                theme="emerald"
+                onClick={() => setMarket("all", !autoMarkets?.all)}
+                disabled={csSelected}
+                className="text-left justify-start"
+              >
+                All
+              </SelectableButton>
+              <SelectableButton
+                active={autoMarkets?.correctScore}
+                darkMode={darkMode}
+                theme="violet"
+                onClick={() =>
+                  setMarket("correctScore", !autoMarkets?.correctScore)
+                }
+                className="text-left justify-start"
+              >
+                Correct Score
+              </SelectableButton>
+              <SelectableButton
+                active={autoMarkets?.m1x2}
+                darkMode={darkMode}
+                theme="emerald"
+                onClick={() => setMarket("m1x2", !autoMarkets?.m1x2)}
+                disabled={csSelected}
+                className="text-left justify-start"
+              >
+                1X2
+              </SelectableButton>
+              <SelectableButton
+                active={autoMarkets?.doubleChance}
+                darkMode={darkMode}
+                theme="indigo"
+                onClick={() =>
+                  setMarket("doubleChance", !autoMarkets?.doubleChance)
+                }
+                disabled={csSelected}
+                className="text-left justify-start"
+              >
+                Double Chance
+              </SelectableButton>
+              <SelectableButton
+                active={autoMarkets?.overUnder}
+                darkMode={darkMode}
+                theme="amber"
+                onClick={() => setMarket("overUnder", !autoMarkets?.overUnder)}
+                disabled={csSelected}
+                className="text-left justify-start"
+              >
+                Over/Under
+              </SelectableButton>
+              <SelectableButton
+                active={autoMarkets?.btts}
+                darkMode={darkMode}
+                theme="cyan"
+                onClick={() => setMarket("btts", !autoMarkets?.btts)}
+                disabled={csSelected}
+                className="text-left justify-start"
+              >
+                BTTS
+              </SelectableButton>
+              <SelectableButton
+                active={autoMarkets?.haOverUnder15}
+                darkMode={darkMode}
+                theme="rose"
+                onClick={() =>
+                  setMarket("haOverUnder15", !autoMarkets?.haOverUnder15)
+                }
+                disabled={csSelected}
+                className="text-left justify-start"
+              >
+                H/A O/U 1.5
+              </SelectableButton>
+            </div>
+
+            {/* Sub-options Blocks */}
+            <div className="space-y-3 mt-4">
+              {!csSelected && autoMarkets?.m1x2 && (
+                <div
+                  className={cn(
+                    "p-4 rounded-2xl border transition-all animate-in fade-in slide-in-from-top-2",
+                    darkMode
+                      ? "bg-emerald-500/5 border-emerald-500/20"
+                      : "bg-emerald-50/50 border-emerald-200"
+                  )}
+                >
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-3 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_#10b981]" />{" "}
+                    1X2 Targets
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {["home", "draw", "away"].map((opt) => (
+                      <SelectableButton
+                        key={opt}
+                        active={auto1x2Options?.[opt]}
+                        darkMode={darkMode}
+                        theme="emerald"
+                        onClick={() =>
+                          setAuto1x2Options((p) => ({ ...p, [opt]: !p?.[opt] }))
+                        }
+                      >
+                        {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                      </SelectableButton>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!csSelected && autoMarkets?.doubleChance && (
+                <div
+                  className={cn(
+                    "p-4 rounded-2xl border transition-all animate-in fade-in slide-in-from-top-2",
+                    darkMode
+                      ? "bg-indigo-500/5 border-indigo-500/20"
+                      : "bg-indigo-50/50 border-indigo-200"
+                  )}
+                >
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500 mb-3 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_5px_#6366f1]" />{" "}
+                    Double Chance Targets
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { key: "homeDraw", label: "1X" },
+                      { key: "homeAway", label: "12" },
+                      { key: "drawAway", label: "X2" },
+                    ].map((opt) => (
+                      <SelectableButton
+                        key={opt.key}
+                        active={autoDoubleChanceOptions?.[opt.key]}
+                        darkMode={darkMode}
+                        theme="indigo"
+                        onClick={() =>
+                          setAutoDoubleChanceOptions((p) => ({
+                            ...p,
+                            [opt.key]: !p?.[opt.key],
+                          }))
+                        }
+                      >
+                        {opt.label}
+                      </SelectableButton>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!csSelected && autoMarkets?.overUnder && (
+                <div
+                  className={cn(
+                    "p-4 rounded-2xl border transition-all animate-in fade-in slide-in-from-top-2",
+                    darkMode
+                      ? "bg-amber-500/5 border-amber-500/20"
+                      : "bg-amber-50/50 border-amber-200"
+                  )}
+                >
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 mb-3 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_5px_#f59e0b]" />{" "}
+                    Goal Line Targets
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { type: "over", line: 1.5 },
+                      { type: "over", line: 2.5 },
+                      { type: "over", line: 3.5 },
+                      { type: "over", line: 4.5 },
+                      { type: "under", line: 1.5 },
+                      { type: "under", line: 2.5 },
+                      { type: "under", line: 3.5 },
+                      { type: "under", line: 4.5 },
+                    ].map((item) => {
+                      const active =
+                        autoOUOptions?.selections?.some(
+                          (s) => s.type === item.type && s.line === item.line
+                        ) || false;
+                      return (
+                        <SelectableButton
+                          key={`${item.type}-${item.line}`}
+                          active={active}
+                          darkMode={darkMode}
+                          theme="amber"
+                          onClick={() =>
+                            setAutoOUOptions((prev = {}) => {
+                              const selections = prev.selections || [];
+                              const exists = selections.some(
+                                (s) =>
+                                  s.type === item.type && s.line === item.line
+                              );
+                              return {
+                                ...prev,
+                                selections: exists
+                                  ? selections.filter(
+                                      (s) =>
+                                        !(
+                                          s.type === item.type &&
+                                          s.line === item.line
+                                        )
+                                    )
+                                  : [...selections, item],
+                              };
+                            })
+                          }
+                        >
+                          {item.type === "over" ? "Over" : "Under"} {item.line}
+                        </SelectableButton>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {!csSelected && autoMarkets?.haOverUnder15 && (
+                <div
+                  className={cn(
+                    "p-4 rounded-2xl border transition-all animate-in fade-in slide-in-from-top-2",
+                    darkMode
+                      ? "bg-rose-500/5 border-rose-500/20"
+                      : "bg-rose-50/50 border-rose-200"
+                  )}
+                >
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500 mb-3 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_5px_#f43f5e]" />{" "}
+                    Team Goals Targets
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { key: "homeOver", label: "Home Over 1.5" },
+                      { key: "homeUnder", label: "Home Under 1.5" },
+                      { key: "awayOver", label: "Away Over 1.5" },
+                      { key: "awayUnder", label: "Away Under 1.5" },
+                    ].map((opt) => (
+                      <SelectableButton
+                        key={opt.key}
+                        active={autoHAOU15Options?.[opt.key]}
+                        darkMode={darkMode}
+                        theme="rose"
+                        onClick={() =>
+                          setAutoHAOU15Options((p) => ({
+                            ...p,
+                            [opt.key]: !p?.[opt.key],
+                          }))
+                        }
+                      >
+                        {opt.label}
+                      </SelectableButton>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!csSelected && autoMarkets?.btts && (
+                <div
+                  className={cn(
+                    "p-4 rounded-2xl border transition-all animate-in fade-in slide-in-from-top-2",
+                    darkMode
+                      ? "bg-cyan-500/5 border-cyan-500/20"
+                      : "bg-cyan-50/50 border-cyan-200"
+                  )}
+                >
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-500 mb-3 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_5px_#06b6d4]" />{" "}
+                    BTTS Targets
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {["yes", "no"].map((opt) => (
+                      <SelectableButton
+                        key={opt}
+                        active={autoBTTSOptions?.[opt]}
+                        darkMode={darkMode}
+                        theme="cyan"
+                        onClick={() =>
+                          setAutoBTTSOptions((p) => ({
+                            ...p,
+                            [opt]: !p?.[opt],
+                          }))
+                        }
+                      >
+                        {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                      </SelectableButton>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {autoMarkets?.correctScore && (
+                <div
+                  className={cn(
+                    "p-4 rounded-2xl border flex items-center gap-3 animate-in fade-in slide-in-from-top-2",
+                    darkMode
+                      ? "bg-violet-500/5 border-violet-500/20 text-violet-300"
+                      : "bg-violet-50/50 border-violet-200 text-violet-700"
+                  )}
+                >
+                  <div className="w-1.5 h-1.5 rounded-full bg-violet-500 shrink-0 shadow-[0_0_5px_#8b5cf6]" />
+                  <div className="text-[11px] font-bold">
+                    Correct Score is locked in. Other markets are disabled.
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Count Section */}
+          <div>
+            <SectionHeader
+              title="Number of selections"
+              darkMode={darkMode}
+              guideOpen={openGuides.count}
+              onToggleGuide={() => toggleGuide("count")}
+            />
+            {openGuides.count && (
+              <GuidePanel darkMode={darkMode}>
+                <p className="font-bold mb-1">How this works</p>
+                <p>
+                  This controls how many picks Auto Pick tries to place in your
+                  preview.
+                </p>
+              </GuidePanel>
+            )}
+            <div className="grid grid-cols-5 gap-2 mt-2">
+              {counts.map((n) => (
+                <SelectableButton
+                  key={n}
+                  active={autoCount === n}
+                  darkMode={darkMode}
+                  theme="violet"
+                  onClick={() => setAutoCount(n)}
+                >
+                  {n}
+                </SelectableButton>
+              ))}
+            </div>
+          </div>
+
+          {/* Slip Preview Section (UPGRADED DIGITAL RECEIPT) */}
+          {autoPreview?.length > 0 &&
+            (() => {
+              const totalFairOdds = autoPreview.reduce(
+                (acc, m) => acc * (100 / m.prob),
+                1
+              );
+              const avgProb =
+                autoPreview.reduce((a, m) => a + m.prob, 0) /
+                autoPreview.length;
+              const riskLabel =
+                avgProb > 75
+                  ? "LOW RISK"
+                  : avgProb > 65
+                  ? "BALANCED"
+                  : "AGGRESSIVE";
+              const riskColor =
+                avgProb > 75
+                  ? "text-emerald-500"
+                  : avgProb > 65
+                  ? "text-amber-500"
+                  : "text-rose-500";
+
+              return (
+                <div className="mt-8 animate-in slide-in-from-bottom-4 duration-500">
+                  <div
+                    className={cn(
+                      "relative rounded-[32px] overflow-hidden border shadow-2xl",
+                      darkMode
+                        ? "bg-[#050505] border-white/10"
+                        : "bg-white border-gray-200"
+                    )}
+                  >
+                    {/* Receipt Header */}
+                    <div
+                      className={cn(
+                        "p-5 border-b border-dashed flex items-center justify-between",
+                        darkMode
+                          ? "bg-blue-600/10 border-white/10"
+                          : "bg-blue-50 border-gray-200"
+                      )}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div
+                          className={cn(
+                            "h-12 w-12 rounded-full flex items-center justify-center border",
+                            darkMode
+                              ? "bg-blue-500/20 border-blue-500/30 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.15)]"
+                              : "bg-white border-blue-100 text-blue-600 shadow-sm"
+                          )}
+                        >
+                          <Ticket className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <div className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">
+                            AI Draft Slip
+                          </div>
+                          <div className="text-sm font-black mt-0.5">
+                            {autoPreview.length} Selections Ready
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Draft Items */}
+                    <div className="p-4 space-y-3 max-h-64 overflow-y-auto custom-scrollbar">
+                      {autoPreview.map((m, i) => (
+                        <div
+                          key={i}
+                          className={cn(
+                            "relative p-4 rounded-2xl border transition-all group",
+                            darkMode
+                              ? "bg-white/[0.02] border-white/5 hover:border-white/20 hover:bg-white/[0.04]"
+                              : "bg-gray-50 border-gray-100 hover:border-gray-300 hover:shadow-sm"
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <div className="text-[10px] font-black text-blue-500 truncate mb-1.5 uppercase tracking-widest">
+                                {m.selectedMarket}
+                              </div>
+                              <div className="text-[13px] font-extrabold truncate mb-2 leading-tight">
+                                {m.match}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span
+                                  className={cn(
+                                    "text-[10px] font-bold px-2.5 py-1 rounded-lg border",
+                                    darkMode
+                                      ? "bg-black/50 border-white/10 text-gray-300"
+                                      : "bg-white border-gray-200 text-gray-700"
+                                  )}
+                                >
+                                  Pick:{" "}
+                                  <span className="font-black text-blue-500">
+                                    {m.selectedOption}
+                                  </span>
+                                </span>
+                                <span className="text-[10px] font-black text-gray-500 opacity-80 tabular-nums">
+                                  {Number(m.prob).toFixed(1)}% Conf
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setAutoPreview((prev) =>
+                                  prev.filter((_, idx) => idx !== i)
+                                );
+                              }}
+                              className="p-2 text-gray-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Receipt Footer Dashboard */}
+                    <div
+                      className={cn(
+                        "p-5 border-t border-dashed flex items-center justify-between",
+                        darkMode
+                          ? "bg-black/40 border-white/10"
+                          : "bg-gray-50/80 border-gray-200"
+                      )}
+                    >
+                      <div>
+                        <div className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1">
+                          Total Fair Odds
+                        </div>
+                        <div className="text-2xl font-black tabular-nums">
+                          {totalFairOdds.toFixed(2)}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1">
+                          Risk Profile
+                        </div>
+                        <div
+                          className={cn(
+                            "text-base font-black uppercase tracking-widest",
+                            riskColor
+                          )}
+                        >
+                          {riskLabel}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Serrated Edge */}
+                    <div className="flex w-full overflow-hidden h-2 opacity-20 mt-1">
+                      {Array.from({ length: 40 }).map((_, i) => (
+                        <div
+                          key={i}
+                          className={cn(
+                            "w-4 h-4 rotate-45 shrink-0 -mt-2",
+                            darkMode ? "bg-white" : "bg-gray-400"
+                          )}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+          {/* Action Buttons */}
+          <div className="mt-6 space-y-3 sm:space-y-0 sm:flex sm:gap-3">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                onClose(e);
+              }}
+              className={cn(
+                "w-full sm:flex-1 px-4 py-3.5 rounded-2xl text-xs font-black uppercase tracking-widest border transition-all active:scale-[0.98]",
+                darkMode
+                  ? "border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white"
+                  : "border-gray-200 bg-white hover:bg-gray-100 text-gray-600 hover:text-gray-900"
+              )}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                onPreview(e);
+              }}
+              className="w-full sm:flex-1 px-4 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-black uppercase tracking-widest hover:brightness-110 transition-all active:scale-[0.98] shadow-lg shadow-amber-500/20"
+            >
+              Preview
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                onConfirm(e);
+              }}
+              disabled={!autoPreview?.length}
+              className="w-full sm:flex-1 px-4 py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-black uppercase tracking-widest hover:brightness-110 transition-all active:scale-[0.98] disabled:opacity-50 disabled:grayscale shadow-lg shadow-blue-500/20"
+            >
+              Add Picks
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

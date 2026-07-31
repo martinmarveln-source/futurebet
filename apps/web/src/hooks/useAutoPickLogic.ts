@@ -1,0 +1,305 @@
+// @ts-nocheck
+import { useState, useCallback, useMemo } from "react";
+import {
+  vipScoreFromMatch,
+  pickBestSelectionForMatch,
+} from "@/utils/matchUtils";
+
+export function useAutoPickLogic({
+  user,
+  maxMatches,
+  getMatchCount,
+  rawMatches,
+  hasKickoffPassed,
+  isMatchInBetslip,
+  addMatch,
+  selectors,
+}) {
+  const [autoRange, setAutoRange] = useState("today");
+  const [autoCustomRange, setAutoCustomRange] = useState({
+    startDate: "",
+    endDate: "",
+  });
+  const [autoSelectedLeagues, setAutoSelectedLeagues] = useState([]);
+  const [autoStyle, setAutoStyle] = useState("safe");
+  const [autoCount, setAutoCount] = useState(5);
+
+  const [autoMarkets, setAutoMarkets] = useState({
+    all: true,
+    m1x2: true,
+    doubleChance: true,
+    overUnder: true,
+    btts: true,
+    correctScore: false,
+    haOverUnder15: false, // New H/A O/U 1.5 market
+  });
+
+  const [auto1x2Options, setAuto1x2Options] = useState({
+    home: true,
+    draw: false,
+    away: true,
+  });
+
+  const [autoDoubleChanceOptions, setAutoDoubleChanceOptions] = useState({
+    homeDraw: true,
+    homeAway: true,
+    drawAway: true,
+  });
+
+  const [autoOUOptions, setAutoOUOptions] = useState({
+    selections: [{ type: "over", line: 2.5 }],
+  });
+
+  const [autoBTTSOptions, setAutoBTTSOptions] = useState({
+    yes: true,
+    no: false,
+  });
+
+  // New state for H/A O/U 1.5 options
+  const [autoHAOU15Options, setAutoHAOU15Options] = useState({
+    homeOver: true,
+    homeUnder: false,
+    awayOver: true,
+    awayUnder: false,
+  });
+
+  const [autoPreview, setAutoPreview] = useState([]);
+
+  const pad2 = (n) => String(n).padStart(2, "0");
+  const toISODate = (d) =>
+    `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  const todayISO = useMemo(() => toISODate(new Date()), []);
+  const tomorrowISO = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return toISODate(d);
+  }, []);
+
+  const getCurrentWeekRange = useCallback(() => {
+    const now = new Date();
+    const day = now.getDay();
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + diffToMonday);
+    monday.setHours(0, 0, 0, 0);
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+
+    return { monday, sunday };
+  }, []);
+
+  const { monday, sunday } = useMemo(getCurrentWeekRange, [
+    getCurrentWeekRange,
+  ]);
+
+  const isInCurrentWeek = useCallback(
+    (iso) => {
+      if (!iso) return false;
+      const d = new Date(iso + "T00:00:00");
+      return d >= monday && d <= sunday;
+    },
+    [monday, sunday],
+  );
+
+  const passesAutoRange = useCallback(
+    (m) => {
+      const iso = selectors.getISODate(m);
+      if (!iso) return false;
+
+      if (autoRange === "today") return iso === todayISO;
+      if (autoRange === "tomorrow") return iso === tomorrowISO;
+      if (autoRange === "week") return isInCurrentWeek(iso);
+
+      if (autoRange === "manual") {
+        const start = String(autoCustomRange?.startDate || "").trim();
+        const end = String(autoCustomRange?.endDate || "").trim();
+
+        if (!start && !end) return true;
+
+        if (start && iso < start) return false;
+        if (end && iso > end) return false;
+
+        return true;
+      }
+
+      const start = new Date(todayISO + "T00:00:00");
+      const end = new Date(start);
+
+      if (autoRange === "next3") {
+        end.setDate(start.getDate() + 2);
+      } else if (autoRange === "next7") {
+        end.setDate(start.getDate() + 6);
+      } else {
+        return true;
+      }
+
+      const d = new Date(iso + "T00:00:00");
+      return d >= start && d <= end;
+    },
+    [
+      autoRange,
+      autoCustomRange,
+      selectors,
+      todayISO,
+      tomorrowISO,
+      isInCurrentWeek,
+    ],
+  );
+
+  const passesAutoLeague = useCallback(
+    (m) => {
+      if (!autoSelectedLeagues?.length) return true;
+
+      const selected = autoSelectedLeagues.map((l) =>
+        String(l || "")
+          .trim()
+          .toLowerCase(),
+      );
+
+      const fullLeague = String(m?.fullLeague || "")
+        .trim()
+        .toLowerCase();
+      const shortLeague = String(m?.league || "")
+        .trim()
+        .toLowerCase();
+
+      return selected.includes(fullLeague) || selected.includes(shortLeague);
+    },
+    [autoSelectedLeagues],
+  );
+
+  const vipScoreOf = useCallback(
+    (m) => {
+      const c = selectors.getChance(m);
+      const r = selectors.getRating(m);
+      return Math.round(c * 0.6 + r * 0.4);
+    },
+    [selectors],
+  );
+
+  const stylePass = useCallback(
+    (m) => {
+      const c = selectors.getChance(m);
+      const r = selectors.getRating(m);
+      const flag = selectors.getFlag(m) === "✅";
+
+      if (autoStyle === "safe") return flag && c >= 75 && r >= 70;
+      if (autoStyle === "balanced")
+        return (flag && c >= 70) || (c >= 72 && r >= 65);
+      return flag || (c >= 65 && r >= 60);
+    },
+    [autoStyle, selectors],
+  );
+
+  const generateAutoPreview = useCallback(() => {
+    if (!user) {
+      alert("Sign in to use Auto Pick.");
+      return;
+    }
+
+    const capacity = (maxMatches || 20) - getMatchCount();
+    const target = Math.max(0, Math.min(autoCount, capacity));
+
+    if (target <= 0) {
+      alert(`BetSlip is full. Max ${maxMatches || 20} matches allowed.`);
+      return;
+    }
+
+    const candidates = rawMatches
+      .filter((m) => !hasKickoffPassed(m))
+      .filter((m) => !isMatchInBetslip(m?.match))
+      .filter(passesAutoRange)
+      .filter(passesAutoLeague)
+      .filter(stylePass)
+      .sort((a, b) => vipScoreOf(b) - vipScoreOf(a));
+
+    const preview = [];
+
+    for (const m of candidates) {
+      if (preview.length >= target) break;
+
+      const sel = pickBestSelectionForMatch(m, autoStyle, {
+        autoMarkets,
+        auto1x2Options,
+        autoOUOptions,
+        autoBTTSOptions,
+        autoDoubleChanceOptions,
+        autoHAOU15Options, // Pass new options
+      });
+
+      if (!sel?.selectedMarket) continue;
+
+      preview.push({
+        ...m,
+        selectedMarket: sel.selectedMarket,
+        selectedOption: sel.selectedOption,
+        prob: sel.prob,
+      });
+    }
+
+    setAutoPreview(preview);
+  }, [
+    user,
+    maxMatches,
+    getMatchCount,
+    autoCount,
+    rawMatches,
+    hasKickoffPassed,
+    isMatchInBetslip,
+    passesAutoRange,
+    passesAutoLeague,
+    stylePass,
+    vipScoreOf,
+    autoStyle,
+    autoMarkets,
+    auto1x2Options,
+    autoOUOptions,
+    autoBTTSOptions,
+    autoDoubleChanceOptions,
+    autoHAOU15Options, // Add to dependencies
+  ]);
+
+  const confirmAutoPick = useCallback(() => {
+    let added = 0;
+
+    for (const m of autoPreview) {
+      const ok = addMatch(m);
+      if (ok) added++;
+    }
+
+    setAutoPreview([]);
+    alert(`Auto Pick added ${added} match(es).`);
+  }, [autoPreview, addMatch]);
+
+  return {
+    autoRange,
+    setAutoRange,
+    autoCustomRange,
+    setAutoCustomRange,
+    autoSelectedLeagues,
+    setAutoSelectedLeagues,
+    autoStyle,
+    setAutoStyle,
+    autoCount,
+    setAutoCount,
+    autoMarkets,
+    setAutoMarkets,
+    auto1x2Options,
+    setAuto1x2Options,
+    autoOUOptions,
+    setAutoOUOptions,
+    autoBTTSOptions,
+    setAutoBTTSOptions,
+    autoDoubleChanceOptions,
+    setAutoDoubleChanceOptions,
+    autoHAOU15Options, // Export new state
+    setAutoHAOU15Options, // Export setter
+    autoPreview,
+    setAutoPreview,
+    generateAutoPreview,
+    confirmAutoPick,
+  };
+}
