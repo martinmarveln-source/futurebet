@@ -1,3 +1,4 @@
+"use client";
 // @ts-nocheck
 import { useState, useCallback } from "react";
 import useAuth from "@/utils/useAuth";
