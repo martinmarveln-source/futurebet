@@ -1,6 +1,0 @@
-[build]
-builder = "nixpacks"
-buildCommand = "yarn workspace web build"
-
-[deploy]
-startCommand = "yarn workspace web start"
