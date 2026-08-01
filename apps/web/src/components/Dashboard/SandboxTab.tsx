@@ -95,11 +95,6 @@ export function BacktestingSandbox({ darkMode }: { darkMode?: boolean }) {
     
     const chartData: any[] = [];
     const sortedData = [...archiveData].reverse();
-    
-    // DEBUG: print first row to see exactly what we're receiving
-    if (sortedData.length > 0 && total === 0) {
-      console.log("DEBUG: First item in archiveData:", sortedData[0]);
-    }
 
     sortedData.forEach((row: any) => {
       const chance = Number(row.chance || 0);
@@ -539,7 +534,7 @@ export function BacktestingSandbox({ darkMode }: { darkMode?: boolean }) {
                   <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest opacity-60 mb-6">
                     <LineChartIcon size={14} /> Cumulative Profit (Units)
                   </div>
-                  <div className="h-64 w-full">
+                  <div className="w-full" style={{ minHeight: "250px", height: "250px" }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={results.chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"} vertical={false} />
