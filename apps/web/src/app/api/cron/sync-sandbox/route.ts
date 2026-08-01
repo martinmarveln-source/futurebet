@@ -16,6 +16,25 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Ensure table exists
+    await sql`
+      CREATE TABLE IF NOT EXISTS sandbox_archive (
+        id BIGSERIAL PRIMARY KEY,
+        match_date TIMESTAMPTZ,
+        home_team TEXT NOT NULL DEFAULT 'Unknown',
+        away_team TEXT NOT NULL DEFAULT 'Unknown',
+        league TEXT DEFAULT 'Unknown',
+        model_chance NUMERIC,
+        model_rating NUMERIC,
+        algorithm_pick TEXT NOT NULL,
+        ft_result TEXT,
+        is_win BOOLEAN,
+        raw_data JSONB,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE(match_date, home_team, away_team, algorithm_pick)
+      )
+    `;
+
     const res = await fetch(CSV_URL, { cache: 'no-store' });
     if (!res.ok) {
       throw new Error(`Failed to fetch CSV: ${res.status} ${res.statusText}`);

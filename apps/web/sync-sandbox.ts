@@ -11,6 +11,24 @@ async function sync() {
   console.log(`Starting automated sync from ${CSV_URL}...`);
   
   try {
+    // Ensure table exists
+    await sql`
+      CREATE TABLE IF NOT EXISTS sandbox_archive (
+        id BIGSERIAL PRIMARY KEY,
+        match_date TIMESTAMPTZ,
+        home_team TEXT NOT NULL DEFAULT 'Unknown',
+        away_team TEXT NOT NULL DEFAULT 'Unknown',
+        league TEXT DEFAULT 'Unknown',
+        model_chance NUMERIC,
+        model_rating NUMERIC,
+        algorithm_pick TEXT NOT NULL,
+        ft_result TEXT,
+        is_win BOOLEAN,
+        raw_data JSONB,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE(match_date, home_team, away_team, algorithm_pick)
+      )
+    `;
     const res = await fetch(CSV_URL, { cache: 'no-store' });
     if (!res.ok) {
       throw new Error(`Failed to fetch CSV: ${res.status} ${res.statusText}`);
@@ -69,22 +87,46 @@ async function sync() {
       let rawMarket = String(pickStr || "").trim().toUpperCase();
       const resultRaw = String(resultStr || "").trim().toUpperCase();
       
-      // Normalize Market Name
+      // Normalize Market Name — handle all common formats
       let market = "";
-      if (rawMarket.includes("HOME") || rawMarket === "1") market = "HOME";
-      else if (rawMarket.includes("AWAY") || rawMarket === "2") market = "AWAY";
-      else if (rawMarket.includes("DRAW") || rawMarket === "X") market = "DRAW";
-      else if (rawMarket === "GG" || rawMarket.includes("BTTS - YES")) market = "GG";
-      else if (rawMarket === "NG" || rawMarket.includes("BTTS - NO")) market = "NG";
+      if (rawMarket === "HOME WIN" || rawMarket === "HOME" || rawMarket === "1") market = "HOME";
+      else if (rawMarket === "AWAY WIN" || rawMarket === "AWAY" || rawMarket === "2") market = "AWAY";
+      else if (rawMarket === "DRAW" || rawMarket === "X") market = "DRAW";
+      else if (rawMarket === "GG" || rawMarket === "BTTS - YES" || rawMarket === "BTTS YES") market = "GG";
+      else if (rawMarket === "NG" || rawMarket === "BTTS - NO" || rawMarket === "BTTS NO") market = "NG";
+      else if (rawMarket === "OV2.5" || rawMarket === "OV.2.5" || rawMarket === "OVER 2.5" || rawMarket === "OVER2.5" || rawMarket === "OV") market = "OV";
+      else if (rawMarket === "UN2.5" || rawMarket === "UN.2.5" || rawMarket === "UNDER 2.5" || rawMarket === "UNDER2.5" || rawMarket === "UN") market = "UN";
+      else if (rawMarket.includes("HOME")) market = "HOME";
+      else if (rawMarket.includes("AWAY")) market = "AWAY";
       else if (rawMarket.includes("OV") || rawMarket.includes("OVER")) market = "OV";
       else if (rawMarket.includes("UN") || rawMarket.includes("UNDER")) market = "UN";
       else market = rawMarket;
 
-      // Evaluate W / L / D based on Scoreline
+      // Also check FT_Outcome column for direct W/L signal
+      const ftOutcome = String(row["FT_Outcome"] || "").trim().toUpperCase();
+      const hFtg = row["H_FTG"] !== undefined ? parseInt(row["H_FTG"], 10) : null;
+      const aFtg = row["A_FTG"] !== undefined ? parseInt(row["A_FTG"], 10) : null;
+      const ftGt = row["FT_GT"] !== undefined ? parseInt(row["FT_GT"], 10) : null;
+
+      // Evaluate W / L / D based on actual goal data (more reliable than parsing scoreline string)
       let isWin = null;
       let finalResult = null;
-      
-      if (resultRaw && resultRaw.includes(":")) {
+
+      if (hFtg !== null && aFtg !== null && !isNaN(hFtg) && !isNaN(aFtg)) {
+        const totalGoals = ftGt !== null && !isNaN(ftGt) ? ftGt : hFtg + aFtg;
+        let won = false;
+
+        if (market === "HOME" && hFtg > aFtg) won = true;
+        else if (market === "AWAY" && aFtg > hFtg) won = true;
+        else if (market === "DRAW" && hFtg === aFtg) won = true;
+        else if (market === "GG" && hFtg > 0 && aFtg > 0) won = true;
+        else if (market === "NG" && (hFtg === 0 || aFtg === 0)) won = true;
+        else if (market === "OV" && totalGoals > 2) won = true;
+        else if (market === "UN" && totalGoals <= 2) won = true;
+
+        isWin = won;
+        finalResult = won ? "W" : "L";
+      } else if (resultRaw && resultRaw.includes(":")) {
         const parts = resultRaw.split(":");
         const hg = parseInt(parts[0], 10);
         const ag = parseInt(parts[1], 10);
@@ -99,15 +141,14 @@ async function sync() {
           else if (market === "GG" && hg > 0 && ag > 0) won = true;
           else if (market === "NG" && (hg === 0 || ag === 0)) won = true;
           else if (market === "OV" && totalGoals > 2) won = true;
-          else if (market === "UN" && totalGoals < 3) won = true;
+          else if (market === "UN" && totalGoals <= 2) won = true;
 
           isWin = won;
           finalResult = won ? "W" : "L";
         } else {
-          finalResult = "D"; // invalid score
+          finalResult = "D";
         }
       } else {
-        // No score means it hasn't played or is pending
         finalResult = "D";
       }
 
