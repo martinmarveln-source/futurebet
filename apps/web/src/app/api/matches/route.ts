@@ -831,7 +831,61 @@ function validateExportPermission(access, type) {
 /*                              MATCHES FETCHING                              */
 /* -------------------------------------------------------------------------- */
 
+async function fetchMatchesFromDb(includeAll = false) {
+  const today = new Date().toISOString().split("T")[0];
+
+  let rows;
+  if (includeAll) {
+    rows = await sql`
+      SELECT raw_data FROM matches_cache
+      ORDER BY match_date ASC, match_time ASC
+    `;
+  } else {
+    rows = await sql`
+      SELECT raw_data FROM matches_cache
+      WHERE match_date >= ${today}
+      ORDER BY match_date ASC, match_time ASC
+    `;
+  }
+
+  return rows.map((r) => r.raw_data);
+}
+
 async function fetchMatchesFromSheet(includeAll = false) {
+  // Try database first
+  try {
+    const dbRows = await fetchMatchesFromDb(includeAll);
+    if (dbRows.length > 0) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const COL_IDX = COLUMNS;
+      const matches: any[] = [];
+
+      for (const raw of dbRows) {
+        if (!raw) continue;
+        // raw_data is stored as column-key map, reconstruct as array
+        const rowArr = Object.values(raw) as string[];
+        const parsedDate = parseDate(rowArr[COL_IDX.date]);
+        if (!includeAll && parsedDate && parsedDate < today) continue;
+        matches.push(mapSheetRowToMatch(rowArr));
+      }
+
+      return {
+        matches: sortMatchesByDateAsc(matches),
+        summary: {
+          total: dbRows.length,
+          valid: matches.length,
+          message: `Loaded ${matches.length} matches from database cache.`,
+          source: "database",
+        },
+      };
+    }
+  } catch (dbErr) {
+    console.warn("DB fetch failed, falling back to live sheet:", dbErr);
+  }
+
+  // Fallback: fetch live from Google Sheets
   const sheetsUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${SHEET_NAME}`;
 
   const response = await fetch(sheetsUrl, {
@@ -883,6 +937,7 @@ async function fetchMatchesFromSheet(includeAll = false) {
       matches.length > 0
         ? `Fetched ${dataRows.length} rows, ${matches.length} valid matches after parsing & filters.`
         : "⚠️ No upcoming matches found.",
+    source: "live",
   };
 
   return {
@@ -890,6 +945,7 @@ async function fetchMatchesFromSheet(includeAll = false) {
     summary,
   };
 }
+
 
 /* -------------------------------------------------------------------------- */
 /*                                CSV BUILDERS                                */
