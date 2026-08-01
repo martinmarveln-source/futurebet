@@ -62,8 +62,8 @@ export async function GET(request: Request) {
          }
       }
 
-      const chance = Number(chanceStr) || null;
-      const rating = Number(ratingStr) || null;
+      const chance = chanceStr !== undefined && chanceStr !== '' ? Number(chanceStr) : null;
+      const rating = ratingStr !== undefined && ratingStr !== '' ? Number(ratingStr) : null;
       let rawMarket = String(pickStr || "").trim().toUpperCase();
       const resultRaw = String(resultStr || "").trim().toUpperCase();
       
@@ -106,7 +106,7 @@ export async function GET(request: Request) {
         finalResult = "D";
       }
 
-      if (!market || chance === null || rating === null) {
+      if (!market || chance === null || isNaN(chance) || rating === null || isNaN(rating)) {
         skipped++;
         continue;
       }
