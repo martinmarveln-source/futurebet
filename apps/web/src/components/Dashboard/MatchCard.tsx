@@ -135,6 +135,11 @@ const avg = (...values) => {
 };
 const safeStr = (v) =>
   v === null || v === undefined || v === 0 || v === "0" ? "" : String(v).trim();
+const formatML = (val) => {
+  const num = Number(val || 0);
+  if (!num) return null;
+  return num <= 1 ? (num * 100).toFixed(1) : num.toFixed(1);
+};
 
 // Derive Double Chance Odds from 1X2
 function getDoubleChanceOdds(match) {
@@ -2704,8 +2709,44 @@ export default function MatchCard({
                   darkMode={darkMode}
                 />
                 <SmallStat
-                  k="Flag"
-                  v={match?.flag || "—"}
+                  k="ML Pick"
+                  v={
+                    canSeeAdvancedData ? (
+                      <span className="flex items-center gap-1 text-emerald-500">
+                        <Brain size={12} /> {match?.pick || "—"}
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 cursor-pointer text-amber-500 text-sm w-full">
+                        <Lock size={12} />
+                      </span>
+                    )
+                  }
+                  darkMode={darkMode}
+                />
+                <SmallStat
+                  k="ML Chance"
+                  v={
+                    canSeeAdvancedData ? (
+                      match?.chance ? `${formatML(match.chance)}%` : "—"
+                    ) : (
+                      <span className="flex items-center gap-1.5 cursor-pointer text-amber-500 text-sm w-full">
+                        <Lock size={12} />
+                      </span>
+                    )
+                  }
+                  darkMode={darkMode}
+                />
+                <SmallStat
+                  k="ML Rating"
+                  v={
+                    canSeeAdvancedData ? (
+                      match?.rating ? formatML(match.rating) : "—"
+                    ) : (
+                      <span className="flex items-center gap-1.5 cursor-pointer text-amber-500 text-sm w-full">
+                        <Lock size={12} />
+                      </span>
+                    )
+                  }
                   darkMode={darkMode}
                 />
                 <SmallStat
@@ -2714,18 +2755,8 @@ export default function MatchCard({
                   darkMode={darkMode}
                 />
                 <SmallStat
-                  k="Draw %"
-                  v={`${pct(match?.draw)}%`}
-                  darkMode={darkMode}
-                />
-                <SmallStat
                   k="Away %"
                   v={`${pct(match?.awayWin)}%`}
-                  darkMode={darkMode}
-                />
-                <SmallStat
-                  k="League"
-                  v={safeStr(match?.fullLeague || match?.league) || "—"}
                   darkMode={darkMode}
                 />
               </div>
