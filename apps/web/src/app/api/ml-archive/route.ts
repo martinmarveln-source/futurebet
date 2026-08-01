@@ -2,27 +2,51 @@ import { NextResponse } from "next/server";
 import sql from "../utils/sql";
 import { auth } from "@/lib/auth";
 
-// Helper to check premium access using better-auth session
-async function checkPremiumAccess(request: Request) {
-  const sessionData = await auth.api.getSession({
-    headers: request.headers,
-  });
-
-  const user = sessionData?.user as any;
-  return user?.isAdmin || user?.isPremium;
-}
-
 export async function GET(request: Request) {
-  const hasAccess = await checkPremiumAccess(request);
-
-  if (!hasAccess) {
-    return NextResponse.json(
-      { error: "Premium access required" },
-      { status: 403 }
-    );
-  }
-
   try {
+    // Check session
+    const sessionData = await auth.api.getSession({
+      headers: request.headers,
+    });
+
+    const email = sessionData?.user?.email;
+
+    if (email) {
+      // Check role from DB
+      const users = await sql`
+        SELECT user_role, subscription_status, subscription_expires_at
+        FROM auth_users
+        WHERE email = ${email}
+        LIMIT 1
+      `;
+      const user = users[0];
+      const role = user?.user_role || "free";
+      const sub = user?.subscription_status || "free";
+      const expiresAt = user?.subscription_expires_at
+        ? new Date(user.subscription_expires_at)
+        : null;
+      const subValid = !expiresAt || expiresAt > new Date();
+
+      const isAdmin = role === "admin";
+      const isPremium =
+        isAdmin ||
+        role === "premium" ||
+        role === "pro" ||
+        (subValid && (sub === "premium" || sub === "pro"));
+
+      if (!isAdmin && !isPremium) {
+        return NextResponse.json(
+          { error: "Premium access required" },
+          { status: 403 }
+        );
+      }
+    } else {
+      return NextResponse.json(
+        { error: "Premium access required" },
+        { status: 403 }
+      );
+    }
+
     const data = await sql`
       SELECT 
         model_chance as chance, 
