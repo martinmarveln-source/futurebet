@@ -95,10 +95,15 @@ export function BacktestingSandbox({ darkMode }: { darkMode?: boolean }) {
     const chartData: any[] = [];
     const sortedData = [...archiveData].reverse();
 
-    sortedData.forEach(({ chance, rating, market, result }: any) => {
-      // The DB might store chance/rating as decimals (e.g. 0.77) or integers (e.g. 77). Normalize to 100-scale.
-      const normalizedChance = chance <= 1 ? chance * 100 : chance;
-      const normalizedRating = rating <= 1 ? rating * 100 : rating;
+    sortedData.forEach((row: any) => {
+      const chance = Number(row.chance || 0);
+      const rating = Number(row.rating || 0);
+      const market = String(row.market || "").toUpperCase();
+      const result = String(row.result || "").toUpperCase().trim();
+
+      // Normalize to 100-scale
+      const normalizedChance = chance <= 1 && chance > 0 ? chance * 100 : chance;
+      const normalizedRating = rating <= 1 && rating > 0 ? rating * 100 : rating;
 
       if (normalizedChance < minChance) return;
       if (normalizedRating < minRating) return;
@@ -114,7 +119,7 @@ export function BacktestingSandbox({ darkMode }: { darkMode?: boolean }) {
         currentLossStreak = 0;
         if (currentStreak > maxWinStreak) maxWinStreak = currentStreak;
       }
-      if (result === "L") {
+      else if (result === "L") {
         losses++;
         pnl = -1;
         currentLossStreak++;
