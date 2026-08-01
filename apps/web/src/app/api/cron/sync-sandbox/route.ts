@@ -64,22 +64,46 @@ export async function GET(request: Request) {
 
       const chance = Number(chanceStr) || null;
       const rating = Number(ratingStr) || null;
-      const market = String(pickStr || "").trim().toUpperCase();
+      let rawMarket = String(pickStr || "").trim().toUpperCase();
       const resultRaw = String(resultStr || "").trim().toUpperCase();
       
+      let market = "";
+      if (rawMarket.includes("HOME") || rawMarket === "1") market = "HOME";
+      else if (rawMarket.includes("AWAY") || rawMarket === "2") market = "AWAY";
+      else if (rawMarket.includes("DRAW") || rawMarket === "X") market = "DRAW";
+      else if (rawMarket === "GG" || rawMarket.includes("BTTS - YES")) market = "GG";
+      else if (rawMarket === "NG" || rawMarket.includes("BTTS - NO")) market = "NG";
+      else if (rawMarket.includes("OV") || rawMarket.includes("OVER")) market = "OV";
+      else if (rawMarket.includes("UN") || rawMarket.includes("UNDER")) market = "UN";
+      else market = rawMarket;
+
       let isWin = null;
       let finalResult = null;
       
-      if (resultRaw) {
-        if (["W", "WON", "WIN", "✅"].includes(resultRaw)) {
-          isWin = true;
-          finalResult = "W";
-        } else if (["L", "LOST", "LOSS", "❌"].includes(resultRaw)) {
-          isWin = false;
-          finalResult = "L";
-        } else if (["D", "DRAW", "⚠️", "PENDING"].includes(resultRaw)) {
-          finalResult = "D"; 
+      if (resultRaw && resultRaw.includes(":")) {
+        const parts = resultRaw.split(":");
+        const hg = parseInt(parts[0], 10);
+        const ag = parseInt(parts[1], 10);
+        
+        if (!isNaN(hg) && !isNaN(ag)) {
+          const totalGoals = hg + ag;
+          let won = false;
+
+          if (market === "HOME" && hg > ag) won = true;
+          else if (market === "AWAY" && ag > hg) won = true;
+          else if (market === "DRAW" && hg === ag) won = true;
+          else if (market === "GG" && hg > 0 && ag > 0) won = true;
+          else if (market === "NG" && (hg === 0 || ag === 0)) won = true;
+          else if (market === "OV" && totalGoals > 2) won = true;
+          else if (market === "UN" && totalGoals < 3) won = true;
+
+          isWin = won;
+          finalResult = won ? "W" : "L";
+        } else {
+          finalResult = "D";
         }
+      } else {
+        finalResult = "D";
       }
 
       if (!market || chance === null || rating === null) {

@@ -7836,6 +7836,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/node-cron@npm:^3.0.11":
+  version: 3.0.11
+  resolution: "@types/node-cron@npm:3.0.11"
+  checksum: 10c0/21cd0255988da2935bc8bf010da8b31624911ec10ef5d9a96a59c57193f60b27c1749b2e27c2a292a697d00195da5b8848a707345bb276abc39c96287ee82005
+  languageName: node
+  linkType: hard
+
 "@types/node@npm:*":
   version: 25.5.0
   resolution: "@types/node@npm:25.5.0"
@@ -7851,6 +7858,15 @@ __metadata:
   dependencies:
     undici-types: "npm:~6.21.0"
   checksum: 10c0/8420353aee776ae5c1e9720058949909a0e908fa2af85501e9db2645bb9f9acd7d767890f8aaee34d375e6f8b5f550a9a169e908d2d8cf7d5daf63dce64092a0
+  languageName: node
+  linkType: hard
+
+"@types/papaparse@npm:^5.5.2":
+  version: 5.5.2
+  resolution: "@types/papaparse@npm:5.5.2"
+  dependencies:
+    "@types/node": "npm:*"
+  checksum: 10c0/27b097b6f8f204b20ade1f2cbf4798eb38caa5fbfa3180fd0faa5e3f9aea371c1786ae180d56f3287556463eefe3100c953e316ea6ee99d7ae1d04111cfc9e50
   languageName: node
   linkType: hard
 
@@ -16114,6 +16130,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"node-cron@npm:^4.6.0":
+  version: 4.6.0
+  resolution: "node-cron@npm:4.6.0"
+  checksum: 10c0/6523219aedd60441b43acb65670d98751a875185d88666d32ee62b044f15ffdd6a5d5422f0a060a324df918990f218fe9e400bf1db54d308a72642e396a1fbd2
+  languageName: node
+  linkType: hard
+
 "node-fetch@npm:^1.0.1":
   version: 1.7.3
   resolution: "node-fetch@npm:1.7.3"
@@ -16657,6 +16680,13 @@ __metadata:
   version: 5.5.3
   resolution: "papaparse@npm:5.5.3"
   checksum: 10c0/623aae6a35703308fd5a39d616fb3837231ebc70697346355ea508154d3f24df75b6554b736afc1924192205518a5db14e75f5e1cf35d154326050a37cdd9447
+  languageName: node
+  linkType: hard
+
+"papaparse@npm:^5.5.4":
+  version: 5.5.4
+  resolution: "papaparse@npm:5.5.4"
+  checksum: 10c0/8942ae45dcc171b720fd67953f825a544fdeeeadb85cf28a239d016fd6cff0c59650e667b3158a9a0153c6e1d7674c199603bcf360d854ce7edce822eb7f7bb6
   languageName: node
   linkType: hard
 
@@ -20546,6 +20576,8 @@ __metadata:
     "@testing-library/jest-dom": "npm:^6.6.4"
     "@testing-library/react": "npm:^16.3.0"
     "@types/node": "npm:^20"
+    "@types/node-cron": "npm:^3.0.11"
+    "@types/papaparse": "npm:^5.5.2"
     "@types/react": "npm:^19.0.1"
     "@types/react-dom": "npm:^19.0.1"
     "@types/ws": "npm:^8.18.1"
@@ -20558,6 +20590,8 @@ __metadata:
     motion: "npm:^12.7.4"
     next: "npm:^16.2.6"
     next-themes: "npm:^0.4.6"
+    node-cron: "npm:^4.6.0"
+    papaparse: "npm:^5.5.4"
     radix-ui: "npm:^1.4.3"
     react: "npm:^19.0.4"
     react-day-picker: "npm:^9.14.0"
