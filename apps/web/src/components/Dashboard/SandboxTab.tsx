@@ -94,6 +94,11 @@ export function BacktestingSandbox({ darkMode }: { darkMode?: boolean }) {
     
     const chartData: any[] = [];
     const sortedData = [...archiveData].reverse();
+    
+    // DEBUG: print first row to see exactly what we're receiving
+    if (sortedData.length > 0 && total === 0) {
+      console.log("DEBUG: First item in archiveData:", sortedData[0]);
+    }
 
     sortedData.forEach((row: any) => {
       const chance = Number(row.chance || 0);

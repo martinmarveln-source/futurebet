@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import sql from "../utils/sql";
 import { auth } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(request: Request) {
   try {
     // Check session
