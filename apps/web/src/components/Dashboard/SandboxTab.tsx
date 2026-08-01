@@ -96,8 +96,12 @@ export function BacktestingSandbox({ darkMode }: { darkMode?: boolean }) {
     const sortedData = [...archiveData].reverse();
 
     sortedData.forEach(({ chance, rating, market, result }: any) => {
-      if (chance < minChance) return;
-      if (rating < minRating) return;
+      // The DB might store chance/rating as decimals (e.g. 0.77) or integers (e.g. 77). Normalize to 100-scale.
+      const normalizedChance = chance <= 1 ? chance * 100 : chance;
+      const normalizedRating = rating <= 1 ? rating * 100 : rating;
+
+      if (normalizedChance < minChance) return;
+      if (normalizedRating < minRating) return;
       if (marketFilter !== "ALL" && market !== marketFilter) return;
 
       const safeOdds = clampOdds(assumedOdds);
