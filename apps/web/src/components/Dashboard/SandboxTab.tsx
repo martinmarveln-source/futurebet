@@ -51,7 +51,8 @@ export function useMlArchive() {
 
       return response.json();
     },
-    staleTime: 1000 * 60 * 60,
+    staleTime: 0,
+    gcTime: 0,
     retry: (failureCount, error: any) =>
       error?.code === "PREMIUM_REQUIRED" ? false : failureCount < 2,
   });
