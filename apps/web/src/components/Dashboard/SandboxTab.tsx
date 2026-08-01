@@ -12,7 +12,9 @@ import {
   ChevronRight,
   Sparkles,
   AlertTriangle,
+  LineChart as LineChartIcon,
 } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 function cn(...c: any[]) {
   return c.filter(Boolean).join(" ");
@@ -75,30 +77,66 @@ export function BacktestingSandbox({ darkMode }: { darkMode?: boolean }) {
 
   const results = useMemo(() => {
     if (!archiveData.length)
-      return { total: 0, wins: 0, losses: 0, winRate: 0, roi: 0, netUnits: 0 };
+      return { total: 0, wins: 0, losses: 0, winRate: 0, roi: 0, netUnits: 0, chartData: [], maxDrawdown: 0, maxWinStreak: 0, maxLossStreak: 0 };
 
     let total = 0;
     let wins = 0;
     let losses = 0;
+    
+    let currentStreak = 0;
+    let currentLossStreak = 0;
+    let maxWinStreak = 0;
+    let maxLossStreak = 0;
+    
+    let cumulativeUnits = 0;
+    let peakUnits = 0;
+    let maxDrawdown = 0;
+    
+    const chartData: any[] = [];
+    const sortedData = [...archiveData].reverse();
 
-    archiveData.forEach(({ chance, rating, market, result }: any) => {
+    sortedData.forEach(({ chance, rating, market, result }: any) => {
       if (chance < minChance) return;
       if (rating < minRating) return;
       if (marketFilter !== "ALL" && market !== marketFilter) return;
 
-      total++;
-      if (result === "W") wins++;
-      if (result === "L") losses++;
+      const safeOdds = clampOdds(assumedOdds);
+      let pnl = 0;
+
+      if (result === "W") {
+        wins++;
+        pnl = safeOdds - 1;
+        currentStreak++;
+        currentLossStreak = 0;
+        if (currentStreak > maxWinStreak) maxWinStreak = currentStreak;
+      }
+      if (result === "L") {
+        losses++;
+        pnl = -1;
+        currentLossStreak++;
+        currentStreak = 0;
+        if (currentLossStreak > maxLossStreak) maxLossStreak = currentLossStreak;
+      }
+      
+      if (result === "W" || result === "L") {
+        total++;
+        cumulativeUnits += pnl;
+        if (cumulativeUnits > peakUnits) peakUnits = cumulativeUnits;
+        
+        const drawdown = peakUnits - cumulativeUnits;
+        if (drawdown > maxDrawdown) maxDrawdown = drawdown;
+
+        chartData.push({
+          bet: total,
+          profit: Number(cumulativeUnits.toFixed(2))
+        });
+      }
     });
 
     const winRate = total > 0 ? (wins / total) * 100 : 0;
-    const safeOdds = clampOdds(assumedOdds);
-    const unitsWon = wins * (safeOdds - 1);
-    const unitsLost = losses * 1;
-    const netUnits = unitsWon - unitsLost;
-    const roi = total > 0 ? (netUnits / total) * 100 : 0;
+    const roi = total > 0 ? (cumulativeUnits / total) * 100 : 0;
 
-    return { total, wins, losses, winRate, roi, netUnits };
+    return { total, wins, losses, winRate, roi, netUnits: cumulativeUnits, chartData, maxDrawdown, maxWinStreak, maxLossStreak };
   }, [archiveData, minChance, minRating, marketFilter, assumedOdds]);
 
   const oddsInvalid = Number(assumedOdds) < MIN_ODDS || Number.isNaN(assumedOdds);
@@ -373,92 +411,150 @@ export function BacktestingSandbox({ darkMode }: { darkMode?: boolean }) {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6 relative z-10">
-              {/* Win Rate Card */}
-              <div
-                className={cn(
-                  "p-6 rounded-[24px] border shadow-xl relative overflow-hidden",
-                  darkMode
-                    ? "bg-gray-900/80 border-white/10 backdrop-blur-md"
-                    : "bg-white/90 border-gray-200 backdrop-blur-md"
-                )}
-              >
-                <div className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">
-                  Historical Hit Rate
+            <div className="space-y-6 mb-6 relative z-10">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                {/* Win Rate Card */}
+                <div
+                  className={cn(
+                    "p-6 rounded-[24px] border shadow-xl relative overflow-hidden",
+                    darkMode
+                      ? "bg-gray-900/80 border-white/10 backdrop-blur-md"
+                      : "bg-white/90 border-gray-200 backdrop-blur-md"
+                  )}
+                >
+                  <div className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">
+                    Historical Hit Rate
+                  </div>
+                  <div className="flex items-end gap-3 mb-4">
+                    <span
+                      className={cn(
+                        "text-5xl font-black tabular-nums tracking-tighter",
+                        results.winRate >= 55
+                          ? "text-emerald-500"
+                          : "text-amber-500"
+                      )}
+                    >
+                      {results.total > 0 ? results.winRate.toFixed(1) : "—"}
+                      {results.total > 0 && "%"}
+                    </span>
+                  </div>
+                  <div className="text-xs font-bold opacity-70 mb-3 bg-black/5 dark:bg-white/5 inline-block px-3 py-1 rounded-lg">
+                    {results.wins} won / {results.losses} lost
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2 overflow-hidden shadow-inner">
+                    <div
+                      className={cn(
+                        "h-full transition-all duration-1000 ease-out",
+                        results.winRate >= 55
+                          ? "bg-gradient-to-r from-emerald-400 to-emerald-600"
+                          : "bg-gradient-to-r from-amber-400 to-amber-600"
+                      )}
+                      style={{ width: `${results.winRate}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="flex items-end gap-3 mb-4">
-                  <span
-                    className={cn(
-                      "text-5xl font-black tabular-nums tracking-tighter",
-                      results.winRate >= 55
-                        ? "text-emerald-500"
-                        : "text-amber-500"
-                    )}
-                  >
-                    {results.total > 0 ? results.winRate.toFixed(1) : "—"}
-                    {results.total > 0 && "%"}
-                  </span>
-                </div>
-                <div className="text-xs font-bold opacity-70 mb-3 bg-black/5 dark:bg-white/5 inline-block px-3 py-1 rounded-lg">
-                  {results.wins} won / {results.losses} lost
-                </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2 overflow-hidden shadow-inner">
+
+                {/* ROI Card */}
+                <div
+                  className={cn(
+                    "p-6 rounded-[24px] border shadow-xl relative overflow-hidden",
+                    darkMode
+                      ? "bg-gray-900/80 border-white/10 backdrop-blur-md"
+                      : "bg-white/90 border-gray-200 backdrop-blur-md"
+                  )}
+                >
+                  <div className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">
+                    Estimated Yield (ROI)
+                  </div>
+                  <div className="flex items-end gap-3 mb-4">
+                    <span
+                      className={cn(
+                        "text-5xl font-black tabular-nums tracking-tighter",
+                        results.total === 0
+                          ? "text-gray-400"
+                          : results.roi > 0
+                          ? "text-blue-500"
+                          : results.roi < 0
+                          ? "text-rose-500"
+                          : "text-gray-500"
+                      )}
+                    >
+                      {results.total === 0
+                        ? "—"
+                        : `${results.roi > 0 ? "+" : ""}${results.roi.toFixed(1)}%`}
+                    </span>
+                  </div>
                   <div
                     className={cn(
-                      "h-full transition-all duration-1000 ease-out",
-                      results.winRate >= 55
-                        ? "bg-gradient-to-r from-emerald-400 to-emerald-600"
-                        : "bg-gradient-to-r from-amber-400 to-amber-600"
+                      "text-xs font-bold inline-block px-3 py-1 rounded-lg",
+                      results.netUnits > 0
+                        ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                        : results.netUnits < 0
+                        ? "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                        : "bg-gray-500/10 text-gray-500"
                     )}
-                    style={{ width: `${results.winRate}%` }}
-                  />
+                  >
+                    Net profit: {results.netUnits > 0 ? "+" : ""}
+                    {results.netUnits.toFixed(2)} units
+                  </div>
                 </div>
               </div>
 
-              {/* ROI Card */}
-              <div
-                className={cn(
-                  "p-6 rounded-[24px] border shadow-xl relative overflow-hidden",
-                  darkMode
-                    ? "bg-gray-900/80 border-white/10 backdrop-blur-md"
-                    : "bg-white/90 border-gray-200 backdrop-blur-md"
-                )}
-              >
-                <div className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">
-                  Estimated Yield (ROI)
+              {/* Advanced Metrics */}
+              {results.total > 0 && (
+                <div className="grid grid-cols-3 gap-4">
+                  <div className={cn("p-4 rounded-[20px] border", darkMode ? "bg-black/40 border-white/5" : "bg-gray-50 border-gray-200")}>
+                    <div className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-1">Max Drawdown</div>
+                    <div className="text-lg font-black text-rose-500">-{results.maxDrawdown.toFixed(2)}u</div>
+                  </div>
+                  <div className={cn("p-4 rounded-[20px] border", darkMode ? "bg-black/40 border-white/5" : "bg-gray-50 border-gray-200")}>
+                    <div className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-1">Best Streak</div>
+                    <div className="text-lg font-black text-emerald-500">{results.maxWinStreak} W</div>
+                  </div>
+                  <div className={cn("p-4 rounded-[20px] border", darkMode ? "bg-black/40 border-white/5" : "bg-gray-50 border-gray-200")}>
+                    <div className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-1">Worst Streak</div>
+                    <div className="text-lg font-black text-amber-500">{results.maxLossStreak} L</div>
+                  </div>
                 </div>
-                <div className="flex items-end gap-3 mb-4">
-                  <span
-                    className={cn(
-                      "text-5xl font-black tabular-nums tracking-tighter",
-                      results.total === 0
-                        ? "text-gray-400"
-                        : results.roi > 0
-                        ? "text-blue-500"
-                        : results.roi < 0
-                        ? "text-rose-500"
-                        : "text-gray-500"
-                    )}
-                  >
-                    {results.total === 0
-                      ? "—"
-                      : `${results.roi > 0 ? "+" : ""}${results.roi.toFixed(1)}%`}
-                  </span>
+              )}
+
+              {/* Equity Curve Chart */}
+              {results.chartData && results.chartData.length > 1 && (
+                <div className={cn("p-6 rounded-[24px] border shadow-xl", darkMode ? "bg-gray-900/80 border-white/10" : "bg-white/90 border-gray-200")}>
+                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest opacity-60 mb-6">
+                    <LineChartIcon size={14} /> Cumulative Profit (Units)
+                  </div>
+                  <div className="h-64 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={results.chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"} vertical={false} />
+                        <XAxis dataKey="bet" tick={{ fontSize: 10, fill: darkMode ? '#888' : '#aaa' }} tickLine={false} axisLine={false} />
+                        <YAxis tick={{ fontSize: 10, fill: darkMode ? '#888' : '#aaa' }} tickLine={false} axisLine={false} />
+                        <RechartsTooltip 
+                          contentStyle={{ 
+                            borderRadius: '16px', 
+                            border: 'none', 
+                            boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+                            backgroundColor: darkMode ? '#111' : '#fff',
+                            color: darkMode ? '#fff' : '#000',
+                            fontWeight: 'bold',
+                            fontSize: '12px'
+                          }}
+                          itemStyle={{ color: '#3b82f6' }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="profit" 
+                          stroke={results.netUnits >= 0 ? "#10b981" : "#f43f5e"} 
+                          strokeWidth={3} 
+                          dot={false}
+                          activeDot={{ r: 6, fill: results.netUnits >= 0 ? "#10b981" : "#f43f5e", strokeWidth: 0 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
-                <div
-                  className={cn(
-                    "text-xs font-bold inline-block px-3 py-1 rounded-lg",
-                    results.netUnits > 0
-                      ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                      : results.netUnits < 0
-                      ? "bg-rose-500/10 text-rose-600 dark:text-rose-400"
-                      : "bg-gray-500/10 text-gray-500"
-                  )}
-                >
-                  Net profit: {results.netUnits > 0 ? "+" : ""}
-                  {results.netUnits.toFixed(2)} units
-                </div>
-              </div>
+              )}
             </div>
           )}
 
