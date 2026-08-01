@@ -4,7 +4,7 @@ import Papa from "papaparse";
 
 const SHEET_ID = "1JlcJ1qGZ0IOTnDamMHuhcJ2wAxozTRmfhYs96GbPoJQ";
 const GID = "0";
-const CSV_URL = \`https://docs.google.com/spreadsheets/d/\${SHEET_ID}/gviz/tq?tqx=out:csv&gid=\${GID}\`;
+const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID}`;
 
 export async function GET(request: Request) {
   // Check CRON_SECRET for security
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   try {
     const res = await fetch(CSV_URL, { cache: 'no-store' });
     if (!res.ok) {
-      throw new Error(\`Failed to fetch CSV: \${res.status} \${res.statusText}\`);
+      throw new Error(`Failed to fetch CSV: ${res.status} ${res.statusText}`);
     }
     
     const text = await res.text();
@@ -121,7 +121,7 @@ export async function GET(request: Request) {
       }
 
       try {
-        await sql\`
+        await sql`
           INSERT INTO sandbox_archive (
             match_date, 
             home_team, 
@@ -134,23 +134,23 @@ export async function GET(request: Request) {
             is_win, 
             raw_data
           ) VALUES (
-            \${matchDate ? matchDate : null},
-            \${homeTeam || 'Unknown'},
-            \${awayTeam || 'Unknown'},
-            \${leagueStr || 'Unknown'},
-            \${chance},
-            \${rating},
-            \${market},
-            \${finalResult},
-            \${isWin},
-            \${JSON.stringify(row)}
+            ${matchDate ? matchDate : null},
+            ${homeTeam || 'Unknown'},
+            ${awayTeam || 'Unknown'},
+            ${leagueStr || 'Unknown'},
+            ${chance},
+            ${rating},
+            ${market},
+            ${finalResult},
+            ${isWin},
+            ${JSON.stringify(row)}
           )
           ON CONFLICT (match_date, home_team, away_team, algorithm_pick) 
           DO UPDATE SET 
             ft_result = EXCLUDED.ft_result,
             is_win = EXCLUDED.is_win,
             raw_data = EXCLUDED.raw_data;
-        \`;
+        `;
         inserted++;
       } catch (err: any) {
         skipped++;
@@ -161,7 +161,7 @@ export async function GET(request: Request) {
       success: true,
       inserted,
       skipped,
-      message: \`Synced \${inserted} records.\`
+      message: `Synced ${inserted} records.`
     });
     
   } catch (error: any) {

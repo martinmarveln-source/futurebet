@@ -5,15 +5,15 @@ import cron from 'node-cron';
 
 const SHEET_ID = "1JlcJ1qGZ0IOTnDamMHuhcJ2wAxozTRmfhYs96GbPoJQ";
 const GID = "0";
-const CSV_URL = \`https://docs.google.com/spreadsheets/d/\${SHEET_ID}/gviz/tq?tqx=out:csv&gid=\${GID}\`;
+const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID}`;
 
 async function sync() {
-  console.log(\`Starting automated sync from \${CSV_URL}...\`);
+  console.log(`Starting automated sync from ${CSV_URL}...`);
   
   try {
     const res = await fetch(CSV_URL, { cache: 'no-store' });
     if (!res.ok) {
-      throw new Error(\`Failed to fetch CSV: \${res.status} \${res.statusText}\`);
+      throw new Error(`Failed to fetch CSV: ${res.status} ${res.statusText}`);
     }
     
     const text = await res.text();
@@ -31,7 +31,7 @@ async function sync() {
       throw new Error("No valid data found in CSV");
     }
 
-    console.log(\`Parsed \${parsed.data.length} rows. Upserting to database...\`);
+    console.log(`Parsed ${parsed.data.length} rows. Upserting to database...`);
 
     let inserted = 0;
     let skipped = 0;
@@ -126,7 +126,7 @@ async function sync() {
       }
 
       try {
-        await sql\`
+        await sql`
           INSERT INTO sandbox_archive (
             match_date, 
             home_team, 
@@ -139,23 +139,23 @@ async function sync() {
             is_win, 
             raw_data
           ) VALUES (
-            \${matchDate ? matchDate : null},
-            \${homeTeam || 'Unknown'},
-            \${awayTeam || 'Unknown'},
-            \${leagueStr || 'Unknown'},
-            \${chance},
-            \${rating},
-            \${market},
-            \${finalResult},
-            \${isWin},
-            \${JSON.stringify(row)}
+            ${matchDate ? matchDate : null},
+            ${homeTeam || 'Unknown'},
+            ${awayTeam || 'Unknown'},
+            ${leagueStr || 'Unknown'},
+            ${chance},
+            ${rating},
+            ${market},
+            ${finalResult},
+            ${isWin},
+            ${JSON.stringify(row)}
           )
           ON CONFLICT (match_date, home_team, away_team, algorithm_pick) 
           DO UPDATE SET 
             ft_result = EXCLUDED.ft_result,
             is_win = EXCLUDED.is_win,
             raw_data = EXCLUDED.raw_data;
-        \`;
+        `;
         inserted++;
       } catch (err: any) {
         console.error("Failed to insert row:", err.message);
