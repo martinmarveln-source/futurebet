@@ -145,10 +145,10 @@ async function sync() {
 // Run immediately on start
 sync();
 
-// Schedule to run 4 times a day (every 6 hours: 00:00, 06:00, 12:00, 18:00)
-cron.schedule('0 0,6,12,18 * * *', () => {
+// Schedule to run 4 times a day (9:00, 14:00, 18:00, 23:00)
+cron.schedule('0 9,14,18,23 * * *', () => {
   console.log('Running scheduled sync task...');
   sync();
 });
 
-console.log("Background worker is now running. Scheduled to sync every 6 hours.");
+console.log("Background worker is now running. Scheduled to sync at 09:00, 14:00, 18:00, and 23:00.");
