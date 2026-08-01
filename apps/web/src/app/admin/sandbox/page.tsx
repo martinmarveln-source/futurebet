@@ -76,7 +76,7 @@ export default function SandboxAdminPage() {
         )}
 
         {status && (
-          <div className={\`mt-6 p-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 \${status.type === 'success' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-rose-50 text-rose-600 border border-rose-200'}\`}>
+          <div className={`mt-6 p-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 ${status.type === 'success' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-rose-50 text-rose-600 border border-rose-200'}`}>
             {status.type === 'success' ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
             {status.msg}
           </div>

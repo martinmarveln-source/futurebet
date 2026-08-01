@@ -120,7 +120,7 @@ export async function POST(request: Request) {
             is_win, 
             raw_data
           ) VALUES (
-            ${matchDate ? matchDate : sql\`NULL\`},
+            ${matchDate ? matchDate : null},
             ${homeTeam || 'Unknown'},
             ${awayTeam || 'Unknown'},
             ${leagueStr || 'Unknown'},
@@ -146,7 +146,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ 
       success: true, 
-      message: \`Successfully processed CSV. Inserted/Updated: \${inserted}. Skipped: \${skipped}.\` 
+      message: `Successfully processed CSV. Inserted/Updated: ${inserted}. Skipped: ${skipped}.` 
     });
 
   } catch (error: any) {
