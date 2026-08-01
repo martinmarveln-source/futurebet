@@ -1,4 +1,4 @@
-import { sql } from './src/app/api/utils/sql.js';
+import sql from './src/app/api/utils/sql.ts';
 
 async function setup() {
   console.log('Creating sandbox_archive table...');

@@ -1,47 +1,41 @@
 import { NextResponse } from "next/server";
 import sql from "../../utils/sql";
 import Papa from "papaparse";
-import { auth } from "@/lib/auth";
 
-export async function POST(request: Request) {
+const SHEET_ID = "1JlcJ1qGZ0IOTnDamMHuhcJ2wAxozTRmfhYs96GbPoJQ";
+const GID = "0";
+const CSV_URL = \`https://docs.google.com/spreadsheets/d/\${SHEET_ID}/gviz/tq?tqx=out:csv&gid=\${GID}\`;
+
+export async function GET(request: Request) {
+  // Check CRON_SECRET for security
+  const { searchParams } = new URL(request.url);
+  const secret = searchParams.get('secret') || request.headers.get('Authorization');
+  
+  if (secret !== process.env.CRON_SECRET) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
-    const sessionData = await auth.api.getSession({
-      headers: request.headers,
-    });
-
-    const user = sessionData?.user as any;
-    if (!user?.isAdmin) {
-      return NextResponse.json({ error: "Unauthorized. Admin access required." }, { status: 403 });
+    const res = await fetch(CSV_URL, { cache: 'no-store' });
+    if (!res.ok) {
+      throw new Error(\`Failed to fetch CSV: \${res.status} \${res.statusText}\`);
     }
-
-    const formData = await request.formData();
-    const file = formData.get("file") as File;
-
-    if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
-    }
-
-    const text = await file.text();
+    
+    const text = await res.text();
+    
     const parsed = Papa.parse(text, {
       header: true,
       skipEmptyLines: true,
     });
 
-    if (parsed.errors?.length) {
-      console.warn("CSV parse errors:", parsed.errors);
-    }
-
     if (!parsed.data?.length) {
-      return NextResponse.json({ error: "No valid data found in CSV" }, { status: 400 });
+      throw new Error("No valid data found in CSV");
     }
 
     let inserted = 0;
     let skipped = 0;
 
     for (const row of parsed.data as any[]) {
-      // Handle the first (Google Sheet) format or the detailed second format
-      
-      // Attempt to extract standard fields
       const chanceStr = row["Model_Chance"] || row["Chance"];
       const ratingStr = row["Model_Rating"] || row["Rating"];
       const pickStr = row["Algorithm_Pick"] || row["Prediction_Validation"] || row["TIPS"];
@@ -49,7 +43,6 @@ export async function POST(request: Request) {
       const dateStr = row["Date"] || row["DATE"];
       const leagueStr = row["League"] || row["LEAGUE"];
       
-      // Parse team names from "Match" or "HOME/AWAY"
       let homeTeam = row["HOME"] || "";
       let awayTeam = row["AWAY"] || "";
       
@@ -85,18 +78,15 @@ export async function POST(request: Request) {
           isWin = false;
           finalResult = "L";
         } else if (["D", "DRAW", "⚠️", "PENDING"].includes(resultRaw)) {
-          // You might have a specific pending/draw mapping
           finalResult = "D"; 
         }
       }
 
-      // If we don't have minimal data, skip
       if (!market || chance === null || rating === null) {
         skipped++;
         continue;
       }
 
-      // Prepare date
       let matchDate = null;
       if (dateStr) {
          try {
@@ -107,7 +97,7 @@ export async function POST(request: Request) {
       }
 
       try {
-        await sql`
+        await sql\`
           INSERT INTO sandbox_archive (
             match_date, 
             home_team, 
@@ -120,37 +110,38 @@ export async function POST(request: Request) {
             is_win, 
             raw_data
           ) VALUES (
-            ${matchDate ? matchDate : sql\`NULL\`},
-            ${homeTeam || 'Unknown'},
-            ${awayTeam || 'Unknown'},
-            ${leagueStr || 'Unknown'},
-            ${chance},
-            ${rating},
-            ${market},
-            ${finalResult},
-            ${isWin},
-            ${JSON.stringify(row)}
+            \${matchDate ? matchDate : null},
+            \${homeTeam || 'Unknown'},
+            \${awayTeam || 'Unknown'},
+            \${leagueStr || 'Unknown'},
+            \${chance},
+            \${rating},
+            \${market},
+            \${finalResult},
+            \${isWin},
+            \${JSON.stringify(row)}
           )
           ON CONFLICT (match_date, home_team, away_team, algorithm_pick) 
           DO UPDATE SET 
             ft_result = EXCLUDED.ft_result,
             is_win = EXCLUDED.is_win,
             raw_data = EXCLUDED.raw_data;
-        `;
+        \`;
         inserted++;
       } catch (err: any) {
-        console.error("Failed to insert row:", err.message);
         skipped++;
       }
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: \`Successfully processed CSV. Inserted/Updated: \${inserted}. Skipped: \${skipped}.\` 
+    return NextResponse.json({
+      success: true,
+      inserted,
+      skipped,
+      message: \`Synced \${inserted} records.\`
     });
-
+    
   } catch (error: any) {
-    console.error("Upload error:", error);
-    return NextResponse.json({ error: "Internal server error", details: error.message }, { status: 500 });
+    console.error("Error during sync:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

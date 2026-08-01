@@ -1,4 +1,4 @@
-import { sql } from './src/app/api/utils/sql.js';
+import sql from './src/app/api/utils/sql.ts';
 import fs from 'fs';
 import Papa from 'papaparse';
 
@@ -91,7 +91,7 @@ async function seed() {
           is_win, 
           raw_data
         ) VALUES (
-          ${matchDate ? matchDate : sql\`NULL\`},
+          ${matchDate ? matchDate : null},
           ${homeTeam || 'Unknown'},
           ${awayTeam || 'Unknown'},
           ${leagueStr || 'Unknown'},
@@ -115,7 +115,7 @@ async function seed() {
     }
   }
 
-  console.log(\`Done! Inserted: \${inserted}, Skipped: \${skipped}\`);
+  console.log(`Done! Inserted: ${inserted}, Skipped: ${skipped}`);
   process.exit(0);
 }
 

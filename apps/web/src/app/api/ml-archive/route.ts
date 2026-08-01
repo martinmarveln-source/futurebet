@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { sql } from "../utils/sql";
+import sql from "../utils/sql";
 import { auth } from "@/lib/auth";
 
 // Helper to check premium access using better-auth session
