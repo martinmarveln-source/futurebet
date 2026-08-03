@@ -74,16 +74,20 @@ function formatMatchAlert(match: any, index: number, total: number): string {
   return lines.join("\n");
 }
 
-// ── Check if UTC time window matches user's chosen send time ────────────────
+// Fixed daily alert slots (UTC hours). Must match the cron schedule.
+const ALERT_SLOTS_UTC = [10, 14, 16, 18];
+
+// Check if the user's chosen slot matches the current UTC hour being fired
 function isInWindow(sendTime: string): boolean {
   const now = new Date();
-  const [hh, mm] = (sendTime || "08:00").split(":").map(Number);
-  const utcH = now.getUTCHours();
-  const utcM = now.getUTCMinutes();
-  // Match within a 30-minute window of the configured hour
-  const nowMins = utcH * 60 + utcM;
-  const targetMins = hh * 60 + (mm ?? 0);
-  return Math.abs(nowMins - targetMins) <= 30;
+  const currentUTCHour = now.getUTCHours();
+
+  // Only proceed if cron is firing at one of the designated slots
+  if (!ALERT_SLOTS_UTC.includes(currentUTCHour)) return false;
+
+  // Match user's chosen send time to the current slot (within 10 minutes for safety)
+  const [hh] = (sendTime || "10:00").split(":").map(Number);
+  return hh === currentUTCHour;
 }
 
 // ── Map pick label to market key ────────────────────────────────────────────

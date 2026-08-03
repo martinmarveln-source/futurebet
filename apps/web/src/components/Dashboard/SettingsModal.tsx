@@ -367,20 +367,29 @@ Keep notifications on. When the algorithm detects a massive market mispricing, y
             ) : (
               <div className={cn("space-y-4", !alertEnabled && "opacity-50 pointer-events-none")}>
 
-                {/* Send Time */}
-                <div className="space-y-1.5">
+                {/* Send Time Slot */}
+                <div className="space-y-2">
                   <label className="flex items-center gap-1.5 text-xs font-bold">
                     <Clock size={13} />
-                    Daily Send Time (UTC)
+                    Alert Time Slot (UTC)
                   </label>
-                  <input
-                    type="time"
-                    value={alertSendTime}
-                    onChange={(e) => { setAlertSendTime(e.target.value); setTouched(true); }}
-                    className={cn("w-40 px-3 py-2 rounded-xl border outline-none text-sm transition", tones.input)}
-                  />
+                  <div className="grid grid-cols-4 gap-2">
+                    {["10:00", "14:00", "16:00", "18:00"].map((slot) => (
+                      <button
+                        key={slot}
+                        type="button"
+                        onClick={() => { setAlertSendTime(slot); setTouched(true); }}
+                        className={cn(
+                          "py-2 rounded-xl border text-xs font-extrabold transition",
+                          alertSendTime === slot ? tones.chip : tones.chipOff
+                        )}
+                      >
+                        {slot}
+                      </button>
+                    ))}
+                  </div>
                   <p className={cn("text-xs", tones.muted)}>
-                    Alerts fire every 4 hours — picks matching within ±30 min of your chosen time are sent.
+                    Alerts fire daily at your chosen slot (UTC). Pick the time closest to your local timezone.
                   </p>
                 </div>
 
