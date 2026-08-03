@@ -103,7 +103,7 @@ export default function Header({
         <div className="flex items-center space-x-4">
           <h1 className="text-2xl font-bold text-blue-600">FutureBet</h1>
           <span
-            className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}
+            className={`hidden md:inline text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}
           >
             Football Prediction Analytics
           </span>
@@ -132,7 +132,7 @@ export default function Header({
           </div>
         )}
 
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2 md:space-x-4">
           {/* AI Usage Stats for Premium Users */}
           {currentUser && (isPremium || isAdmin) && usageStats && (
             <div
