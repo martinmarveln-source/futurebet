@@ -28,6 +28,11 @@ export default function RootLayout({ children }) {
 
   return (
     <html lang="en">
+      <head>
+        <title>FutureBet — Football Prediction Analytics</title>
+        <meta name="description" content="Football prediction, backtesting sandbox, and machine learning calibration." />
+        <link rel="icon" href="/favicon.png" type="image/png" />
+      </head>
       <body>
         <QueryClientProvider client={queryClient}>
           <style jsx global>{`
