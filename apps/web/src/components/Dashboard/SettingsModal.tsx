@@ -157,14 +157,13 @@ Keep notifications on. When the algorithm detects a massive market mispricing, y
 💰 *Command Center Active.*
     `;
     try {
-      const url = `https://api.telegram.org/bot${telegramToken.trim()}/sendMessage`;
-      const response = await fetch(url, {
+      const response = await fetch("/api/user/test-telegram", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: telegramChatId.trim(), text: message, parse_mode: "Markdown" }),
+        body: JSON.stringify({ token: telegramToken.trim(), chatId: telegramChatId.trim() }),
       });
       const data = await response.json();
-      if (data.ok) {
+      if (response.ok && data.success) {
         setTestStatus("success");
         setTimeout(() => setTestStatus("idle"), 3000);
       } else {

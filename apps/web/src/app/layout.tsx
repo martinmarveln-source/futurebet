@@ -31,6 +31,12 @@ export default function RootLayout({ children }) {
       <head>
         <title>FutureBet — Football Prediction Analytics</title>
         <meta name="description" content="Football prediction, backtesting sandbox, and machine learning calibration." />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+        <meta property="og:title" content="FutureBet — Football Prediction Analytics" />
+        <meta property="og:description" content="Football prediction, backtesting sandbox, and machine learning calibration." />
+        <meta property="og:image" content="/favicon.png" />
+        <meta property="og:url" content="https://futurebet.com.ng" />
+        <meta property="og:type" content="website" />
         <link rel="icon" href="/favicon.png" type="image/png" />
       </head>
       <body>
