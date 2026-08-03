@@ -295,69 +295,73 @@ export default function useDashboard() {
       return true;
     });
 
-    // Sort by selected field
-    return filtered.sort((a, b) => {
+    // Pre-calculate histWinRates if sorting by it, to avoid O(N log N) database scans
+    const matchesWithRates = filtered.map((m) => ({
+      match: m,
+      rate: sortBy === "histWinRate" ? calculateHistWinRate(m, archiveData) : 0,
+    }));
+
+    matchesWithRates.sort((a, b) => {
       let aValue, bValue;
 
       switch (sortBy) {
         case "home":
-          aValue = a.homeWin || 0;
-          bValue = b.homeWin || 0;
+          aValue = a.match.homeWin || 0;
+          bValue = b.match.homeWin || 0;
           break;
         case "draw":
-          aValue = a.draw || 0;
-          bValue = b.draw || 0;
+          aValue = a.match.draw || 0;
+          bValue = b.match.draw || 0;
           break;
         case "away":
-          aValue = a.awayWin || 0;
-          bValue = b.awayWin || 0;
+          aValue = a.match.awayWin || 0;
+          bValue = b.match.awayWin || 0;
           break;
         case "date":
-          // Date sorting - ascending order
-          aValue = new Date(a.date || "1900-01-01");
-          bValue = new Date(b.date || "1900-01-01");
+          aValue = new Date(a.match.date || "1900-01-01");
+          bValue = new Date(b.match.date || "1900-01-01");
           return aValue - bValue; // Ascending order for dates
         case "ng":
-          // NG field - descending order
-          aValue = a.ng || 0;
-          bValue = b.ng || 0;
+          aValue = a.match.ng || 0;
+          bValue = b.match.ng || 0;
           break;
         case "un25":
-          // UN2.5 field - descending order
-          aValue = a.un25 || 0;
-          bValue = b.un25 || 0;
+          aValue = a.match.un25 || 0;
+          bValue = b.match.un25 || 0;
           break;
         case "btts":
-          aValue = a.gg || 0;
-          bValue = b.gg || 0;
+          aValue = a.match.gg || 0;
+          bValue = b.match.gg || 0;
           break;
         case "o25":
-          aValue = a.ov25 || 0;
-          bValue = b.ov25 || 0;
+          aValue = a.match.ov25 || 0;
+          bValue = b.match.ov25 || 0;
           break;
         case "modelCS":
-          aValue = a.modelCSPercent || 0;
-          bValue = b.modelCSPercent || 0;
+          aValue = a.match.modelCSPercent || 0;
+          bValue = b.match.modelCSPercent || 0;
           break;
         case "chance":
-          aValue = a.chance || 0;
-          bValue = b.chance || 0;
+          aValue = a.match.chance || 0;
+          bValue = b.match.chance || 0;
           break;
         case "rating":
-          aValue = a.rating || 0;
-          bValue = b.rating || 0;
+          aValue = a.match.rating || 0;
+          bValue = b.match.rating || 0;
           break;
         case "histWinRate":
-          aValue = calculateHistWinRate(a, archiveData);
-          bValue = calculateHistWinRate(b, archiveData);
+          aValue = a.rate;
+          bValue = b.rate;
           break;
         default:
-          aValue = a.chance || 0;
-          bValue = b.chance || 0;
+          aValue = a.match.chance || 0;
+          bValue = b.match.chance || 0;
       }
 
       return bValue - aValue; // Descending order for most fields (except date)
     });
+
+    return matchesWithRates.map((item) => item.match);
   }, [
     matchesData?.matches,
     archiveData,
