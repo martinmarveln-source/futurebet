@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/sync-league-table",
-      "schedule": "35 8 * * *"
+      "schedule": "35 9 * * *"
     }
   ]
 }
