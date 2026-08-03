@@ -1,127 +1,90 @@
-// @ts-nocheck
-"use client";
+import type { Metadata, Viewport } from "next";
 import "./global.css";
+import { Providers } from "./providers";
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: "#ffffff",
+};
 
-function makeQueryClient() {
-  return new QueryClient({
-    defaultOptions: {
-      queries: {
-        staleTime: 1000 * 60 * 5,
-        gcTime: 1000 * 60 * 30,
-        retry: 1,
-        refetchOnWindowFocus: false,
-        refetchOnReconnect: true,
-        suspense: false,
+export const metadata: Metadata = {
+  title: "FutureBet — Football Prediction Analytics",
+  description:
+    "Football prediction, backtesting sandbox, and machine learning calibration.",
+  openGraph: {
+    title: "FutureBet — Football Prediction Analytics",
+    description:
+      "Football prediction, backtesting sandbox, and machine learning calibration.",
+    url: "https://futurebet.com.ng",
+    siteName: "FutureBet",
+    images: [
+      {
+        url: "/favicon.png",
+        width: 512,
+        height: 512,
+        alt: "FutureBet Logo",
       },
-      mutations: {
-        retry: 0,
-      },
+    ],
+    locale: "en_NG",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "FutureBet — Football Prediction Analytics",
+    description:
+      "Football prediction, backtesting sandbox, and machine learning calibration.",
+    images: ["/favicon.png"],
+  },
+  icons: {
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
+    apple: "/favicon.png",
+  },
+  alternates: {
+    canonical: "https://futurebet.com.ng",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
     },
-  });
-}
+  },
+};
 
-export default function RootLayout({ children }) {
-  const [queryClient] = useState(makeQueryClient);
-
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
-        <title>FutureBet — Football Prediction Analytics</title>
-        <meta name="description" content="Football prediction, backtesting sandbox, and machine learning calibration." />
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-        <meta property="og:title" content="FutureBet — Football Prediction Analytics" />
-        <meta property="og:description" content="Football prediction, backtesting sandbox, and machine learning calibration." />
-        <meta property="og:image" content="/favicon.png" />
-        <meta property="og:url" content="https://futurebet.com.ng" />
-        <meta property="og:type" content="website" />
-        <link rel="icon" href="/favicon.png" type="image/png" />
+        {/* Structured Data for Web Application */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebApplication",
+              name: "FutureBet",
+              url: "https://futurebet.com.ng",
+              description:
+                "Football prediction, backtesting sandbox, and machine learning calibration.",
+              applicationCategory: "SportsApplication",
+              operatingSystem: "Web",
+            }),
+          }}
+        />
       </head>
-      <body>
-        <QueryClientProvider client={queryClient}>
-          <style jsx global>{`
-            *,
-            *::before,
-            *::after {
-              box-sizing: border-box;
-            }
-
-            html,
-            body {
-              padding: 0;
-              margin: 0;
-              min-height: 100%;
-            }
-
-            html {
-              font-size: 15px;
-              scroll-behavior: smooth;
-            }
-
-            body {
-              font-family: system-ui, -apple-system, BlinkMacSystemFont,
-                "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-              line-height: 1.45;
-              -webkit-font-smoothing: antialiased;
-              -moz-osx-font-smoothing: grayscale;
-              overscroll-behavior: none;
-            }
-
-            @media (min-width: 640px) {
-              html {
-                font-size: 16px;
-              }
-            }
-
-            @media (min-width: 1024px) {
-              html {
-                font-size: 16.5px;
-              }
-            }
-
-            .scrollbar-hide {
-              -ms-overflow-style: none;
-              scrollbar-width: none;
-            }
-
-            .scrollbar-hide::-webkit-scrollbar {
-              display: none;
-            }
-
-            body[data-scroll-locked="true"] {
-              overflow: hidden;
-              touch-action: none;
-            }
-
-            @media (prefers-reduced-motion: reduce) {
-              *,
-              *::before,
-              *::after {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-                scroll-behavior: auto !important;
-              }
-            }
-
-            body::before {
-              content: "";
-              position: fixed;
-              inset: 0;
-              pointer-events: none;
-              z-index: -1;
-              background: radial-gradient(
-                1200px 600px at 50% -200px,
-                rgba(99, 102, 241, 0.06),
-                transparent 60%
-              );
-            }
-          `}</style>
-
-          {children}
-        </QueryClientProvider>
+      <body className="antialiased min-h-screen">
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
