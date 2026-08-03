@@ -864,8 +864,11 @@ async function fetchMatchesFromSheet(includeAll = false) {
 
       for (const raw of dbRows) {
         if (!raw) continue;
-        // raw_data is stored as column-key map, reconstruct as array
-        const rowArr = Object.values(raw) as string[];
+        // Reconstruct the array correctly using the index mapping from COL_IDX (prevents JSONB key-sorting misalignment)
+        const rowArr: string[] = [];
+        Object.entries(COL_IDX).forEach(([key, index]) => {
+          rowArr[index] = raw[key] !== undefined && raw[key] !== null ? String(raw[key]) : "";
+        });
         const parsedDate = parseDate(rowArr[COL_IDX.date]);
         if (!includeAll && parsedDate && parsedDate < today) continue;
         matches.push(mapSheetRowToMatch(rowArr));
