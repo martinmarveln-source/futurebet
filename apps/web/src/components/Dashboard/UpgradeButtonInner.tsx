@@ -20,6 +20,12 @@ export default function UpgradeButtonInner({ plan: defaultPlan, className, child
   const [showModal, setShowModal] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
 
+  const currentRole = user?.user_role || "free";
+  const currentSub = user?.subscription_status || "free";
+  const isAdmin = currentRole === "admin";
+  const isPremium = isAdmin || currentRole === "premium" || currentSub === "premium" || currentRole === "pro" || currentSub === "pro";
+  const isSilver = currentRole === "silver" || currentSub === "silver";
+
   const getConfigForPlan = (targetPlan: "silver" | "premium") => {
     const amountNGN = targetPlan === "premium" ? 5000 : 3000;
     const amountKobo = amountNGN * 100;
@@ -183,10 +189,18 @@ export default function UpgradeButtonInner({ plan: defaultPlan, className, child
                   </li>
                 </ul>
 
-                <PaystackButton
-                  {...getConfigForPlan("silver")}
-                  className="w-full py-3.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold transition-all"
-                />
+                </ul>
+
+                {isPremium || isSilver ? (
+                  <button disabled className="w-full py-3.5 rounded-xl bg-slate-800 text-slate-500 font-bold cursor-not-allowed border border-slate-700">
+                    {isSilver ? "Current Plan" : "Included in Premium"}
+                  </button>
+                ) : (
+                  <PaystackButton
+                    {...getConfigForPlan("silver")}
+                    className="w-full py-3.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold transition-all"
+                  />
+                )}
               </div>
 
               {/* Premium Plan Card */}
@@ -230,10 +244,18 @@ export default function UpgradeButtonInner({ plan: defaultPlan, className, child
                   </li>
                 </ul>
 
-                <PaystackButton
-                  {...getConfigForPlan("premium")}
-                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)]"
-                />
+                </ul>
+
+                {isPremium ? (
+                  <button disabled className="w-full py-3.5 rounded-xl bg-indigo-900/40 text-indigo-400 font-bold cursor-not-allowed border border-indigo-500/30">
+                    Current Plan
+                  </button>
+                ) : (
+                  <PaystackButton
+                    {...getConfigForPlan("premium")}
+                    className="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)]"
+                  />
+                )}
               </div>
             </div>
             
