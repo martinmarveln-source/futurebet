@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
-import { usePaystackPayment } from "react-paystack";
+import { PaystackButton } from "react-paystack";
 import { toast } from "sonner";
 import { Crown, Sparkles, Loader2, X, Check, Zap } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
@@ -14,90 +14,72 @@ interface UpgradeButtonProps {
 }
 
 export default function UpgradeButtonInner({ plan: defaultPlan, className, children }: UpgradeButtonProps) {
-  const { data: session, refetch } = useSession();
+  const { data: session } = useSession();
   const user = session?.user;
-  const mutate = refetch;
   
   const [showModal, setShowModal] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<"silver" | "premium">("premium");
   const [isVerifying, setIsVerifying] = useState(false);
 
-  // If a plan is passed, use it, otherwise use the one selected in the modal
-  const activePlan = defaultPlan || selectedPlan;
-  
-  const amountNGN = activePlan === "premium" ? 5000 : 3000;
-  const amountKobo = amountNGN * 100;
+  const getConfigForPlan = (targetPlan: "silver" | "premium") => {
+    const amountNGN = targetPlan === "premium" ? 5000 : 3000;
+    const amountKobo = amountNGN * 100;
 
-  const config = {
-    reference: `futurebet_${activePlan}_${new Date().getTime()}`,
-    email: user?.email || "guest@futurebet.com.ng",
-    amount: amountKobo,
-    publicKey: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || "",
-    metadata: {
-      custom_fields: [
-        {
-          display_name: "Plan",
-          variable_name: "plan",
-          value: activePlan,
-        },
-      ],
-    },
+    return {
+      reference: `futurebet_${targetPlan}_${new Date().getTime()}`,
+      email: user?.email || "guest@futurebet.com.ng",
+      amount: amountKobo,
+      publicKey: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || "",
+      text: targetPlan === "premium" ? "Upgrade to Premium" : "Get Silver",
+      metadata: {
+        custom_fields: [
+          {
+            display_name: "Plan",
+            variable_name: "plan",
+            value: targetPlan,
+          },
+        ],
+      },
+      onSuccess: async (reference: any) => {
+        setShowModal(false);
+        setIsVerifying(true);
+        try {
+          const res = await fetch("/api/payment/paystack-verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              reference: reference.reference,
+              plan: targetPlan
+            }),
+          });
+
+          const data = await res.json();
+          if (res.ok && data.success) {
+            toast.success(`Welcome to the ${targetPlan.toUpperCase()} plan! 🎉`);
+            window.location.reload();
+          } else {
+            toast.error(data.error || "Verification failed, please contact support.");
+            setIsVerifying(false);
+          }
+        } catch (err) {
+          toast.error("An error occurred during verification.");
+          setIsVerifying(false);
+        }
+      },
+      onClose: () => {
+        toast.info("Payment window closed.");
+      },
+    };
   };
 
-  const initializePayment = usePaystackPayment(config);
-
-  const onSuccess = async (reference: any) => {
-    setShowModal(false);
-    setIsVerifying(true);
-    try {
-      const res = await fetch("/api/payment/paystack-verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          reference: reference.reference,
-          plan: activePlan
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        toast.success(`Welcome to the ${activePlan.toUpperCase()} plan! 🎉`);
-        window.location.reload();
-      } else {
-        toast.error(data.error || "Verification failed, please contact support.");
-      }
-    } catch (err) {
-      toast.error("An error occurred during verification.");
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
-  const onClose = () => {
-    toast.info("Payment window closed.");
-  };
-
-  const handleInitialClick = () => {
+  const handleInitialClick = (e: React.MouseEvent) => {
     if (!user) {
+      e.preventDefault();
       toast.error("Please log in to upgrade.");
       return;
     }
-    if (defaultPlan) {
-      initializePayment(onSuccess, onClose);
-    } else {
+    if (!defaultPlan) {
       setShowModal(true);
     }
-  };
-
-  const handleModalCheckout = (planChoice: "silver" | "premium") => {
-    setSelectedPlan(planChoice);
-    // Since state update is async and config relies on it, 
-    // it's safer to just trigger the payment directly with a forced config if needed, 
-    // but react-paystack hook is memoized. 
-    // Workaround: We set the state, then use a tiny timeout to allow re-render so config updates.
-    setTimeout(() => {
-      initializePayment(onSuccess, onClose);
-    }, 50);
   };
 
   const defaultContent = (
@@ -107,24 +89,39 @@ export default function UpgradeButtonInner({ plan: defaultPlan, className, child
     </span>
   );
 
+  const wrapperClass = className || "flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 font-semibold text-white hover:from-blue-500 hover:to-indigo-500 transition-all disabled:opacity-50";
+
   return (
     <>
-      <button
-        onClick={handleInitialClick}
-        disabled={isVerifying}
-        className={
-          className ||
-          "flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 font-semibold text-white hover:from-blue-500 hover:to-indigo-500 transition-all disabled:opacity-50"
-        }
-      >
-        {isVerifying ? (
-          <span className="flex items-center gap-2">
-            <Loader2 className="w-4 h-4 animate-spin" /> Verifying...
-          </span>
-        ) : (
-          children || defaultContent
-        )}
-      </button>
+      {defaultPlan && user ? (
+        <PaystackButton
+          {...getConfigForPlan(defaultPlan)}
+          className={wrapperClass}
+          disabled={isVerifying}
+        >
+          {isVerifying ? (
+            <span className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" /> Verifying...
+            </span>
+          ) : (
+            children || defaultContent
+          )}
+        </PaystackButton>
+      ) : (
+        <button
+          onClick={handleInitialClick}
+          disabled={isVerifying}
+          className={wrapperClass}
+        >
+          {isVerifying ? (
+            <span className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" /> Verifying...
+            </span>
+          ) : (
+            children || defaultContent
+          )}
+        </button>
+      )}
 
       {/* Modal */}
       {showModal && typeof document !== 'undefined' && createPortal(
@@ -186,12 +183,10 @@ export default function UpgradeButtonInner({ plan: defaultPlan, className, child
                   </li>
                 </ul>
 
-                <button
-                  onClick={() => handleModalCheckout("silver")}
+                <PaystackButton
+                  {...getConfigForPlan("silver")}
                   className="w-full py-3.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold transition-all"
-                >
-                  Get Silver
-                </button>
+                />
               </div>
 
               {/* Premium Plan Card */}
@@ -235,12 +230,10 @@ export default function UpgradeButtonInner({ plan: defaultPlan, className, child
                   </li>
                 </ul>
 
-                <button
-                  onClick={() => handleModalCheckout("premium")}
+                <PaystackButton
+                  {...getConfigForPlan("premium")}
                   className="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)]"
-                >
-                  Upgrade to Premium
-                </button>
+                />
               </div>
             </div>
             
