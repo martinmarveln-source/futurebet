@@ -54,60 +54,58 @@ export async function GET(req) {
         );
       }
     }
-    const SHEET_ID = "1efYsSPNw6LJOmguPfJmzvq92o30ooAY2UgH_dbdYjq8";
-    const SHEET_NAME = "table";
-
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}`;
-
-    const res = await fetch(url);
-    const text = await res.text();
-
-    const json = JSON.parse(text.substring(47).slice(0, -2));
-    const rows = json.table.rows || [];
-
-    // Clean helper
-    const clean = (v) =>
-      String(v || "")
-        .replace(/"/g, "")
-        .trim();
-
-    // Normalize helper (for matching league names)
+    // Clean helper for normalization
+    const clean = (v) => String(v || "").trim();
     const normalize = (v) => clean(v).toLowerCase().replace(/\s+/g, "-");
 
-    // Convert sheet rows to objects
-    const table = rows.map((r) => ({
-      sn: clean(r.c?.[0]?.v),
-      country: clean(r.c?.[1]?.v),
-      league: clean(r.c?.[2]?.v),
-      team: clean(r.c?.[3]?.v),
-      gp: clean(r.c?.[4]?.v),
-      win: clean(r.c?.[5]?.v),
-      draw: clean(r.c?.[6]?.v),
-      lost: clean(r.c?.[7]?.v),
-      gs: clean(r.c?.[8]?.v),
-      gc: clean(r.c?.[9]?.v),
-      gd: clean(r.c?.[10]?.v),
-      pts: clean(r.c?.[11]?.v),
-      ppg: clean(r.c?.[12]?.v),
-      winRate: clean(r.c?.[13]?.v),
-    }));
+    const normCountry = normalize(country);
+    const normLeague = normalize(league);
 
-    // Filter requested league
-    const filtered = table.filter(
-      (r) =>
-        normalize(r.country) === normalize(country) &&
-        normalize(r.league) === normalize(league),
-    );
-    const sorted = filtered
-      .sort((a, b) => b.pts - a.pts)
-      .map((team, index) => ({
-        ...team,
-        sn: index + 1,
+    // Fetch from database cache instead of live Google Sheets
+    // If no country/league provided, return all rows
+    let table = [];
+    
+    if (normCountry && normLeague) {
+      // Find exact matches based on normalized names
+      // We pull all and filter in JS to reuse the normalize logic for now, 
+      // or we can just query directly. Since DB has exact strings, let's query directly and filter.
+      // But to ensure it matches the same logic, we'll just fetch all rows for the given country/league.
+      const rows = await sql`
+        SELECT * FROM league_table_cache
+      `;
+      
+      table = rows.filter(
+        (r) =>
+          normalize(r.country) === normCountry &&
+          normalize(r.league) === normLeague
+      );
+    } else {
+      const rows = await sql`
+        SELECT * FROM league_table_cache
+      `;
+      table = rows.map(r => ({
+        ...r,
+        winRate: r.win_rate // map snake_case to camelCase
       }));
+    }
 
-    return Response.json(sorted);
-  } catch (err) {
-    console.error("League table API error:", err);
-    return Response.json([]);
+    // Sort by points desc, then gd desc
+    const sorted = table.sort((a, b) => {
+      const ptsA = parseInt(a.pts || 0, 10);
+      const ptsB = parseInt(b.pts || 0, 10);
+      if (ptsB !== ptsA) return ptsB - ptsA;
+
+      const gdA = parseInt(a.gd || 0, 10);
+      const gdB = parseInt(b.gd || 0, 10);
+      return gdB - gdA;
+    });
+
+    return Response.json({ success: true, table: sorted }, { status: 200 });
+  } catch (error) {
+    console.error("League table error:", error);
+    return Response.json(
+      { success: false, error: "Failed to fetch table" },
+      { status: 500 },
+    );
   }
 }
