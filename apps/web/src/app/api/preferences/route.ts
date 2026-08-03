@@ -16,16 +16,24 @@ export async function GET(request) {
     `;
 
     if (rows.length === 0) {
-      // Return enterprise default profile perfectly mapped to DB schema
       return Response.json({
         preferences: {
           user_id: userId,
           favorite_leagues: [],
-          default_chance_threshold: 0, // Aligned to 0-100 UI sliders
-          default_rating_threshold: 0, // Aligned to 0-100 UI sliders
+          default_chance_threshold: 0,
+          default_rating_threshold: 0,
           favorite_markets: ["homeWin", "draw", "awayWin", "gg", "ov25"],
           telegram_bot_token: "",
           telegram_chat_id: "",
+          // Alert defaults
+          alert_enabled: false,
+          alert_send_time: "08:00",
+          alert_min_chance: 60,
+          alert_min_rating: 50,
+          alert_min_hist_rate: 0,
+          alert_markets: ["homeWin", "draw", "awayWin"],
+          alert_pick_type: "all",
+          alert_max_matches: 10,
         },
       });
     }
@@ -47,7 +55,7 @@ export async function POST(request) {
     const userId = session.user.id;
     const body = await request.json();
 
-    // 1. Strict Type Coercion (Never trust frontend payloads blindly)
+    // ── Core preferences ───────────────────────────────────────────────────
     const favorite_leagues = Array.isArray(body.favorite_leagues)
       ? body.favorite_leagues
       : [];
@@ -61,34 +69,83 @@ export async function POST(request) {
     const telegram_bot_token = String(body.telegram_bot_token || "").trim();
     const telegram_chat_id = String(body.telegram_chat_id || "").trim();
 
-    // 2. The Atomic Upsert (Top 1% Concurrency Protection)
-    // This inserts the row. If the user_id already exists, it instantly updates it instead.
+    // ── Alert preferences (Premium/Admin only — enforced server-side) ──────
+    // We still save them for everyone but the cron gate only fires for Premium/Admin
+    const alert_enabled = body.alert_enabled === true;
+    const alert_send_time = String(body.alert_send_time || "08:00").trim();
+    const alert_min_chance = Math.min(
+      100,
+      Math.max(0, Number(body.alert_min_chance ?? 60))
+    );
+    const alert_min_rating = Math.min(
+      100,
+      Math.max(0, Number(body.alert_min_rating ?? 50))
+    );
+    const alert_min_hist_rate = Math.min(
+      100,
+      Math.max(0, Number(body.alert_min_hist_rate ?? 0))
+    );
+    const alert_markets = Array.isArray(body.alert_markets)
+      ? body.alert_markets
+      : ["homeWin", "draw", "awayWin"];
+    const alert_pick_type = ["all", "aligned_only"].includes(body.alert_pick_type)
+      ? body.alert_pick_type
+      : "all";
+    const alert_max_matches = Math.min(
+      50,
+      Math.max(1, Number(body.alert_max_matches ?? 10))
+    );
+
     const result = await sql`
       INSERT INTO user_preferences (
-        user_id, 
-        favorite_leagues, 
+        user_id,
+        favorite_leagues,
         default_chance_threshold,
-        default_rating_threshold, 
-        favorite_markets, 
+        default_rating_threshold,
+        favorite_markets,
         telegram_bot_token,
-        telegram_chat_id
+        telegram_chat_id,
+        alert_enabled,
+        alert_send_time,
+        alert_min_chance,
+        alert_min_rating,
+        alert_min_hist_rate,
+        alert_markets,
+        alert_pick_type,
+        alert_max_matches
       ) VALUES (
-        ${userId}, 
-        ${favorite_leagues}, 
+        ${userId},
+        ${favorite_leagues},
         ${default_chance_threshold},
-        ${default_rating_threshold}, 
-        ${favorite_markets}, 
+        ${default_rating_threshold},
+        ${favorite_markets},
         ${telegram_bot_token},
-        ${telegram_chat_id}
+        ${telegram_chat_id},
+        ${alert_enabled},
+        ${alert_send_time},
+        ${alert_min_chance},
+        ${alert_min_rating},
+        ${alert_min_hist_rate},
+        ${alert_markets},
+        ${alert_pick_type},
+        ${alert_max_matches}
       )
       ON CONFLICT (user_id) DO UPDATE SET
-        favorite_leagues = EXCLUDED.favorite_leagues,
-        default_chance_threshold = EXCLUDED.default_chance_threshold,
-        default_rating_threshold = EXCLUDED.default_rating_threshold,
-        favorite_markets = EXCLUDED.favorite_markets,
-        telegram_bot_token = EXCLUDED.telegram_bot_token,
-        telegram_chat_id = EXCLUDED.telegram_chat_id,
-        updated_at = CURRENT_TIMESTAMP
+        favorite_leagues          = EXCLUDED.favorite_leagues,
+        default_chance_threshold  = EXCLUDED.default_chance_threshold,
+        default_rating_threshold  = EXCLUDED.default_rating_threshold,
+        favorite_markets          = EXCLUDED.favorite_markets,
+        telegram_bot_token        = EXCLUDED.telegram_bot_token,
+        telegram_chat_id          = EXCLUDED.telegram_chat_id,
+        alert_enabled             = EXCLUDED.alert_enabled,
+        alert_send_time           = EXCLUDED.alert_send_time,
+        alert_min_chance          = EXCLUDED.alert_min_chance,
+        alert_min_rating          = EXCLUDED.alert_min_rating,
+        alert_min_hist_rate       = EXCLUDED.alert_min_hist_rate,
+        alert_markets             = EXCLUDED.alert_markets,
+        alert_pick_type           = EXCLUDED.alert_pick_type,
+        alert_max_matches         = EXCLUDED.alert_max_matches,
+        updated_at                = CURRENT_TIMESTAMP
       RETURNING *
     `;
 

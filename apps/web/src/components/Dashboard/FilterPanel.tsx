@@ -1314,6 +1314,7 @@ export default function FutureBetDashboard() {
         preferences={preferencesData}
         onSave={handleSaveSettings}
         isLoading={savePreferencesMutation?.isPending}
+        isPremium={isAdmin || isPremium}
       />
 
       <StickySocialBar darkMode={darkMode} />

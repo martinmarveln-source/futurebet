@@ -943,6 +943,7 @@ export default function FutureBetDashboard() {
           preferences={preferencesData}
           onSave={handleSaveSettings}
           isLoading={savePreferencesMutation?.isPending}
+          isPremium={isAdmin || isPremium}
         />
 
         <div className="h-28 sm:h-32" />
