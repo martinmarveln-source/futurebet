@@ -2812,14 +2812,14 @@ export default function MatchCard({
                 <SmallStat
                   k="Hist. Win Rate"
                   v={
-                    canSeeAdvancedData ? (
+                    (isAdmin || isPremium) ? (
                       mlStats.winRate !== null ? (
                         <span className="text-emerald-500 font-extrabold">{mlStats.label}</span>
                       ) : (
                         "—"
                       )
                     ) : (
-                      <span className="flex items-center gap-1.5 cursor-pointer text-amber-500 text-sm w-full">
+                      <span className="flex items-center gap-1.5 cursor-pointer text-amber-500 text-sm w-full" onClick={() => window.location.href = "#"}>
                         <Lock size={12} />
                       </span>
                     )
