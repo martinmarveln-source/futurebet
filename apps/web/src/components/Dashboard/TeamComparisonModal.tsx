@@ -23,22 +23,7 @@ import {
   Share2,
   Terminal,
 } from "lucide-react";
-// PAYMENT_URL can be your Selar link or internal upgrade page
-const SILVER_PAYMENT_URL = "https://selar.com/1a37i21121";
-const PREMIUM_PAYMENT_URL = "https://selar.com/8x155u0715";
-const PAYMENT_URL = PREMIUM_PAYMENT_URL;
-
-function getUpgradeUrlForFeature(feature = "overview") {
-  if (feature === "recent" || feature === "h2h") {
-    return SILVER_PAYMENT_URL;
-  }
-
-  if (feature === "intelligence") {
-    return PREMIUM_PAYMENT_URL;
-  }
-
-  return PREMIUM_PAYMENT_URL;
-}
+import UpgradeButton from "./UpgradeButton";
 const PLAN_ORDER = {
   free: 0,
   silver: 1,
@@ -331,8 +316,7 @@ const BlurredSection = ({
   const plan = resolveUserPlan({ user });
   const hasAccess = hasFeatureAccess(plan, feature);
   const meta = getFeatureAccessMeta(feature);
-  const finalUpgradeUrl = upgradeUrl || getUpgradeUrlForFeature(feature);
-  const finalLearnMoreUrl = learnMoreUrl || finalUpgradeUrl;
+  const finalLearnMoreUrl = learnMoreUrl;
 
   const open = (url) => {
     if (typeof window === "undefined" || !url) return;
@@ -359,14 +343,12 @@ const BlurredSection = ({
         </div>
 
         <div className="mt-4 flex items-center justify-center gap-3">
-          <PrimaryButton
-            onClick={(e) => {
-              e.stopPropagation();
-              open(finalUpgradeUrl);
-            }}
+          <UpgradeButton 
+            plan={feature === "recent" || feature === "h2h" ? "silver" : "premium"}
+            className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
           >
             {meta.ctaLabel}
-          </PrimaryButton>
+          </UpgradeButton>
 
           <SecondaryButton
             darkMode={false}

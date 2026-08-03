@@ -25,10 +25,7 @@ import {
   Flame,
   Plus,
 } from "lucide-react";
-
-const PREMIUM_URL = "https://selar.com/8x155u0715";
-const SILVER_URL = "https://selar.com/1a37i21121";
-
+import UpgradeButton from "./UpgradeButton";
 const cn = (...classes) => classes.filter(Boolean).join(" ");
 
 const clamp = (value, min = 0, max = 100) =>
@@ -2793,10 +2790,8 @@ export default function TeamCompare({ darkMode = false }) {
             </div>
 
             <div className="mt-5 flex flex-wrap gap-3">
-              <a
-                href={SILVER_URL}
-                target="_blank"
-                rel="noreferrer"
+              <UpgradeButton
+                plan="silver"
                 className={cn(
                   "rounded-2xl px-4 py-2.5 text-sm font-bold transition",
                   darkMode
@@ -2805,11 +2800,9 @@ export default function TeamCompare({ darkMode = false }) {
                 )}
               >
                 Upgrade to Silver
-              </a>
-              <a
-                href={PREMIUM_URL}
-                target="_blank"
-                rel="noreferrer"
+              </UpgradeButton>
+              <UpgradeButton
+                plan="premium"
                 className={cn(
                   "rounded-2xl px-4 py-2.5 text-sm font-bold transition",
                   darkMode
@@ -2818,7 +2811,7 @@ export default function TeamCompare({ darkMode = false }) {
                 )}
               >
                 Upgrade to Premium
-              </a>
+              </UpgradeButton>
             </div>
           </div>
         </div>

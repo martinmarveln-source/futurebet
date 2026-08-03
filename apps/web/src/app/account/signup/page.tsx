@@ -47,6 +47,7 @@ function MainComponent() {
 
   // Single object state → cleaner updates + fewer state hooks
   const [form, setForm] = useState({
+    name: "",
     email: "",
     password: "",
   });
@@ -81,7 +82,7 @@ function MainComponent() {
       e.preventDefault();
       setError(null);
 
-      if (!form.email || !form.password) {
+      if (!form.name || !form.email || !form.password) {
         setError("Please fill in all fields.");
         return;
       }
@@ -132,6 +133,15 @@ function MainComponent() {
         </div>
 
         <form noValidate onSubmit={onSubmit} className="space-y-6">
+          <InputField
+            label="Name"
+            name="name"
+            type="text"
+            value={form.name}
+            onChange={handleChange}
+            placeholder="John Doe"
+          />
+
           <InputField
             label="Email"
             name="email"

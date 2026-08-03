@@ -6,6 +6,7 @@ import { Download, Lock, RefreshCw, Sparkles, Database } from "lucide-react";
 import MatchCard from "./MatchCard";
 import useUser from "@/utils/useUser";
 import useUserPermissions from "@/hooks/useUserPermissions";
+import UpgradeButton from "./UpgradeButton";
 
 /* -----------------------------
    Small UI helper
@@ -495,14 +496,9 @@ export default function MatchesList({
 
     if (isLocked) {
       return (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            handleUpgrade();
-          }}
+        <UpgradeButton
           className={cn(
-            "relative flex flex-col items-start px-5 py-3.5 rounded-2xl border transition-all min-w-[240px] flex-1",
+            "relative flex flex-col items-start px-5 py-3.5 rounded-2xl border transition-all min-w-[240px] flex-1 text-left",
             lockedStyle
           )}
           title={lockedLabel}
@@ -514,7 +510,7 @@ export default function MatchesList({
           <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">
             {lockedLabel}
           </span>
-        </button>
+        </UpgradeButton>
       );
     }
 

@@ -2,17 +2,14 @@
 import { memo } from "react";
 import { Lock, X, ExternalLink } from "lucide-react";
 import { cn } from "@/utils/matchUtils";
+import UpgradeButton from "./UpgradeButton";
 
 export const PremiumHomeModal = memo(function PremiumHomeModal({
   open,
   onClose,
   darkMode,
-  upgradeUrl,
 }) {
   if (!open) return null;
-
-  const openUpgrade = () =>
-    window.open(upgradeUrl, "_blank", "noopener,noreferrer");
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3">
@@ -113,18 +110,14 @@ export const PremiumHomeModal = memo(function PremiumHomeModal({
               Not now
             </button>
 
-            <button
-              onClick={openUpgrade}
+            <UpgradeButton
               className={cn(
                 "px-4 py-2 rounded-2xl text-sm font-extrabold text-white transition active:scale-[0.99]",
                 "bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700",
               )}
             >
               Upgrade
-              {typeof ExternalLink !== "undefined" ? (
-                <ExternalLink className="inline-block ml-2 h-4 w-4" />
-              ) : null}
-            </button>
+            </UpgradeButton>
           </div>
         </div>
       </div>

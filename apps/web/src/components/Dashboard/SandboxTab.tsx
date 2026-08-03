@@ -15,6 +15,7 @@ import {
   LineChart as LineChartIcon,
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import UpgradeButton from "./UpgradeButton";
 
 function cn(...c: any[]) {
   return c.filter(Boolean).join(" ");
@@ -666,10 +667,7 @@ export default function SandboxTab({ darkMode, isAdmin, isPremium }: { darkMode?
           </p>
         </div>
 
-        <a
-          href="https://selar.com/8x155u0715"
-          target="_blank"
-          rel="noreferrer"
+        <UpgradeButton
           className="relative z-10 group mt-4 inline-flex items-center justify-center gap-3 px-8 py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-black uppercase tracking-widest hover:brightness-110 transition-all active:scale-[0.98] shadow-[0_0_30px_rgba(37,99,235,0.4)] hover:shadow-[0_0_40px_rgba(37,99,235,0.6)] animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200"
         >
           <Sparkles size={16} className="opacity-80 group-hover:animate-spin" />
@@ -678,7 +676,7 @@ export default function SandboxTab({ darkMode, isAdmin, isPremium }: { darkMode?
             size={16}
             className="opacity-80 group-hover:translate-x-1 transition-transform"
           />
-        </a>
+        </UpgradeButton>
       </div>
     );
   }

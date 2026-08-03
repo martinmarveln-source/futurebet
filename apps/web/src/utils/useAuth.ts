@@ -21,7 +21,14 @@ export default function useAuth() {
       const { data, error } = await signUp.email({ 
         email: credentials.email, 
         password: credentials.password, 
-        name: credentials.name || "" 
+        name: credentials.name,
+        fetchOptions: {
+          onSuccess: () => {
+            if (credentials.redirect && typeof window !== "undefined") {
+              window.location.href = credentials.callbackUrl || "/";
+            }
+          }
+        }
       });
       if (error) throw new Error(error.message || "EmailCreateAccount");
       return data;

@@ -13,6 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import useUser from "@/utils/useUser";
 import useUserPermissions from "@/hooks/useUserPermissions";
 import { useState } from "react";
+import UpgradeButton from "./UpgradeButton";
 
 export default function Header({
   darkMode,
@@ -218,14 +219,11 @@ export default function Header({
                 {!userPermissions?.isPremium &&
                   !userPermissions?.isAdmin &&
                   !userPermissions?.isSilver && (
-                    <button
-                      onClick={handleUpgradeClick}
+                    <UpgradeButton
                       className="flex items-center space-x-1 px-3 py-1 text-xs font-medium bg-yellow-500 text-white rounded-full hover:bg-yellow-600 transition-colors"
-                      title="Upgrade to Premium - $2.09/month"
                     >
                       <span>Upgrade</span>
-                      <ExternalLink className="h-3 w-3" />
-                    </button>
+                    </UpgradeButton>
                   )}
               </div>
               <a

@@ -23,6 +23,7 @@ import StickySocialBar from "@/components/Dashboard/StickySocialBar";
 import { PremiumHomeModal } from "@/components/Dashboard/PremiumHomeModal";
 import AutoPickModal from "@/components/Dashboard/AutoPickModal";
 import { useAutoPickLogic } from "@/hooks/useAutoPickLogic";
+import UpgradeButton from "@/components/Dashboard/UpgradeButton";
 import { useHomeData } from "@/hooks/useHomeData";
 import { TabNavigation } from "@/components/Dashboard/TabNavigation";
 import { DashboardTab } from "@/components/Dashboard/DashboardTab";
@@ -773,10 +774,7 @@ export default function FutureBetDashboard() {
                     </p>
                   </div>
 
-                  <a
-                    href={UPGRADE_URL}
-                    target="_blank"
-                    rel="noreferrer"
+                  <UpgradeButton
                     className={cn(
                       "inline-flex items-center justify-center rounded-2xl border px-5 py-3 text-sm font-semibold transition-all duration-200",
                       darkMode
@@ -785,7 +783,7 @@ export default function FutureBetDashboard() {
                     )}
                   >
                     Upgrade to Pro
-                  </a>
+                  </UpgradeButton>
                 </div>
               </GlassShell>
             )}

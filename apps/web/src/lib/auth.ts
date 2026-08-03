@@ -163,10 +163,13 @@ export const auth = betterAuth({
   user: {
     modelName: 'auth_users',
     additionalFields: {
-      image: {
-        type: 'string',
-        required: false,
-      },
+      image: { type: 'string', required: false },
+      subscription_status: { type: 'string', required: false },
+      subscription_expires_at: { type: 'date', required: false },
+      user_role: { type: 'string', required: false },
+      first_name: { type: 'string', required: false },
+      last_name: { type: 'string', required: false },
+      username: { type: 'string', required: false },
     },
   },
   // Enable Authorization: Bearer <session-token> so mobile apps (which can't

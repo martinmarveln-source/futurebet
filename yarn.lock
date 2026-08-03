@@ -4458,6 +4458,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@paystack/inline-js@npm:^2.19.2":
+  version: 2.24.0
+  resolution: "@paystack/inline-js@npm:2.24.0"
+  checksum: 10c0/38960aea0f9d146621a6308fd5f653ca4f16ab0d8baecbd4ff2c62aae21d1c7561f5fb7ce042287332680334eb076d07ed03314fb946d166e8a6b64c40925518
+  languageName: node
+  linkType: hard
+
 "@pkgjs/parseargs@npm:^0.11.0":
   version: 0.11.0
   resolution: "@pkgjs/parseargs@npm:0.11.0"
@@ -18065,6 +18072,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-paystack@npm:^6.0.0":
+  version: 6.0.0
+  resolution: "react-paystack@npm:6.0.0"
+  dependencies:
+    "@paystack/inline-js": "npm:^2.19.2"
+    "@testing-library/dom": "npm:^10.4.0"
+  peerDependencies:
+    react: ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0
+    react-dom: ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0
+  checksum: 10c0/4ab7ad927061f5e9f774c68983f70316c617013565fa70753fead0615097a2cebc6b0f278a587de94dfcf8d7f7b5ae17ecaa486fc3674c20ce4dbb504a71e024
+  languageName: node
+  linkType: hard
+
 "react-reconciler@npm:0.31.0":
   version: 0.31.0
   resolution: "react-reconciler@npm:0.31.0"
@@ -20597,6 +20617,7 @@ __metadata:
     react-day-picker: "npm:^9.14.0"
     react-dom: "npm:^19.0.4"
     react-hook-form: "npm:^7.72.0"
+    react-paystack: "npm:^6.0.0"
     recharts: "npm:3.8.0"
     sonner: "npm:^2.0.7"
     tailwind-merge: "npm:^3.2.0"
