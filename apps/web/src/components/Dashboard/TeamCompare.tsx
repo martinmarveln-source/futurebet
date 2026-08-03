@@ -3806,7 +3806,7 @@ export default function TeamCompare({ darkMode = false }) {
                 },
               ].map((entry) => (
                 <div
-                  key={entry.team}
+                  key={`${entry.team}-${entry.tone}`}
                   className={cn(
                     "rounded-3xl border p-4 sm:p-5",
                     darkMode
