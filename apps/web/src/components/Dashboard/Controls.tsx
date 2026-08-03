@@ -609,6 +609,7 @@ export default function Controls({
       { value: "gg", label: "Sort by BTTS" },
       { value: "ov25", label: "Sort by Over 2.5" },
       { value: "cs", label: "Sort by CS" },
+      { value: "histWinRate", label: "Sort by Hist. Win Rate" },
     ],
     []
   );

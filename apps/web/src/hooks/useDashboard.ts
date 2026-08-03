@@ -4,6 +4,93 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession, signOut } from "@/lib/auth-client";
 import useUserPermissions from "@/hooks/useUserPermissions";
 
+function getDbMarketName(pickStr) {
+  const rawMarket = String(pickStr || "").trim().toUpperCase();
+  if (rawMarket === "HOME WIN" || rawMarket === "HOME" || rawMarket === "1" || rawMarket.includes("HOME")) return "HOME";
+  if (rawMarket === "AWAY WIN" || rawMarket === "AWAY" || rawMarket === "2" || rawMarket.includes("AWAY")) return "AWAY";
+  if (rawMarket === "DRAW" || rawMarket === "X") return "DRAW";
+  if (rawMarket === "GG" || rawMarket === "BTTS - YES" || rawMarket === "BTTS YES" || rawMarket.includes("GG") || rawMarket.includes("YES")) return "GG";
+  if (rawMarket === "NG" || rawMarket === "BTTS - NO" || rawMarket.includes("NG") || rawMarket.includes("NO")) return "NG";
+  if (rawMarket === "OV2.5" || rawMarket === "OV.2.5" || rawMarket === "OVER 2.5" || rawMarket === "OVER2.5" || rawMarket === "OV" || rawMarket.includes("OV") || rawMarket.includes("OVER")) return "OV";
+  if (rawMarket === "UN2.5" || rawMarket === "UN.2.5" || rawMarket === "UNDER 2.5" || rawMarket === "UNDER2.5" || rawMarket === "UN" || rawMarket.includes("UN") || rawMarket.includes("UNDER")) return "UN";
+  return rawMarket;
+}
+
+function calculateHistWinRate(match, archiveData) {
+  if (!archiveData.length || !match?.chance || !match?.rating || !match?.pick) {
+    return -1;
+  }
+
+  const matchChance = Number(match.chance);
+  const matchRating = Number(match.rating);
+  const normalizedMatchChance = matchChance <= 1 && matchChance > 0 ? matchChance * 100 : matchChance;
+  const normalizedMatchRating = matchRating <= 1 && matchRating > 0 ? matchRating * 100 : matchRating;
+
+  const dbMarket = getDbMarketName(match.pick);
+
+  let matchedRows = archiveData.filter((row: any) => {
+    const chance = Number(row.chance || 0);
+    const rating = Number(row.rating || 0);
+    const market = String(row.market || "").toUpperCase();
+    const result = String(row.result || "").toUpperCase().trim();
+
+    const normalizedChance = chance <= 1 && chance > 0 ? chance * 100 : chance;
+    const normalizedRating = rating <= 1 && rating > 0 ? rating * 100 : rating;
+
+    const chanceDiff = Math.abs(normalizedChance - normalizedMatchChance);
+    const ratingDiff = Math.abs(normalizedRating - normalizedMatchRating);
+
+    return (
+      chanceDiff <= 5 &&
+      ratingDiff <= 5 &&
+      market === dbMarket &&
+      (result === "W" || result === "L")
+    );
+  });
+
+  if (matchedRows.length < 15) {
+    matchedRows = archiveData.filter((row: any) => {
+      const chance = Number(row.chance || 0);
+      const rating = Number(row.rating || 0);
+      const market = String(row.market || "").toUpperCase();
+      const result = String(row.result || "").toUpperCase().trim();
+
+      const normalizedChance = chance <= 1 && chance > 0 ? chance * 100 : chance;
+      const normalizedRating = rating <= 1 && rating > 0 ? rating * 100 : rating;
+
+      return (
+        normalizedChance >= normalizedMatchChance &&
+        normalizedRating >= normalizedMatchRating &&
+        market === dbMarket &&
+        (result === "W" || result === "L")
+      );
+    });
+  }
+
+  if (matchedRows.length < 10) {
+    matchedRows = archiveData.filter((row: any) => {
+      const chance = Number(row.chance || 0);
+      const rating = Number(row.rating || 0);
+      const result = String(row.result || "").toUpperCase().trim();
+
+      const normalizedChance = chance <= 1 && chance > 0 ? chance * 100 : chance;
+      const normalizedRating = rating <= 1 && rating > 0 ? rating * 100 : rating;
+
+      return (
+        normalizedChance >= normalizedMatchChance &&
+        normalizedRating >= normalizedMatchRating &&
+        (result === "W" || result === "L")
+      );
+    });
+  }
+
+  const total = matchedRows.length;
+  if (total === 0) return -1;
+
+  const wins = matchedRows.filter((r: any) => String(r.result || "").toUpperCase().trim() === "W").length;
+  return (wins / total) * 100;
+}
+
 export default function useDashboard() {
   const { data: sessionData, isPending: userLoading } = useSession();
   const user = sessionData?.user;
@@ -56,6 +143,20 @@ export default function useDashboard() {
     },
     refetchInterval: 1000 * 60 * 60,
     staleTime: 1000 * 60 * 30,
+  });
+
+  const { data: archiveData = [] } = useQuery({
+    queryKey: ["ml-archive-data"],
+    queryFn: async () => {
+      const response = await fetch("/api/ml-archive");
+      if (response.status === 403) {
+        return [];
+      }
+      if (!response.ok) throw new Error("Failed to fetch archive data");
+      return response.json();
+    },
+    staleTime: 0,
+    gcTime: 0,
   });
 
   const { data: preferencesData } = useQuery({
@@ -246,6 +347,10 @@ export default function useDashboard() {
           aValue = a.rating || 0;
           bValue = b.rating || 0;
           break;
+        case "histWinRate":
+          aValue = calculateHistWinRate(a, archiveData);
+          bValue = calculateHistWinRate(b, archiveData);
+          break;
         default:
           aValue = a.chance || 0;
           bValue = b.chance || 0;
@@ -255,6 +360,7 @@ export default function useDashboard() {
     });
   }, [
     matchesData?.matches,
+    archiveData,
     selectedDate,
     dateRange,
     selectedLeagues,

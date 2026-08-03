@@ -632,12 +632,13 @@ function Meter({
   );
 }
 
-function SmallStat({ k, v, darkMode }) {
+function SmallStat({ k, v, darkMode, className }) {
   return (
     <div
       className={cn(
         "rounded-2xl border p-3 flex flex-col justify-between h-full",
-        darkMode ? "border-white/10 bg-white/5" : "border-gray-200 bg-white"
+        darkMode ? "border-white/10 bg-white/5" : "border-gray-200 bg-white",
+        className
       )}
     >
       <div
@@ -2826,16 +2827,8 @@ export default function MatchCard({
                   darkMode={darkMode}
                 />
                 <SmallStat
-                  k="Hist. Sample"
-                  v={
-                    canSeeAdvancedData ? (
-                      mlStats.sampleSize ? `${mlStats.sampleSize} matches` : "—"
-                    ) : (
-                      <span className="flex items-center gap-1.5 cursor-pointer text-amber-500 text-sm w-full">
-                        <Lock size={12} />
-                      </span>
-                    )
-                  }
+                  k="Draw %"
+                  v={`${pct(match?.draw)}%`}
                   darkMode={darkMode}
                 />
                 <SmallStat
@@ -2847,6 +2840,12 @@ export default function MatchCard({
                   k="Away %"
                   v={`${pct(match?.awayWin)}%`}
                   darkMode={darkMode}
+                />
+                <SmallStat
+                  k="League"
+                  v={safeStr(match?.fullLeague || match?.league) || "—"}
+                  darkMode={darkMode}
+                  className="col-span-2 text-xs"
                 />
               </div>
 
