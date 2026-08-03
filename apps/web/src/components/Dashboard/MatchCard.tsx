@@ -1609,7 +1609,7 @@ export default function MatchCard({
   );
 
   const canSeeAdvancedData = isAdmin || isPremium || isSilver;
-  const canSeeAiInsight = isAdmin || isPremium;
+  const canSeeAiInsight = isAdmin || isPremium || isSilver;
   const canSeePredictedScore = canSeeAdvancedData;
   const isPro = canSeeAiInsight;
 

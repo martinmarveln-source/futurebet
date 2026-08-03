@@ -193,10 +193,10 @@ export default function Header({
                         <span className="text-gray-600">Free</span>
                       )}
                       {/* Show today's usage under subscription status */}
-                      {(userPermissions.isPremium || userPermissions.isAdmin) &&
+                      {(userPermissions.isPremium || userPermissions.isAdmin || userPermissions.isSilver) &&
                         usageStats && (
                           <div className="text-xs mt-1">
-                            {userPermissions.isAdmin ? (
+                            {userPermissions.isAdmin || userPermissions.isPremium ? (
                               <span className="text-purple-500">
                                 Unlimited AI
                               </span>

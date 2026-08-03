@@ -38,19 +38,22 @@ export async function POST(req) {
       new Date(userRecord.subscription_expires_at) > new Date();
 
     const isAdmin = role === "admin";
-    // AI Insights are Premium+ only. Admin cascades down to Premium.
+    const isSilver =
+      role === "silver" || (subStatus === "silver" && subValid);
+
+    // AI Insights are Premium/Silver only. Admin cascades down to Premium.
     const isPremium =
       isAdmin || role === "premium" || (subStatus === "premium" && subValid);
 
-    if (!isPremium) {
+    if (!isPremium && !isSilver) {
       return Response.json(
-        { error: "Premium subscription required" },
+        { error: "Premium or Silver subscription required" },
         { status: 403 }
       );
     }
 
-    // Check usage limits for premium users (Admins bypass this)
-    if (!isAdmin && isPremium) {
+    // Check usage limits for silver users (Premium/Admins bypass this completely)
+    if (!isAdmin && !isPremium && isSilver) {
       const [todayUsage] = await sql`
         SELECT 
           COUNT(*) FILTER (WHERE insight_type = 'positive') as positive_count,

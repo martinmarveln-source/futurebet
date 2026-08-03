@@ -38,7 +38,12 @@ export async function GET(req) {
       userRecord?.subscription_expires_at &&
       new Date(userRecord.subscription_expires_at) > new Date();
 
-    const isPro = Boolean(isAdmin || isPremium);
+    const isSilver =
+      userRecord?.subscription_status === "silver" &&
+      userRecord?.subscription_expires_at &&
+      new Date(userRecord.subscription_expires_at) > new Date();
+
+    const isPro = Boolean(isAdmin || isPremium || isSilver);
 
     // ✅ Totals for selected period
     let totalUsage;
@@ -114,22 +119,22 @@ export async function GET(req) {
 
     const used = toInt(todayUsage?.today_insights, 0);
 
-    const dailyLimit = isAdmin ? null : isPro ? PREMIUM_DAILY_LIMIT : 0;
-    const remaining = isAdmin ? null : Math.max(0, (dailyLimit ?? 0) - used);
+    const dailyLimit = (isAdmin || isPremium) ? null : isSilver ? 20 : 0;
+    const remaining = (isAdmin || isPremium) ? null : Math.max(0, (dailyLimit ?? 0) - used);
 
     const resetsAt = todayUsage?.window_end
       ? new Date(todayUsage.window_end).toISOString()
       : null;
 
-    const message = isAdmin
-      ? "Admin: unlimited AI Insights."
-      : isPro
+    const message = (isAdmin || isPremium)
+      ? "Premium: unlimited AI Insights."
+      : isSilver
         ? remaining > 0
           ? `You have ${remaining} AI Insight request${
               remaining === 1 ? "" : "s"
             } left. Reset is 3:00AM (WAT).`
           : "You’ve hit today’s AI Insight limit. It resets at 3:00AM (WAT)."
-        : "AI Insights are Premium. Upgrade to unlock daily insights and risk analysis.";
+        : "AI Insights are Silver/Premium. Upgrade to unlock daily insights and risk analysis.";
 
     return Response.json({
       ok: true,
