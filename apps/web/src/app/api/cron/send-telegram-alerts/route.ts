@@ -194,6 +194,11 @@ export async function GET(request: Request) {
         continue;
       }
 
+      // Current time in WAT (UTC+1) — match times in DB are stored in WAT
+      const nowUTC = new Date();
+      const nowWATMinutes =
+        nowUTC.getUTCHours() * 60 + nowUTC.getUTCMinutes() + 60; // +60 = WAT offset
+
       // Apply user's filters
       let filtered = matches.filter((m) => {
         const chanceVal = Number(m.chance ?? 0);
@@ -207,10 +212,14 @@ export async function GET(request: Request) {
         if (pickType === "aligned_only" && m.flag !== "✅") return false;
         if (!matchesMarket(m.guide, markets)) return false;
 
-        // Hist win rate filter (stored in raw_data or skip if minHistRate=0)
-        if (minHistRate > 0) {
-          // hist_rate not stored per-match in cache; skip those without it
-          // This filter acts as a soft gate
+        // ── Kickoff time guard: skip matches that have already started ──────
+        // match_time is stored as "HH:MM" in WAT
+        if (m.match_time) {
+          const parts = String(m.match_time).split(":");
+          const kickoffWATMinutes =
+            parseInt(parts[0] ?? "0", 10) * 60 + parseInt(parts[1] ?? "0", 10);
+          // Exclude if kickoff has already passed (allow up to 5 min grace window)
+          if (kickoffWATMinutes < nowWATMinutes - 5) return false;
         }
 
         return true;
