@@ -189,8 +189,6 @@ export default function UpgradeButtonInner({ plan: defaultPlan, className, child
                   </li>
                 </ul>
 
-                </ul>
-
                 {isPremium || isSilver ? (
                   <button disabled className="w-full py-3.5 rounded-xl bg-slate-800 text-slate-500 font-bold cursor-not-allowed border border-slate-700">
                     {isSilver ? "Current Plan" : "Included in Premium"}
@@ -242,8 +240,6 @@ export default function UpgradeButtonInner({ plan: defaultPlan, className, child
                     <Check className="w-5 h-5 text-indigo-400 shrink-0" />
                     <span>Unlimited multi-team comparisons</span>
                   </li>
-                </ul>
-
                 </ul>
 
                 {isPremium ? (
