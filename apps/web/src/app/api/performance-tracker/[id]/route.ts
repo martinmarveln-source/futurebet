@@ -1,4 +1,3 @@
-// @ts-nocheck
 import sql from "@/app/api/utils/sql";
 import { auth } from "@/auth";
 

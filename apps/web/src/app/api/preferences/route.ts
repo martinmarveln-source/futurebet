@@ -1,8 +1,7 @@
-// @ts-nocheck
 import sql from "@/app/api/utils/sql";
 import { auth } from "@/auth";
 
-export async function GET(request) {
+export async function GET(request: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id) {

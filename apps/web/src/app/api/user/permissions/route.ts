@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { auth } from "@/auth";
 import sql from "@/app/api/utils/sql";
 
@@ -57,6 +56,9 @@ export async function GET() {
     // Silver inherits all Premium and Admin rights downwards
     const isSilver =
       isPremium || role === "silver" || (subStatus === "silver" && subValid);
+    // isSilverOnly is true ONLY for users on the Silver tier (not Premium or Admin)
+    const isSilverOnly =
+      !isPremium && (role === "silver" || (subStatus === "silver" && subValid));
 
     const hasValidSubscription = isAdmin || subValid;
 
@@ -73,6 +75,7 @@ export async function GET() {
       isAdmin,
       isPremium,
       isSilver,
+      isSilverOnly,
       hasValidSubscription,
       hasFilterAccess,
       subscriptionExpiresAt: user.subscription_expires_at,

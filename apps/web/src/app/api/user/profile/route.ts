@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { auth } from "@/auth";
 import sql from "@/app/api/utils/sql";
 import { hashPassword, verifyPassword } from "better-auth/crypto";

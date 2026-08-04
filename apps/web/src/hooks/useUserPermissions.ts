@@ -23,6 +23,7 @@ export default function useUserPermissions() {
   const isAdmin = permissions?.isAdmin || false;
   const isPremium = permissions?.isPremium || false;
   const isSilver = permissions?.isSilver || false;
+  const isSilverOnly = permissions?.isSilverOnly || false;
   const hasFilterAccess = permissions?.hasFilterAccess || false;
   const canAccessAIInsights = permissions?.canAccessAIInsights || false;
 
@@ -45,6 +46,7 @@ export default function useUserPermissions() {
     isAdmin,
     isPremium,
     isSilver,
+    isSilverOnly,
     hasFilterAccess,
     canAccessAIInsights,
     role: permissions?.role || "guest",
