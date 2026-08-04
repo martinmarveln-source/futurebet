@@ -674,9 +674,9 @@ export default function BetSlip({ darkMode = false }) {
                   key={amt}
                   onClick={() => handleQuickStakeSingles(amt)}
                   className={cn(
-                    "flex-1 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest border transition-colors",
+                    "flex-1 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest border transition-all active:scale-[0.98]",
                     darkMode
-                      ? "border-white/10 bg-white/5 hover:bg-white/10 text-gray-300"
+                      ? "border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 text-gray-300"
                       : "border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
                   )}
                 >
@@ -694,9 +694,9 @@ export default function BetSlip({ darkMode = false }) {
                   key={amt}
                   onClick={() => handleQuickStakeAll(amt)}
                   className={cn(
-                    "flex-1 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest border transition-colors",
+                    "flex-1 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest border transition-all active:scale-[0.98]",
                     darkMode
-                      ? "border-white/10 bg-white/5 hover:bg-white/10 text-gray-300"
+                      ? "border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 text-gray-300"
                       : "border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
                   )}
                 >
@@ -713,9 +713,9 @@ export default function BetSlip({ darkMode = false }) {
                 onClick={handleShare}
                 disabled={missingSelection}
                 className={cn(
-                  "flex-1 py-3.5 rounded-2xl text-xs font-black transition flex items-center justify-center gap-2",
+                  "flex-1 py-3.5 rounded-2xl text-xs font-black transition-all active:scale-[0.98] flex items-center justify-center gap-2",
                   darkMode
-                    ? "bg-white/5 border border-white/10 hover:bg-white/10 text-gray-300"
+                    ? "bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 text-gray-300"
                     : "bg-gray-100 border border-gray-200 hover:bg-gray-200 text-gray-700",
                   missingSelection && "opacity-50 cursor-not-allowed"
                 )}
@@ -732,7 +732,7 @@ export default function BetSlip({ darkMode = false }) {
                   grandTotalStake === 0
                 }
                 className={cn(
-                  "flex-1 py-3.5 rounded-2xl text-xs font-black transition flex items-center justify-center gap-2",
+                  "flex-1 py-3.5 rounded-2xl text-xs font-black transition-all active:scale-[0.98] flex items-center justify-center gap-2",
                   !isPro
                     ? "bg-gray-200 text-gray-500"
                     : missingSelection || tracking || grandTotalStake === 0
@@ -778,10 +778,10 @@ export default function BetSlip({ darkMode = false }) {
                 onClick={handleRouteToBookie}
                 disabled={missingSelection || isRouting}
                 className={cn(
-                  "w-2/3 py-3.5 rounded-r-2xl text-sm font-black transition shadow-lg flex items-center justify-center gap-2 relative overflow-hidden",
+                  "w-2/3 py-3.5 rounded-r-2xl text-sm font-black transition-all active:scale-[0.98] shadow-lg flex items-center justify-center gap-2 relative overflow-hidden",
                   missingSelection
                     ? "bg-gray-400 text-white opacity-50 cursor-not-allowed"
-                    : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20"
+                    : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/20 hover:shadow-emerald-500/40"
                 )}
               >
                 {isRouting ? (

@@ -218,7 +218,7 @@ export default function Header({
 
           <button
             onClick={() => setDarkMode(!darkMode)}
-            className={`p-2 rounded-lg ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-100 hover:bg-gray-200"}`}
+            className={`p-2 rounded-lg transition-transform active:scale-95 ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-100 hover:bg-gray-200"}`}
           >
             {darkMode ? (
               <Sun className="h-5 w-5" />
@@ -289,20 +289,20 @@ export default function Header({
               </div>
               <a
                 href="/account/profile"
-                className={`p-2 rounded-lg ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-100 hover:bg-gray-200"}`}
+                className={`p-2 rounded-lg transition-transform active:scale-95 ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-100 hover:bg-gray-200"}`}
                 title="Profile Settings"
               >
                 <User className="h-5 w-5" />
               </a>
               <button
                 onClick={onShowSettings}
-                className={`p-2 rounded-lg ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-100 hover:bg-gray-200"}`}
+                className={`p-2 rounded-lg transition-transform active:scale-95 ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-100 hover:bg-gray-200"}`}
               >
                 <Settings className="h-5 w-5" />
               </button>
               <button
                 onClick={() => signOut({ callbackUrl: "/", redirect: true })}
-                className={`p-2 rounded-lg text-red-600 ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-100 hover:bg-gray-200"}`}
+                className={`p-2 rounded-lg text-red-600 transition-transform active:scale-95 ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-100 hover:bg-gray-200"}`}
               >
                 <LogOut className="h-5 w-5" />
               </button>

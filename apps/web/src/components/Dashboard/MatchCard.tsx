@@ -522,8 +522,8 @@ const Card = memo(function Card({ darkMode, children, accent, isSystemMatch }) {
   return (
     <article
       className={cn(
-        "relative overflow-hidden rounded-3xl border p-4 sm:p-5 transition",
-        "shadow-sm hover:shadow-lg hover:-translate-y-[1px]",
+        "relative overflow-hidden rounded-3xl border p-4 sm:p-5 transition-all duration-300 active:scale-[0.98]",
+        "shadow-sm hover:shadow-xl hover:-translate-y-1",
         darkMode
           ? "bg-gradient-to-b from-white/[0.06] to-white/[0.03]"
           : "bg-white",
