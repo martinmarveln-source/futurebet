@@ -92,7 +92,15 @@ function calculateHistWinRate(match, archiveData) {
 }
 
 export default function useDashboard() {
-  const { data: sessionData, isPending: userLoading } = useSession();
+  const { data: sessionData, isPending: isSessionPending } = useSession();
+  const [forceReady, setForceReady] = useState(false);
+  
+  useEffect(() => {
+    const timer = setTimeout(() => setForceReady(true), 2500); // 2.5s fallback
+    return () => clearTimeout(timer);
+  }, []);
+
+  const userLoading = isSessionPending && !forceReady;
   const user = sessionData?.user;
   const {
     permissions,
