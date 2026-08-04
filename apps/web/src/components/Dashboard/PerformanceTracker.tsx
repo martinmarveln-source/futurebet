@@ -3,6 +3,12 @@
 
 import useBetslipStore from "@/store/betslipStore";
 import useUserPermissions from "@/hooks/useUserPermissions";
+import { 
+  cn, 
+  valueTagFromVip, 
+  fairOddsFromChance, 
+  formatNaira 
+} from "@/utils/matchUtils";
 import { useEffect, useMemo, useState } from "react";
 import {
   Target,
@@ -299,8 +305,7 @@ export default function PerformanceTracker({ darkMode }) {
   const [ticketStakeMap, setTicketStakeMap] = useState({});
 
   const fmtNgn = (n) => {
-    const v = Number(n);
-    return Number.isFinite(v) ? v.toLocaleString() : "0";
+    return formatNaira(n).replace("₦", "").trim(); // keep local fmtNgn for cases where only the number is needed, but properly formatted
   };
 
   const betslipStakeInput = useBetslipStore(
@@ -1005,7 +1010,7 @@ export default function PerformanceTracker({ darkMode }) {
               </div>
               <div>
                 <div className="text-4xl sm:text-6xl font-black tabular-nums tracking-tighter text-white drop-shadow-md">
-                  ₦{fmtNgn(stats.currentBalance)}
+                  {formatNaira(stats.currentBalance)}
                 </div>
                 <div className="mt-3 text-xs sm:text-sm text-gray-400 font-semibold flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -1046,7 +1051,7 @@ export default function PerformanceTracker({ darkMode }) {
                       : "text-rose-500"
                   )}
                 >
-                  {stats.netProfit >= 0 ? "+" : ""}₦{fmtNgn(stats.netProfit)}
+                  {stats.netProfit >= 0 ? "+" : ""}{formatNaira(stats.netProfit)}
                 </div>
               </div>
             </div>
@@ -1132,7 +1137,7 @@ export default function PerformanceTracker({ darkMode }) {
                     tick={{ fill: darkMode ? '#9ca3af' : '#6b7280', fontSize: 10 }}
                     axisLine={false}
                     tickLine={false}
-                    tickFormatter={(val) => `₦${(val / 1000).toFixed(0)}k`}
+                    tickFormatter={(val) => `${formatNaira(val)}`}
                   />
                   <Tooltip 
                     contentStyle={{ 
@@ -1144,7 +1149,7 @@ export default function PerformanceTracker({ darkMode }) {
                       fontWeight: 'bold',
                       fontSize: '12px'
                     }}
-                    formatter={(value) => [`₦${fmtNgn(value)}`, "Balance"]}
+                    formatter={(value) => [`${formatNaira(value)}`, "Balance"]}
                     labelStyle={{ color: '#6b7280', marginBottom: '4px' }}
                   />
                   <Line 
@@ -1636,7 +1641,7 @@ export default function PerformanceTracker({ darkMode }) {
                         >
                           Stake:{" "}
                           <span className="font-black">
-                            ₦{Number.isFinite(stakeNowNum) ? stakeNowNum : "—"}
+                            {Number.isFinite(stakeNowNum) ? formatNaira(stakeNowNum) : "—"}
                           </span>
                         </div>
                         {potential ? (
@@ -1646,7 +1651,7 @@ export default function PerformanceTracker({ darkMode }) {
                               darkMode ? "text-emerald-300" : "text-emerald-700"
                             )}
                           >
-                            Potential: ₦{potential}
+                            Potential: {formatNaira(potential)}
                           </div>
                         ) : (
                           <div
@@ -1909,7 +1914,7 @@ export default function PerformanceTracker({ darkMode }) {
                                   Stake
                                 </div>
                                 <div className="text-base font-black tabular-nums">
-                                  ₦{fmtNgn(stakeNowNum)}
+                                  {formatNaira(stakeNowNum)}
                                 </div>
                               </div>
 
@@ -1925,7 +1930,7 @@ export default function PerformanceTracker({ darkMode }) {
                                       : "text-blue-600"
                                   )}
                                 >
-                                  ₦{potential || "0"}
+                                  {formatNaira(potential || "0")}
                                 </div>
                               </div>
                             </div>

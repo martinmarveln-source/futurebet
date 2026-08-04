@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import useBetslipStore from "@/store/betslipStore";
 import useUserPermissions from "@/hooks/useUserPermissions";
 import BetslipMarketModal from "@/components/Dashboard/BetslipMarketModal";
+import { formatNaira } from "@/utils/matchUtils";
 import {
   Ticket,
   X,
@@ -275,13 +276,10 @@ export default function BetSlip({ darkMode = false }) {
     });
 
     lines.push("");
-    lines.push(`📈 Grand Total Stake: ₦${grandTotalStake}`);
+    lines.push(`📈 Grand Total Stake: ${formatNaira(grandTotalStake)}`);
     if (grandMaxReturn > 0) {
       lines.push(
-        `🚀 Max Potential Return: ₦${grandMaxReturn.toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}`
+        `🚀 Max Potential Return: ${formatNaira(grandMaxReturn)}`
       );
     }
     lines.push("");
@@ -634,7 +632,7 @@ export default function BetSlip({ darkMode = false }) {
                   darkMode ? "text-white" : "text-gray-900"
                 )}
               >
-                ₦{grandTotalStake.toLocaleString()}
+                {formatNaira(grandTotalStake)}
               </div>
             </div>
 
@@ -654,11 +652,7 @@ export default function BetSlip({ darkMode = false }) {
                     : "text-gray-400"
                 )}
               >
-                ₦
-                {grandMaxReturn.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
+                {formatNaira(grandMaxReturn)}
               </div>
             </div>
           </div>

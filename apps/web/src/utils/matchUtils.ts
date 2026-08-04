@@ -752,3 +752,18 @@ export function getOddsForMatch(match) {
 
   return null;
 }
+
+/**
+ * Formats a number as Nigerian Naira (₦)
+ * e.g. 15000 -> "₦ 15,000"
+ */
+export function formatNaira(amount) {
+  const num = Number(amount);
+  if (!Number.isFinite(num)) return "₦ 0";
+  return new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency: "NGN",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(num).replace("NGN", "₦").trim();
+}
