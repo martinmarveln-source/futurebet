@@ -19,6 +19,17 @@ function cn(...c) {
   return c.filter(Boolean).join(" ");
 }
 
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
 const MARKET_OPTIONS = [
   { key: "homeWin", label: "Home Win" },
   { key: "draw",    label: "Draw" },
@@ -38,6 +49,66 @@ export default function SettingsModal({
   isLoading,
   isPremium = false, // passed from parent — true for Admin/Premium users
 }) {
+  // ── Web Push ─────────────────────────────────────────────────────────────
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [isSubscribing, setIsSubscribing] = useState(false);
+
+  useEffect(() => {
+    if (!show) return;
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
+      navigator.serviceWorker.ready.then((reg) => {
+        reg.pushManager.getSubscription().then((sub) => {
+          setPushEnabled(!!sub);
+        });
+      });
+    }
+  }, [show]);
+
+  const toggleWebPush = async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      alert("Web Push is not supported in this browser.");
+      return;
+    }
+    
+    setIsSubscribing(true);
+    
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+
+      if (sub) {
+        // Unsubscribe
+        await sub.unsubscribe();
+        setPushEnabled(false);
+      } else {
+        // Subscribe
+        const response = await fetch('/api/push/public-key');
+        if (!response.ok) throw new Error("Could not fetch VAPID key");
+        const data = await response.json();
+        const convertedVapidKey = urlBase64ToUint8Array(data.publicKey);
+
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: convertedVapidKey
+        });
+
+        // Send to backend
+        await fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sub)
+        });
+
+        setPushEnabled(true);
+      }
+    } catch (e) {
+      console.error('Push toggle failed', e);
+      alert("Failed to enable push notifications. Please check your browser permissions.");
+    } finally {
+      setIsSubscribing(false);
+    }
+  };
+
   // ── Telegram credentials ─────────────────────────────────────────────────
   const [telegramToken, setTelegramToken] = useState("");
   const [telegramChatId, setTelegramChatId] = useState("");
@@ -254,6 +325,38 @@ Keep notifications on. When the algorithm detects a massive market mispricing, y
 
         {/* ── Scrollable body ───────────────────────────────────────────── */}
         <div className="p-5 space-y-5 overflow-y-auto flex-1">
+
+          {/* ── Web Push Notifications Section ─────────────────────────── */}
+          <div className={cn("rounded-2xl border p-4 space-y-3", tones.section)}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <BellRing size={18} className={darkMode ? "text-blue-300" : "text-blue-600"} />
+                <span className={cn("text-sm font-extrabold", tones.sectionHeader)}>
+                  Browser Push Notifications
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={toggleWebPush}
+                disabled={isSubscribing}
+                className={cn(
+                  "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50",
+                  pushEnabled ? tones.toggle : tones.toggleOff
+                )}
+                aria-label="Toggle web push notifications"
+              >
+                <span
+                  className={cn(
+                    "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform",
+                    pushEnabled ? "translate-x-6" : "translate-x-1"
+                  )}
+                />
+              </button>
+            </div>
+            <p className={cn("text-xs leading-relaxed", tones.muted)}>
+              Receive real-time notifications directly in your browser (even when the site is closed). No Telegram required.
+            </p>
+          </div>
 
           {/* Privacy note */}
           <div className={cn("rounded-2xl border p-3 flex gap-3", tones.hint)}>
