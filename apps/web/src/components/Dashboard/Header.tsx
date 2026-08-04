@@ -126,18 +126,6 @@ export default function Header({
     }
   };
 
-  // Fetch AI usage stats for logged-in premium users
-  const { data: usageStats } = useQuery({
-    queryKey: ["aiUsage"],
-    queryFn: async () => {
-      const response = await fetch("/api/ai-usage");
-      if (!response.ok) throw new Error("Failed to fetch usage");
-      return response.json();
-    },
-    enabled: !!currentUser && (isPremium || isAdmin),
-    refetchOnWindowFocus: false,
-    refetchInterval: 30000, // Refresh every 30 seconds
-  });
 
   return (
     <header
@@ -194,27 +182,6 @@ export default function Header({
             </div>
           )}
 
-          {/* AI Usage Stats for Premium Users */}
-          {currentUser && (isPremium || isAdmin) && usageStats && (
-            <div
-              className={`flex items-center space-x-4 px-3 py-2 rounded-lg ${darkMode ? "bg-gray-700" : "bg-gray-100"}`}
-            >
-              <div className="flex items-center space-x-1">
-                <Brain className="h-4 w-4 text-purple-600" />
-                <span className="text-sm font-medium">
-                  {isAdmin
-                    ? "∞ AI Insights"
-                    : `${usageStats.todayInsights || 0}/20`}
-                </span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <Zap className="h-4 w-4 text-yellow-600" />
-                <span className="text-sm font-medium">
-                  {usageStats.totalCredits || 0}
-                </span>
-              </div>
-            </div>
-          )}
 
           <button
             onClick={() => setDarkMode(!darkMode)}
@@ -253,27 +220,7 @@ export default function Header({
                       ) : (
                         <span className="text-gray-600">Free</span>
                       )}
-                      {/* Show today's usage under subscription status */}
-                      {(userPermissions.isPremium || userPermissions.isAdmin || userPermissions.isSilver) &&
-                        usageStats && (
-                          <div className="text-xs mt-1">
-                            {userPermissions.isAdmin || userPermissions.isPremium ? (
-                              <span className="text-purple-500">
-                                Unlimited AI
-                              </span>
-                            ) : (
-                              <span
-                                className={
-                                  usageStats.todayInsights >= 15
-                                    ? "text-red-500"
-                                    : "text-green-500"
-                                }
-                              >
-                                {usageStats.todayInsights || 0}/20 today
-                              </span>
-                            )}
-                          </div>
-                        )}
+
                     </div>
                   )}
                 </div>

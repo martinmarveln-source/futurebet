@@ -1,4 +1,5 @@
-// @ts-nocheck
+
+import { auth } from "@/auth";
 export const dynamic = "force-dynamic";
 
 /* =========================
@@ -567,9 +568,25 @@ async function buildPicksData(minChance, minRating, minRecents) {
 /* =========================
    API HANDLER
 ========================= */
-export async function GET(req) {
+export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
+
+    // Auth check: Allow if valid CRON_SECRET is provided OR user is admin/premium
+    const authHeader = req.headers.get("authorization");
+    const cronSecret = process.env.CRON_SECRET;
+    const isCron = cronSecret && authHeader === `Bearer ${cronSecret}`;
+
+    if (!isCron) {
+      const session = await auth();
+      if (!session?.user?.id) {
+        return Response.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      if (session.user.role !== "admin" && session.user.role !== "premium") {
+        return Response.json({ error: "Forbidden: Requires premium access" }, { status: 403 });
+      }
+    }
+
     const minChance = Number(url.searchParams.get("minChance") ?? 65);
     const minRating = Number(url.searchParams.get("minRating") ?? 55);
     const minRecents = Number(url.searchParams.get("minRecents") ?? 0);

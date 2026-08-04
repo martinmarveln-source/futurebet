@@ -1,4 +1,6 @@
-// @ts-nocheck
+
+import { auth } from "@/auth";
+
 export const revalidate = 28800; // 8 hours
 export const dynamic = "force-dynamic";
 
@@ -181,10 +183,10 @@ function shapeResult(
   };
 }
 
-function topKey(obj) {
+function topKey(obj: any) {
   let bestKey = null;
   let bestVal = -Infinity;
-  for (const [k, v] of Object.entries(obj || {})) {
+  for (const [k, v] of Object.entries(obj || {}) as [string, number][]) {
     if (v > bestVal) {
       bestVal = v;
       bestKey = k;
@@ -663,9 +665,18 @@ async function getOrBuildData() {
 /* =========================
    API ROUTER
 ========================= */
-export async function GET(req) {
+export async function GET(req: Request) {
+  // Authentication check
+  const session = await auth();
+  if (!session?.user?.id) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const isPremiumOrAdmin = session.user.role === "admin" || session.user.role === "premium";
+
   const url = new URL(req.url);
-  const premium = url.searchParams.get("premium") === "1";
+  // Ensure only premium/admin users can ask for full premium data
+  const premium = isPremiumOrAdmin ? (url.searchParams.get("premium") === "1") : false;
+  
   const compact =
     url.searchParams.get("lite") === "1" ||
     url.searchParams.get("compact") === "1";

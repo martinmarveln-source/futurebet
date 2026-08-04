@@ -213,31 +213,27 @@ export default function SettingsModal({
 
   // Telegram test signal
   const handleTestSignal = async () => {
-    if (!telegramToken.trim() || !telegramChatId.trim() || !isTokenValid || !isChatIdValid)
+    if (!telegramChatId.trim() || !isChatIdValid) return;
+    
+    // We require the token to be saved in the database first for security
+    if (!preferences?.telegram_bot_token || touched) {
+      alert("Please save your settings first before testing the connection.");
       return;
+    }
+
     setTestStatus("testing");
-    const message = `
-🚨 *FUTUREBET SYSTEM TEST* 🚨
-━━━━━━━━━━━━━━━━━━
-⚙️ _Your webhook integration is live._
-
-The FutureBet AI engine is now authorized to push Elite Edge alerts directly to this device. 
-
-Keep notifications on. When the algorithm detects a massive market mispricing, you will be the first to know.
-━━━━━━━━━━━━━━━━━━
-💰 *Command Center Active.*
-    `;
     try {
-      const response = await fetch("/api/user/test-telegram", {
+      const response = await fetch("/api/telegram/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: telegramToken.trim(), chatId: telegramChatId.trim() }),
+        body: JSON.stringify({ chatId: telegramChatId.trim() }),
       });
       const data = await response.json();
       if (response.ok && data.success) {
         setTestStatus("success");
         setTimeout(() => setTestStatus("idle"), 3000);
       } else {
+        console.error("Test failed:", data.error);
         setTestStatus("error");
         setTimeout(() => setTestStatus("idle"), 3000);
       }
