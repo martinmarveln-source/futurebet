@@ -736,7 +736,7 @@ export default function PerformanceTracker({ darkMode }) {
       const stake = Number(getEffectiveStake(t));
       if (!Number.isFinite(stake) || stake <= 0) return;
       const status = String(t.status || "pending").toLowerCase();
-      if (status === "void") return;
+      if (status !== "won" && status !== "lost") return; // Skip pending/void
       ticketStaked += stake;
       if (status === "won") {
         const odds = Number(getEffectiveOdds(t));
