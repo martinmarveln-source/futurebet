@@ -179,8 +179,7 @@ function buildTicketDTO(ticketCode, rows) {
     league: r.league,
     prediction: r.prediction,
     status: r.status || "pending",
-    match_date: r.match_date,
-    kickoff_at: r.kickoff_at,
+    matchDate: r.match_date || "",
     ftScore: r.actual_result || "",
     odds: r.selection_odds ?? null, // ✅ store per-selection odds
   }));
@@ -436,7 +435,7 @@ async function fetchSheetScoreMap() {
 async function syncTicketSelectionsFromSheet(userId) {
   // only pending or missing score, for recent dates (today & yesterday) to keep it light
   const rows = await sql`
-    SELECT id, match_name, match_date, prediction, status, actual_result, kickoff_at
+    SELECT id, match_name, match_date, prediction, status, actual_result
     FROM user_performance_tracking
     WHERE user_id = ${userId}
       AND ticket_code IS NOT NULL
@@ -474,7 +473,6 @@ async function syncTicketSelectionsFromSheet(userId) {
       UPDATE user_performance_tracking
       SET
         actual_result = ${sheet.ftScore},
-        kickoff_at = COALESCE(kickoff_at, ${sheet.kickoff_at}),
         status = ${newStatus},
         updated_at = NOW()
       WHERE id = ${r.id}
@@ -598,7 +596,6 @@ export async function GET(req) {
             actual_payout,
             status,
             match_date,
-            kickoff_at,
             created_at,
             updated_at,
             total_odds,
@@ -624,7 +621,6 @@ export async function GET(req) {
             actual_payout,
             status,
             match_date,
-            kickoff_at,
             created_at,
             updated_at,
             total_odds,
@@ -673,7 +669,6 @@ export async function GET(req) {
             actual_payout,
             status,
             match_date,
-            kickoff_at,
             created_at,
             updated_at,
             ticket_code,
@@ -987,7 +982,6 @@ export async function POST(req) {
     prediction,
     status,
     match_date,
-    kickoff_at,
     ticket_code,
     ticket_is_shared,
     ticket_total_odds,
@@ -1001,7 +995,6 @@ export async function POST(req) {
     ${prediction},
     'pending',
     ${dateISO},
-    ${kickoff_at},
     ${ticketCode},
     ${share},
     ${m.total_odds || m.ticket_total_odds || null},
@@ -1151,7 +1144,6 @@ export async function PUT(req) {
         actual_result,
         status,
         match_date,
-        kickoff_at,
         created_at,
         ticket_code,
         ticket_is_shared,
