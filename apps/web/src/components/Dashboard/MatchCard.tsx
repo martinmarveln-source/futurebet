@@ -2812,7 +2812,7 @@ export default function MatchCard({
                 <SmallStat
                   k="Hist. Win Rate"
                   v={
-                    (isAdmin || isPremium) ? (
+                    (isAdmin || isPremium || isSilver) ? (
                       mlStats.winRate !== null ? (
                         <span className="text-emerald-500 font-extrabold">{mlStats.label}</span>
                       ) : (

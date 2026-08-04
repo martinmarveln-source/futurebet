@@ -33,11 +33,12 @@ export async function GET(request: Request) {
         isAdmin ||
         role === "premium" ||
         role === "pro" ||
-        (subValid && (sub === "premium" || sub === "pro"));
+        role === "silver" ||
+        (subValid && (sub === "premium" || sub === "pro" || sub === "silver"));
 
       if (!isAdmin && !isPremium) {
         return NextResponse.json(
-          { error: "Premium access required" },
+          { error: "Premium or Silver access required" },
           { status: 403 }
         );
       }

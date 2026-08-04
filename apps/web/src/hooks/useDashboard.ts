@@ -85,10 +85,10 @@ function calculateHistWinRate(match, archiveData) {
   }
 
   const total = matchedRows.length;
-  if (total === 0) return -1;
+  if (total === 0) return { rate: -1, count: 0 };
 
   const wins = matchedRows.filter((r: any) => String(r.result || "").toUpperCase().trim() === "W").length;
-  return (wins / total) * 100;
+  return { rate: (wins / total) * 100, count: total };
 }
 
 export default function useDashboard() {
@@ -296,10 +296,14 @@ export default function useDashboard() {
     });
 
     // Pre-calculate histWinRates if sorting by it, to avoid O(N log N) database scans
-    const matchesWithRates = filtered.map((m) => ({
-      match: m,
-      rate: sortBy === "histWinRate" ? calculateHistWinRate(m, archiveData) : 0,
-    }));
+    const matchesWithRates = filtered.map((m) => {
+      const histData = sortBy === "histWinRate" ? calculateHistWinRate(m, archiveData) : { rate: 0, count: 0 };
+      return {
+        match: m,
+        rate: histData.rate,
+        count: histData.count,
+      };
+    });
 
     matchesWithRates.sort((a, b) => {
       let aValue, bValue;
@@ -352,6 +356,10 @@ export default function useDashboard() {
         case "histWinRate":
           aValue = a.rate;
           bValue = b.rate;
+          // Tie-breaker using sample size for historical win rate
+          if (aValue === bValue) {
+            return b.count - a.count;
+          }
           break;
         default:
           aValue = a.match.chance || 0;
