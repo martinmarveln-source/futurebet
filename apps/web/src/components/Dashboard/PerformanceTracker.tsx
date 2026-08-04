@@ -25,6 +25,7 @@ import {
   Activity,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 /* ---------------- THE CLV ODDS ENGINE ---------------- */
 export function useLiveOddsArchive() {
@@ -751,6 +752,39 @@ export default function PerformanceTracker({ darkMode }) {
     };
   }, [tickets, ticketOddsMap, ticketStakeMap]);
 
+  const chartData = useMemo(() => {
+    const allTickets = Array.isArray(tickets) ? tickets : [];
+    // Only use decided tickets for ROI charting
+    const decided = allTickets.filter(t => t.status === "won" || t.status === "lost" || t.status === "void");
+    // Sort ascending by date/time (oldest first)
+    const sorted = [...decided].sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
+    
+    let currentBal = DEFAULT_BANKROLL;
+    const data = [{
+      name: "Start",
+      balance: currentBal,
+    }];
+    
+    sorted.forEach((t, i) => {
+      const stake = Number(getEffectiveStake(t)) || 0;
+      const odds = Number(getEffectiveOdds(t)) || 0;
+      if (t.status === "won") {
+        currentBal += (stake * odds) - stake;
+      } else if (t.status === "lost") {
+        currentBal -= stake;
+      }
+      
+      data.push({
+        name: `Ticket ${i + 1}`,
+        balance: currentBal,
+        date: toISODateOnly(t.created_at),
+        profit: (t.status === "won") ? ((stake * odds) - stake) : (t.status === "lost" ? -stake : 0)
+      });
+    });
+    
+    return data;
+  }, [tickets, ticketStakeMap, ticketOddsMap]);
+
   const marketIntelligence = useMemo(() => {
     const marketMap = {};
     const allTickets = Array.isArray(tickets) ? tickets : [];
@@ -1062,6 +1096,71 @@ export default function PerformanceTracker({ darkMode }) {
             </div>
           </div>
         </div>
+        
+        {/* === FEATURE 5: ROI CHART === */}
+        {chartData.length > 1 && (
+          <div className={cx(
+            "rounded-[24px] p-5 sm:p-6 border",
+            darkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-gray-200"
+          )}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-sm font-black uppercase tracking-widest text-gray-500">
+                Bankroll Growth (ROI)
+              </h3>
+              <div className={cx(
+                "px-3 py-1 rounded-full text-[11px] font-bold",
+                stats.roi >= 0 
+                  ? (darkMode ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700")
+                  : (darkMode ? "bg-rose-500/20 text-rose-400" : "bg-rose-100 text-rose-700")
+              )}>
+                {stats.roi >= 0 ? "+" : ""}{stats.roi.toFixed(1)}% ROI
+              </div>
+            </div>
+            
+            <div className="h-[250px] w-full mt-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                  <XAxis 
+                    dataKey="name" 
+                    tick={{ fill: darkMode ? '#9ca3af' : '#6b7280', fontSize: 10 }}
+                    axisLine={false}
+                    tickLine={false}
+                    minTickGap={30}
+                  />
+                  <YAxis 
+                    domain={['auto', 'auto']}
+                    tick={{ fill: darkMode ? '#9ca3af' : '#6b7280', fontSize: 10 }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(val) => `₦${(val / 1000).toFixed(0)}k`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: darkMode ? '#1f2937' : '#ffffff',
+                      borderColor: darkMode ? '#374151' : '#e5e7eb',
+                      borderRadius: '12px',
+                      color: darkMode ? '#f3f4f6' : '#111827',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                      fontWeight: 'bold',
+                      fontSize: '12px'
+                    }}
+                    formatter={(value) => [`₦${fmtNgn(value)}`, "Balance"]}
+                    labelStyle={{ color: '#6b7280', marginBottom: '4px' }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="balance" 
+                    stroke={stats.netProfit >= 0 ? "#10b981" : "#f43f5e"} 
+                    strokeWidth={3}
+                    dot={false}
+                    activeDot={{ r: 6, fill: stats.netProfit >= 0 ? "#10b981" : "#f43f5e", strokeWidth: 0 }}
+                    animationDuration={1500}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
       </div>
 
       {showGuide && (
