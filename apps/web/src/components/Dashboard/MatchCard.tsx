@@ -1,6 +1,6 @@
 // @ts-nocheck
 "use client";
-import { useState, useCallback, useMemo, useEffect, memo } from "react";
+import { useState, useCallback, useMemo, useEffect, memo, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
   Brain,
@@ -1475,6 +1475,8 @@ export default function MatchCard({
   const [showBetslipModal, setShowBetslipModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const cardRef = useRef(null);
+  const [isSharing, setIsSharing] = useState(false);
 
   const { data: archiveData = [] } = useMlArchive();
   const { data: user } = useUser();
@@ -1843,37 +1845,53 @@ export default function MatchCard({
       window.dispatchEvent(new CustomEvent("futurebet:trigger-premium"));
       return;
     }
-    const pickStr = recommended ? formatSelectionLabel(recommended) : pickText;
-    const dateTime =
-      [`${match?.date || ""}`, `${match?.time || ""}`]
-        .filter(Boolean)
-        .join(" @ ") || "Time TBA";
-    const leagueStr = match?.fullLeague || match?.league || "Match";
-    const oddsStr = pickOdds
-      ? `\n📈 Odds: @${Number(pickOdds).toFixed(2)}`
-      : "";
-    const text = `⚽ FutureBet Pick\n\n🏆 ${leagueStr}\n🏟 ${
-      match?.match || "Unknown Match"
-    }\n🕒 ${dateTime}\n\n🎯 Pick: ${pickStr}${oddsStr}\n📊 Model Prob: ${chance}%\n\nFull analysis 👇`;
-    const url = "https://futurebet-football-predicti-461.created.app/";
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: "FutureBet Pick",
-          text: text,
-          url: url,
-        });
-      } catch (err) {
-        if (err.name !== "AbortError") {
-          navigator.clipboard.writeText(`${text}\n${url}`);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
+
+    if (!cardRef.current) return;
+    setIsSharing(true);
+
+    try {
+      const { default: html2canvas } = await import("html2canvas");
+      const canvas = await html2canvas(cardRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: darkMode ? "#0a0a0a" : "#ffffff",
+      });
+
+      const dataUrl = canvas.toDataURL("image/png");
+      const fileName = `FutureBet-${match?.match || "Pick"}.png`.replace(/\s+/g, '-');
+
+      // Attempt native share if supported (mobile/some desktop)
+      if (navigator.share && navigator.canShare) {
+        try {
+          const blob = await (await fetch(dataUrl)).blob();
+          const file = new File([blob], fileName, { type: "image/png" });
+          
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: "FutureBet VIP Pick",
+              text: `Check out this VIP pick for ${match?.fullLeague || match?.league}!`,
+              files: [file],
+            });
+            return;
+          }
+        } catch (shareError) {
+          console.error("Native share failed, falling back to download", shareError);
         }
       }
-    } else {
-      navigator.clipboard.writeText(`${text}\n${url}`);
+
+      // Fallback: Download the image
+      const link = document.createElement("a");
+      link.download = fileName;
+      link.href = dataUrl;
+      link.click();
+      
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to generate share image", err);
+      alert("Failed to create shareable image. Please try again.");
+    } finally {
+      setIsSharing(false);
     }
   };
 
@@ -2081,7 +2099,7 @@ export default function MatchCard({
         accent={ratingColor}
         isSystemMatch={isSystemMatch}
       >
-        <div className="relative flex flex-col gap-3">
+        <div ref={cardRef} className="relative flex flex-col gap-3">
           {isSystemMatch && (
             <div
               className={cn(
@@ -2734,14 +2752,16 @@ export default function MatchCard({
                     <button
                       type="button"
                       onClick={handleShare}
+                      disabled={isSharing}
                       className={cn(
                         "inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-bold transition active:scale-[0.98]",
                         darkMode
                           ? "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10"
-                          : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                          : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50",
+                        isSharing && "opacity-50 cursor-wait"
                       )}
                     >
-                      <Share2 size={14} /> {copied ? "Copied!" : "Share"}
+                      <Share2 size={14} /> {isSharing ? "Generating..." : copied ? "Copied!" : "Share"}
                     </button>
                     <button
                       type="button"
