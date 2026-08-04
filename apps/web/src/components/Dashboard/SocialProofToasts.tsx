@@ -1,12 +1,24 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { CheckCircle2, TrendingUp, Crown, Zap } from "lucide-react";
 import { cn } from "@/utils/matchUtils";
 
-const NAMES = ["John", "Sarah", "Emeka", "Chidi", "Oluwaseun", "Amina", "David", "Michael", "Grace", "Ibrahim", "Ngozi", "Tunde"];
-const CITIES = ["Lagos", "Abuja", "Port Harcourt", "Kano", "Ibadan", "Enugu", "Asaba", "Owerri", "Uyo", "Jos"];
-const AMOUNTS = ["₦15,000", "₦45,000", "₦120,500", "₦8,500", "₦64,000", "₦22,000", "₦115,000", "₦33,500"];
+// Expanded name pool to prevent repeating
+const ALL_NAMES = [
+  "John", "Sarah", "Emeka", "Chidi", "Oluwaseun", "Amina", "David", "Michael", "Grace", "Ibrahim", 
+  "Ngozi", "Tunde", "Ade", "Bisi", "Chika", "Damilola", "Efe", "Femi", "Gbenga", "Halima", 
+  "Idris", "Joy", "Kelechi", "Lola", "Musa", "Nneka", "Obinna", "Peter", "Qasim", "Ruth", 
+  "Samuel", "Tochukwu", "Uche", "Victor", "Wale", "Yusuf", "Zainab", "Abubakar", "Blessing", "Chinedu",
+  "Daniel", "Emmanuel", "Fatima", "Gabriel", "Hassan", "Isaac", "Jude", "Kingsley", "Lucky", "Mary",
+  "Nelson", "Olamide", "Paul", "Rachel", "Stanley", "Timothy", "Umar", "Vincent", "Wisdom", "Yomi"
+];
+
+const CITIES = [
+  "Lagos", "Abuja", "Port Harcourt", "Kano", "Ibadan", "Enugu", "Asaba", "Owerri", "Uyo", "Jos",
+  "Benin City", "Kaduna", "Onitsha", "Warri", "Calabar", "Abeokuta", "Ilorin", "Akure", "Makurdi", "Zaria"
+];
+const AMOUNTS = ["₦15,000", "₦45,000", "₦120,500", "₦8,500", "₦64,000", "₦22,000", "₦115,000", "₦33,500", "₦85,000", "₦54,200", "₦210,000", "₦12,500"];
 
 const ACTIONS = [
   {
@@ -33,6 +45,9 @@ const ACTIONS = [
 
 export default function SocialProofToasts({ darkMode = false }) {
   const [toast, setToast] = useState<{ id: number; message: string; icon: React.ReactNode; color: string } | null>(null);
+  
+  // Track used names in this session to prevent repeats
+  const usedNamesRef = useRef(new Set<string>());
 
   useEffect(() => {
     // Generate a random delay between 30 and 75 seconds
@@ -41,7 +56,18 @@ export default function SocialProofToasts({ darkMode = false }) {
     let timeoutId: NodeJS.Timeout;
 
     const showRandomToast = () => {
-      const name = NAMES[Math.floor(Math.random() * NAMES.length)];
+      // Find a name that hasn't been used recently
+      let availableNames = ALL_NAMES.filter(n => !usedNamesRef.current.has(n));
+      
+      // If we somehow used all 60 names, reset the pool
+      if (availableNames.length === 0) {
+        usedNamesRef.current.clear();
+        availableNames = ALL_NAMES;
+      }
+
+      const name = availableNames[Math.floor(Math.random() * availableNames.length)];
+      usedNamesRef.current.add(name); // Mark as used
+
       const city = CITIES[Math.floor(Math.random() * CITIES.length)];
       const amount = AMOUNTS[Math.floor(Math.random() * AMOUNTS.length)];
       const action = ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
