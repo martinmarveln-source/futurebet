@@ -20,6 +20,7 @@ import useUserPermissions from "@/hooks/useUserPermissions";
 import { SafeFallback } from "@/components/Dashboard/PremiumUI";
 import BetslipMarketModal from "@/components/Dashboard/BetslipMarketModal";
 import StickySocialBar from "@/components/Dashboard/StickySocialBar";
+import SocialProofToasts from "@/components/Dashboard/SocialProofToasts";
 import { PremiumHomeModal } from "@/components/Dashboard/PremiumHomeModal";
 import AutoPickModal from "@/components/Dashboard/AutoPickModal";
 import { useAutoPickLogic } from "@/hooks/useAutoPickLogic";
@@ -933,6 +934,8 @@ export default function FutureBetDashboard() {
             </GlassShell>
           </div>
         </main>
+
+        <SocialProofToasts darkMode={darkMode} />
 
         <SettingsModal
           show={showSettings}
