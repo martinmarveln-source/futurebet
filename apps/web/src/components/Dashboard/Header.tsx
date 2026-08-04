@@ -12,7 +12,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import useUser from "@/utils/useUser";
 import useUserPermissions from "@/hooks/useUserPermissions";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import UpgradeButton from "./UpgradeButton";
 
 export default function Header({
@@ -26,6 +26,50 @@ export default function Header({
   const { data: currentUser, refetch: refetchUser } = useUser();
   const { isAdmin, isPremium, canAccessAIInsights } = useUserPermissions();
   const [upgradeStatus, setUpgradeStatus] = useState(null); // For success/error messages
+
+  const [loginStreak, setLoginStreak] = useState(1);
+  const [showStreakGlow, setShowStreakGlow] = useState(false);
+
+  useEffect(() => {
+    // Gamification: Calculate Login Streak
+    const today = new Date().toLocaleDateString();
+    const storedLastLogin = localStorage.getItem("fb_last_login");
+    const storedStreak = parseInt(localStorage.getItem("fb_login_streak") || "1", 10);
+
+    if (storedLastLogin !== today) {
+      if (storedLastLogin) {
+        const lastLoginDate = new Date(storedLastLogin);
+        const currentDate = new Date(today);
+        const diffTime = Math.abs(currentDate.getTime() - lastLoginDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 1) {
+          // Logged in yesterday, increment streak
+          const newStreak = storedStreak + 1;
+          setLoginStreak(newStreak);
+          localStorage.setItem("fb_login_streak", newStreak.toString());
+        } else if (diffDays > 1) {
+          // Streak broken
+          setLoginStreak(1);
+          localStorage.setItem("fb_login_streak", "1");
+        } else {
+           setLoginStreak(storedStreak);
+        }
+      } else {
+        // First time logging in or no record
+        setLoginStreak(1);
+        localStorage.setItem("fb_login_streak", "1");
+      }
+      localStorage.setItem("fb_last_login", today);
+    } else {
+      setLoginStreak(storedStreak);
+    }
+
+    // Add glow effect if streak >= 3
+    if (storedStreak >= 3 || (storedLastLogin !== today && storedStreak + 1 >= 3)) {
+      setShowStreakGlow(true);
+    }
+  }, []);
 
   // Selar payment link
   const PAYMENT_LINK = "https://selar.com/8x155u0715";
@@ -133,6 +177,23 @@ export default function Header({
         )}
 
         <div className="flex items-center space-x-2 md:space-x-4">
+          {/* Daily Streak Badge */}
+          {user && loginStreak > 0 && (
+            <div
+              className={`flex items-center space-x-1 px-3 py-2 rounded-lg ${
+                showStreakGlow 
+                  ? "bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/30 shadow-[0_0_10px_rgba(249,115,22,0.3)] transition-all duration-1000" 
+                  : darkMode ? "bg-gray-700" : "bg-gray-100"
+              }`}
+              title={showStreakGlow ? "You're on a hot streak!" : "Log in daily to build your streak!"}
+            >
+              <span className="text-sm font-bold">🔥</span>
+              <span className={`text-sm font-medium hidden sm:inline ${showStreakGlow ? "text-orange-700 dark:text-orange-400" : ""}`}>
+                {loginStreak}
+              </span>
+            </div>
+          )}
+
           {/* AI Usage Stats for Premium Users */}
           {currentUser && (isPremium || isAdmin) && usageStats && (
             <div
