@@ -5,6 +5,7 @@ import { SafeFallback } from "@/components/Dashboard/PremiumUI";
 import { PremiumBrief } from "@/components/Dashboard/PremiumBrief";
 import { HomeCard } from "@/components/Dashboard/HomeCard";
 import SocialLinks from "@/components/Dashboard/SocialLinks";
+import { ReferralCard } from "@/components/Dashboard/ReferralCard";
 
 const BetSlip = React.lazy(() => import("@/components/Dashboard/BetSlip"));
 
@@ -144,8 +145,13 @@ export function DashboardTab({
         </div>
       </section>
 
-      {/* Stage 4: Social Links */}
+      {/* Stage 4: Referral System */}
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 delay-500 fill-mode-both">
+        <ReferralCard darkMode={darkMode} />
+      </div>
+
+      {/* Stage 5: Social Links */}
+      <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 delay-700 fill-mode-both">
         <SocialLinks darkMode={darkMode} />
       </div>
     </div>
