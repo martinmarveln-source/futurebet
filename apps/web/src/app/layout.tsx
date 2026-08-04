@@ -11,6 +11,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://futurebet.com.ng"),
   title: "FutureBet — Football Prediction Analytics",
   description:
     "Football prediction, backtesting sandbox, and machine learning calibration.",

@@ -78,13 +78,20 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Prevent duplicate processing (check if reference already used)
-    // We could create a transactions table, but for now we just log it in user_sessions
-    // and assume users won't maliciously replay successful references.
-    // If needed in the future, create a `transactions` table with `reference` as UNIQUE.
+    // 4. Prevent duplicate processing — check if this reference was already used
+    const existingTx = await sql`
+      SELECT id FROM payment_transactions WHERE transaction_id = ${reference} LIMIT 1
+    `;
+    if (existingTx.length > 0) {
+      return NextResponse.json(
+        { success: false, error: "This payment reference has already been processed" },
+        { status: 409 }
+      );
+    }
 
     // 5. Upgrade User in Database
     const subscriptionDays = 30;
+
     
     // Check if user already has an active subscription to extend, else start from today
     const userCheck = await sql`SELECT subscription_expires_at FROM auth_users WHERE id = ${session.user.id}`;
@@ -111,17 +118,22 @@ export async function POST(request: Request) {
       WHERE id = ${session.user.id}
     `;
 
-    // Log the transaction
+    // Log the transaction to payment_transactions for deduplication & admin visibility
     await sql`
-      INSERT INTO user_sessions (user_id, session_data)
-      VALUES (${session.user.id}, ${JSON.stringify({
-        type: "paystack_upgrade",
-        reference: reference,
-        plan: plan,
-        amount: tx.amount,
-        upgraded_at: new Date().toISOString(),
-        expires_at: newExpiry.toISOString(),
-      })})
+      INSERT INTO payment_transactions (user_id, transaction_id, payment_provider, customer_email, amount, currency, status, subscription_days, processed_at, expires_at)
+      VALUES (
+        ${session.user.id},
+        ${reference},
+        ${'paystack'},
+        ${tx.customer?.email || session.user.email || ''},
+        ${tx.amount},
+        ${'NGN'},
+        ${'successful'},
+        ${subscriptionDays},
+        ${new Date().toISOString()},
+        ${newExpiry.toISOString()}
+      )
+      ON CONFLICT (transaction_id) DO NOTHING
     `;
 
     return NextResponse.json({

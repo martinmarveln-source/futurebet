@@ -150,8 +150,6 @@ async function fetchOddsForMatch(match) {
     const normHome = normalizeName(homeTeam);
     const normAway = normalizeName(awayTeam);
 
-    console.log(`Looking for match: ${homeTeam} vs ${awayTeam}`);
-    console.log(`Normalized: ${normHome} vs ${normAway}`);
 
     // Find matching event
     let bestMatch = null;
@@ -165,9 +163,6 @@ async function fetchOddsForMatch(match) {
       const awaySim = stringSimilarity(normAway, eventNormAway);
       const avgSim = (homeSim + awaySim) / 2;
 
-      console.log(
-        `Checking: ${event.home_team} vs ${event.away_team} - Similarity: ${avgSim.toFixed(2)}`,
-      );
 
       if (avgSim > bestScore && homeSim >= 0.7 && awaySim >= 0.7) {
         bestScore = avgSim;
@@ -269,7 +264,6 @@ export async function POST(request) {
       return Response.json({ error: "Invalid matches data" }, { status: 400 });
     }
 
-    console.log(`Fetching odds for ${matches.length} matches`);
 
     const results = {};
 
