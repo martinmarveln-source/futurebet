@@ -11,6 +11,7 @@ import React, {
 } from "react";
 import { Gauge, Shield, List } from "lucide-react";
 import useDashboard from "@/hooks/useDashboard";
+import { WeeklySummaryEmail } from "@/components/emails/WeeklySummaryEmail";
 import Header from "@/components/Dashboard/Header";
 import LoadingScreen from "@/components/Dashboard/LoadingScreen";
 import SettingsModal from "@/components/Dashboard/SettingsModal";
@@ -946,6 +947,18 @@ export default function FutureBetDashboard() {
           isLoading={savePreferencesMutation?.isPending}
           isPremium={isAdmin || isPremium}
         />
+
+        {/* --- DEV PREVIEW ONLY --- */}
+        <div className="max-w-2xl mx-auto my-12 opacity-90 hover:opacity-100 transition-opacity">
+          <div className="text-center mb-4">
+            <span className="bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full">EMAIL PREVIEW (ADMIN ONLY)</span>
+          </div>
+          <WeeklySummaryEmail 
+            userName={user?.first_name || "Bettor"}
+            isPremium={isPremium || isAdmin} 
+          />
+        </div>
+        {/* --- END DEV PREVIEW --- */}
 
         <div className="h-28 sm:h-32" />
 
