@@ -404,61 +404,29 @@ function combineKickoff(dateISO, timeStr) {
 }
 
 async function fetchSheetScoreMap() {
-  const url = `https://docs.google.com/spreadsheets/d/${FT_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${FT_SHEET_NAME}`;
-  const res = await fetch(url);
-  if (!res.ok) return new Map();
-
-  const csv = await res.text();
-
-  // Simple CSV parser (same style you already use)
-  const rows = csv
-    .split("\n")
-    .map((row) => {
-      const out = [];
-      let cur = "";
-      let q = false;
-
-      for (let i = 0; i < row.length; i++) {
-        const c = row[i];
-        if (c === '"') q = !q;
-        else if (c === "," && !q) {
-          out.push(cur.trim());
-          cur = "";
-        } else cur += c;
-      }
-      out.push(cur.trim());
-      return out;
-    })
-    .filter((r) => r.some((c) => c.length > 0));
-
-  if (rows.length < 2) return new Map();
-
-  // Skip header row
-  const dataRows = rows.slice(1);
+  // Fetch from the matches_cache table instead of Google Sheet
+  const rows = await sql`
+    SELECT match_label, home_team, ft_score
+    FROM matches_cache
+    WHERE match_date >= (CURRENT_DATE - INTERVAL '2 days')
+      AND ft_score IS NOT NULL
+      AND ft_score != ''
+  `;
 
   /**
    * Map key:
-   *   YYYY-MM-DD|normalized-match
+   *   normalized-match
    * Value:
    *   { ftScore }
    */
   const map = new Map();
 
-  for (const r of dataRows) {
-    const matchRaw = r[FT_MATCH_COL];
-    const resultRaw = r[FT_RESULT_COL];
+  for (const r of rows) {
+    const ftScore = String(r.ft_score).trim();
+    if (!ftScore) continue;
 
-    if (!matchRaw || !resultRaw) continue;
-
-    // We don't know match date from this sheet,
-    // so we store by MATCH ONLY.
-    // Date filtering still happens in DB query.
-    const key = normMatchKey(matchRaw);
-    const ftScore = String(resultRaw).trim();
-
-    if (ftScore) {
-      map.set(key, { ftScore });
-    }
+    if (r.match_label) map.set(normMatchKey(r.match_label), { ftScore });
+    if (r.home_team) map.set(normMatchKey(r.home_team), { ftScore });
   }
 
   return map;
@@ -908,70 +876,23 @@ export async function POST(req) {
       // --- target date: yesterday (since job runs 2am next day) ---
       const targetDateISO = dateISOInTZ(-1);
 
-      // 1) fetch sheet
-      const SHEET_ID = "1vMva92Yesm1YiJeC8_1mBqb2KtTv31ByaCuJK2B9qeY";
-      const SHEET_NAME = "Picks";
-      const sheetsUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${SHEET_NAME}`;
-      const resp = await fetch(sheetsUrl);
-      if (!resp.ok) {
-        return Response.json({ error: "Sheet fetch failed" }, { status: 500 });
-      }
-      const csv = await resp.text();
+      // 1) fetch DB instead of Google Sheet
+      const dbScores = await sql`
+        SELECT match_label, home_team, ft_score
+        FROM matches_cache
+        WHERE match_date::date = ${targetDateISO}::date
+          AND ft_score IS NOT NULL
+          AND ft_score != ''
+      `;
 
-      // minimal CSV parse
-      const rows = csv
-        .split("\n")
-        .map((row) => {
-          const out = [];
-          let cur = "";
-          let q = false;
-          for (let i = 0; i < row.length; i++) {
-            const c = row[i];
-            if (c === '"') q = !q;
-            else if (c === "," && !q) {
-              out.push(cur.trim());
-              cur = "";
-            } else cur += c;
-          }
-          out.push(cur.trim());
-          return out;
-        })
-        .filter((r) => r.some((cell) => cell.length > 0));
-
-      const headers = rows[0] || [];
-      const dataRows = rows.slice(1);
-
-      const dateIndex = headers.findIndex((h) =>
-        String(h).toLowerCase().includes("date"),
-      );
-      const matchIndex = headers.findIndex((h) =>
-        String(h).toLowerCase().includes("home"),
-      );
-      const ftScoreIndex = 77; // BZ
-
-      // 2) build sheet map for target date
+      // 2) build map for target date
       const map = new Map(); // key -> ftScore
-      for (const r of dataRows) {
-        const dateRaw = r[dateIndex];
-        const matchRaw = r[matchIndex];
-        if (!dateRaw || !matchRaw) continue;
+      for (const r of dbScores) {
+        const ft = String(r.ft_score).trim();
+        if (!ft) continue;
 
-        // your sheet date format: "28-Jan"
-        // We only need to match target day-month; easiest: compare day-month string
-        const dm = String(dateRaw).trim(); // e.g. "28-Jan"
-        // convert targetDateISO -> "28-Jan"
-        const dt = new Date(`${targetDateISO}T00:00:00Z`);
-        const day = String(dt.getUTCDate());
-        const mon = dt.toLocaleString("en-US", {
-          month: "short",
-          timeZone: "UTC",
-        });
-        const targetDM = `${day}-${mon}`;
-
-        if (dm !== targetDM) continue;
-
-        const ft = String(r[ftScoreIndex] || "").trim();
-        map.set(normMatchKey(matchRaw), ft);
+        if (r.match_label) map.set(normMatchKey(r.match_label), ft);
+        if (r.home_team) map.set(normMatchKey(r.home_team), ft);
       }
 
       // 3) fetch DB rows to update
