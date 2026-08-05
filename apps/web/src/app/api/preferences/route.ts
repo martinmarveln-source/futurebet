@@ -54,46 +54,54 @@ export async function POST(request) {
     const userId = session.user.id;
     const body = await request.json();
 
+    const existingRows = await sql`SELECT * FROM user_preferences WHERE user_id = ${userId}`;
+    const existing = existingRows[0] || {};
+
     // ── Core preferences ───────────────────────────────────────────────────
-    const favorite_leagues = Array.isArray(body.favorite_leagues)
-      ? body.favorite_leagues
-      : [];
-    const favorite_markets = Array.isArray(body.favorite_markets)
-      ? body.favorite_markets
-      : [];
-    const default_chance_threshold =
-      Number(body.default_chance_threshold) || 50;
-    const default_rating_threshold =
-      Number(body.default_rating_threshold) || 50;
-    const telegram_bot_token = String(body.telegram_bot_token || "").trim();
-    const telegram_chat_id = String(body.telegram_chat_id || "").trim();
+    const favorite_leagues = body.favorite_leagues !== undefined
+      ? (Array.isArray(body.favorite_leagues) ? body.favorite_leagues : [])
+      : (existing.favorite_leagues || []);
+    const favorite_markets = body.favorite_markets !== undefined
+      ? (Array.isArray(body.favorite_markets) ? body.favorite_markets : [])
+      : (existing.favorite_markets || ["homeWin", "draw", "awayWin", "gg", "ov25"]);
+    const default_chance_threshold = body.default_chance_threshold !== undefined
+      ? Number(body.default_chance_threshold) || 50
+      : (existing.default_chance_threshold || 50);
+    const default_rating_threshold = body.default_rating_threshold !== undefined
+      ? Number(body.default_rating_threshold) || 50
+      : (existing.default_rating_threshold || 50);
+    const telegram_bot_token = body.telegram_bot_token !== undefined
+      ? String(body.telegram_bot_token).trim()
+      : (existing.telegram_bot_token || "");
+    const telegram_chat_id = body.telegram_chat_id !== undefined
+      ? String(body.telegram_chat_id).trim()
+      : (existing.telegram_chat_id || "");
 
     // ── Alert preferences (Premium/Admin only — enforced server-side) ──────
-    // We still save them for everyone but the cron gate only fires for Premium/Admin
-    const alert_enabled = body.alert_enabled === true;
-    const alert_send_time = String(body.alert_send_time || "08:00").trim();
-    const alert_min_chance = Math.min(
-      100,
-      Math.max(0, Number(body.alert_min_chance ?? 60))
-    );
-    const alert_min_rating = Math.min(
-      100,
-      Math.max(0, Number(body.alert_min_rating ?? 50))
-    );
-    const alert_min_hist_rate = Math.min(
-      100,
-      Math.max(0, Number(body.alert_min_hist_rate ?? 0))
-    );
-    const alert_markets = Array.isArray(body.alert_markets)
-      ? body.alert_markets
-      : ["homeWin", "draw", "awayWin"];
-    const alert_pick_type = ["all", "aligned_only"].includes(body.alert_pick_type)
-      ? body.alert_pick_type
-      : "all";
-    const alert_max_matches = Math.min(
-      50,
-      Math.max(1, Number(body.alert_max_matches ?? 10))
-    );
+    const alert_enabled = body.alert_enabled !== undefined
+      ? body.alert_enabled === true
+      : (existing.alert_enabled ?? false);
+    const alert_send_time = body.alert_send_time !== undefined
+      ? String(body.alert_send_time).trim()
+      : (existing.alert_send_time || "08:00");
+    const alert_min_chance = body.alert_min_chance !== undefined
+      ? Math.min(100, Math.max(0, Number(body.alert_min_chance)))
+      : (existing.alert_min_chance ?? 60);
+    const alert_min_rating = body.alert_min_rating !== undefined
+      ? Math.min(100, Math.max(0, Number(body.alert_min_rating)))
+      : (existing.alert_min_rating ?? 50);
+    const alert_min_hist_rate = body.alert_min_hist_rate !== undefined
+      ? Math.min(100, Math.max(0, Number(body.alert_min_hist_rate)))
+      : (existing.alert_min_hist_rate ?? 0);
+    const alert_markets = body.alert_markets !== undefined
+      ? (Array.isArray(body.alert_markets) ? body.alert_markets : ["homeWin", "draw", "awayWin"])
+      : (existing.alert_markets || ["homeWin", "draw", "awayWin"]);
+    const alert_pick_type = body.alert_pick_type !== undefined
+      ? (["all", "aligned_only"].includes(body.alert_pick_type) ? body.alert_pick_type : "all")
+      : (existing.alert_pick_type || "all");
+    const alert_max_matches = body.alert_max_matches !== undefined
+      ? Math.min(50, Math.max(1, Number(body.alert_max_matches)))
+      : (existing.alert_max_matches ?? 10);
 
     const result = await sql`
       INSERT INTO user_preferences (

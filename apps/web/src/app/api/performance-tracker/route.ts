@@ -691,7 +691,31 @@ export async function GET(req) {
       return Response.json(buildTicketDTO(ticketId, ticketRows));
     }
 
-    return Response.json({ bets: betRows, tickets });
+    // Calculate VIP outcomes for the last 7 days
+    const vipRows = await sql`
+      SELECT tips, guide, ft_score 
+      FROM matches_cache
+      WHERE match_date >= (CURRENT_DATE - INTERVAL '7 days')
+        AND match_date <= CURRENT_DATE
+        AND chance ~ '^[0-9]+$' AND CAST(chance AS numeric) >= 65
+        AND rating ~ '^[0-9]+$' AND CAST(rating AS numeric) >= 55
+        AND ft_score IS NOT NULL
+        AND ft_score != ''
+    `;
+    
+    let vipWon = 0;
+    let vipLost = 0;
+    for (const row of vipRows) {
+      const pick = row.guide || row.tips;
+      if (!pick) continue;
+      const outcome = evalSelectionOutcome({ prediction: pick, ftScore: row.ft_score });
+      if (outcome === 'won') vipWon++;
+      else if (outcome === 'lost') vipLost++;
+    }
+    const vipTotal = vipWon + vipLost;
+    const vipWinRate = vipTotal > 0 ? Math.round((vipWon / vipTotal) * 100) : 0;
+
+    return Response.json({ bets: betRows, tickets, vipStats: { winRate: vipWinRate, total: vipTotal, won: vipWon } });
   } catch (err) {
     console.error("Performance Tracker GET error:", err);
     return Response.json({ error: "Server error" }, { status: 500 });

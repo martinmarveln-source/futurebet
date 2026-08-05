@@ -9,6 +9,7 @@ export function WeeklySummaryEmail({
   winRate = 78,
   totalProfit = "₦ 45,200",
   totalBets = 12,
+  vipWinRate = 85,
   isPremium = false,
 }) {
   const mainStyle = {
@@ -138,13 +139,15 @@ export function WeeklySummaryEmail({
                 <td style={{ padding: "0 5px", width: "33%" }}>
                   <div style={statBoxStyle}>
                     <p style={statLabelStyle}>Profit</p>
-                    <p style={statValueStyle}>{totalProfit}</p>
+                    <p style={{ ...statValueStyle, color: totalProfit.includes('-') ? "#ef4444" : "#10b981" }}>
+                      {totalProfit}
+                    </p>
                   </div>
                 </td>
                 <td style={{ padding: "0 0 0 5px", width: "33%" }}>
                   <div style={statBoxStyle}>
-                    <p style={statLabelStyle}>Matches</p>
-                    <p style={{ ...statValueStyle, color: "#60a5fa" }}>{totalBets}</p>
+                    <p style={statLabelStyle}>VIP Accuracy</p>
+                    <p style={statValueStyle}>{vipWinRate}%</p>
                   </div>
                 </td>
               </tr>

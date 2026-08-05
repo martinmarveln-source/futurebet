@@ -73,6 +73,7 @@ export default function WeeklyPerformanceReport({ userName, isPremium, isSilver,
         isPremium={isPremium}
         winRate={stats.winRate}
         totalProfit={`${stats.profit >= 0 ? '+' : ''}${formatNaira(stats.profit)}`}
+        vipWinRate={data?.vipStats?.winRate || 0}
         totalBets={stats.bets}
       />
     </div>
