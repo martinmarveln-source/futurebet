@@ -579,10 +579,18 @@ export async function GET(req: Request) {
 
     if (!isCron) {
       const session = await auth();
-      if (!session?.user?.id) {
+      if (!session?.user?.email) {
         return Response.json({ error: "Unauthorized" }, { status: 401 });
       }
-      if (session.user.role !== "admin" && session.user.role !== "premium") {
+      
+      const users = await sql`SELECT user_role, subscription_status, subscription_expires_at FROM auth_users WHERE email = ${session.user.email}`;
+      const u = users[0];
+      const role = u?.user_role || "free";
+      const sub = u?.subscription_status || "free";
+      const valid = !u?.subscription_expires_at || new Date(u.subscription_expires_at) > new Date();
+      const isPremiumOrAdmin = role === "admin" || role === "premium" || (sub === "premium" && valid);
+
+      if (!isPremiumOrAdmin) {
         return Response.json({ error: "Forbidden: Requires premium access" }, { status: 403 });
       }
     }

@@ -668,10 +668,18 @@ async function getOrBuildData() {
 export async function GET(req: Request) {
   // Authentication check
   const session = await auth();
-  if (!session?.user?.id) {
+  if (!session?.user?.email) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const isPremiumOrAdmin = session.user.role === "admin" || session.user.role === "premium";
+
+  const users = await sql`SELECT user_role, subscription_status, subscription_expires_at FROM auth_users WHERE email = ${session.user.email}`;
+  const u = users[0];
+  const role = u?.user_role || "free";
+  const sub = u?.subscription_status || "free";
+  const valid = !u?.subscription_expires_at || new Date(u.subscription_expires_at) > new Date();
+  
+  // Both Premium and Admin are granted full premium access
+  const isPremiumOrAdmin = role === "admin" || role === "premium" || (sub === "premium" && valid);
 
   const url = new URL(req.url);
   // Ensure only premium/admin users can ask for full premium data

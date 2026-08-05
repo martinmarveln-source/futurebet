@@ -598,7 +598,6 @@ export async function GET(req) {
             match_date,
             created_at,
             updated_at,
-            total_odds,
             ticket_code,
             ticket_is_shared,
             ticket_total_odds,
@@ -623,7 +622,6 @@ export async function GET(req) {
             match_date,
             created_at,
             updated_at,
-            total_odds,
             ticket_code,
             ticket_is_shared,
             ticket_total_odds,
@@ -675,7 +673,6 @@ export async function GET(req) {
             ticket_is_shared,
             ticket_total_odds,
             ticket_stake,
-            total_odds,
             selection_odds
           FROM user_performance_tracking
           WHERE ticket_code = ${ticketId}
@@ -1149,8 +1146,6 @@ export async function PUT(req) {
         ticket_is_shared,
         ticket_total_odds,
         ticket_stake,
-        total_odds,
-        ticket_state,
         potential_payout,
         selection_odds
       FROM user_performance_tracking
