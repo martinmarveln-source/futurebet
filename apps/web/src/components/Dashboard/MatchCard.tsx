@@ -2030,6 +2030,17 @@ export default function MatchCard({
       if (intelligence) return;
       try {
         setIsLoadingIntelligence(true);
+        
+        // Track usage and check limits
+        const limitCheck = await fetch("/api/ai-usage", { method: "POST" });
+        const limitData = await limitCheck.json();
+        
+        if (!limitCheck.ok) {
+          alert(limitData.error || "Daily AI Insight limit reached.");
+          setShowIntelligence(false);
+          return;
+        }
+
         const { computeIntelligence } = await import(
           "@/utils/intelligenceEngine"
         );

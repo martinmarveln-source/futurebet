@@ -65,8 +65,8 @@ export async function GET() {
     // Filter access: Admin, Premium, or Silver users (handled by the cascade)
     const hasFilterAccess = isSilver;
 
-    // AI Insights access: Only Admin and Premium users (NOT Silver)
-    const canAccessAIInsights = isPremium;
+    // AI Insights access: Admin, Premium, and Silver users
+    const canAccessAIInsights = isPremium || isSilver;
 
     return Response.json({
       hasAccess: true,

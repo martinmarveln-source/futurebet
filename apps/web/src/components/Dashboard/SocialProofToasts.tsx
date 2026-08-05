@@ -22,21 +22,25 @@ const AMOUNTS = ["₦15,000", "₦45,000", "₦120,500", "₦8,500", "₦64,000"
 
 const ACTIONS = [
   {
-    template: (name, city) => `${name} from ${city} just upgraded to Premium! 👑`,
+    type: "upgrade",
+    template: (name, city, amount, tier) => `${name} from ${city} just upgraded to ${tier || "Premium"}! 👑`,
     icon: <Crown className="h-5 w-5 text-yellow-500" />,
     color: "border-yellow-500/30 bg-yellow-500/10",
   },
   {
+    type: "win",
     template: (name, city, amount) => `${name} just won ${amount} using Elite Edge 📈`,
     icon: <TrendingUp className="h-5 w-5 text-emerald-500" />,
     color: "border-emerald-500/30 bg-emerald-500/10",
   },
   {
+    type: "verify",
     template: (name, city) => `${name} from ${city} verified their phone number ✅`,
     icon: <CheckCircle2 className="h-5 w-5 text-blue-500" />,
     color: "border-blue-500/30 bg-blue-500/10",
   },
   {
+    type: "view",
     template: (name) => `${name} is currently viewing the Auto-Pick AI 🤖`,
     icon: <Zap className="h-5 w-5 text-purple-500" />,
     color: "border-purple-500/30 bg-purple-500/10",
@@ -48,6 +52,24 @@ export default function SocialProofToasts({ darkMode = false }) {
   
   // Track used names in this session to prevent repeats
   const usedNamesRef = useRef(new Set<string>());
+  
+  // Real data state
+  const [realData, setRealData] = useState<{ names: string[], upgrades: {name: string, tier: string}[] }>({ names: [], upgrades: [] });
+
+  useEffect(() => {
+    // Fetch real data on mount
+    fetch("/api/fomo")
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok) {
+          setRealData({
+            names: data.names || [],
+            upgrades: data.upgrades || []
+          });
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   useEffect(() => {
     // Generate a random delay between 30 and 75 seconds
@@ -56,13 +78,16 @@ export default function SocialProofToasts({ darkMode = false }) {
     let timeoutId: NodeJS.Timeout;
 
     const showRandomToast = () => {
-      // Find a name that hasn't been used recently
-      let availableNames = ALL_NAMES.filter(n => !usedNamesRef.current.has(n));
+      // Use real names if available, fallback to ALL_NAMES
+      const sourceNames = realData.names.length > 0 ? realData.names : ALL_NAMES;
       
-      // If we somehow used all 60 names, reset the pool
+      // Find a name that hasn't been used recently
+      let availableNames = sourceNames.filter(n => !usedNamesRef.current.has(n));
+      
+      // If we somehow used all names, reset the pool
       if (availableNames.length === 0) {
         usedNamesRef.current.clear();
-        availableNames = ALL_NAMES;
+        availableNames = sourceNames;
       }
 
       const name = availableNames[Math.floor(Math.random() * availableNames.length)];
@@ -70,11 +95,24 @@ export default function SocialProofToasts({ darkMode = false }) {
 
       const city = CITIES[Math.floor(Math.random() * CITIES.length)];
       const amount = AMOUNTS[Math.floor(Math.random() * AMOUNTS.length)];
-      const action = ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
+      
+      // If we have real upgrades, we can bias towards showing an upgrade toast
+      let action = ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
+      let tier = "Premium";
+      let finalName = name;
+      
+      if (realData.upgrades.length > 0 && Math.random() > 0.6) {
+         // Show a real upgrade 40% of the time if available
+         const realUpgrade = realData.upgrades[Math.floor(Math.random() * realData.upgrades.length)];
+         action = ACTIONS[0]; // Upgrade action
+         finalName = realUpgrade.name;
+         tier = realUpgrade.tier.charAt(0).toUpperCase() + realUpgrade.tier.slice(1);
+         usedNamesRef.current.add(finalName);
+      }
 
       setToast({
         id: Date.now(),
-        message: action.template(name, city, amount),
+        message: action.template(finalName, city, amount, tier),
         icon: action.icon,
         color: action.color,
       });
@@ -94,7 +132,7 @@ export default function SocialProofToasts({ darkMode = false }) {
     return () => {
       clearTimeout(timeoutId);
     };
-  }, []);
+  }, [realData]);
 
   if (!toast) return null;
 
