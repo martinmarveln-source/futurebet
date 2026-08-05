@@ -1,5 +1,7 @@
 // @ts-nocheck
 import sql from "@/app/api/utils/sql";
+import { format } from "date-fns";
+import { computeDerivedPickFromStats } from "@/utils/vipAlgorithm";
 import { auth } from "@/auth";
 
 /* =========================
@@ -691,9 +693,9 @@ export async function GET(req) {
       return Response.json(buildTicketDTO(ticketId, ticketRows));
     }
 
-    // Calculate VIP outcomes for the last 7 days
+    // Calculate VIP outcomes for the last 7 days using the real VIP algorithm
     const vipRows = await sql`
-      SELECT tips, guide, ft_score 
+      SELECT ft_score, raw_data 
       FROM matches_cache
       WHERE match_date >= (CURRENT_DATE - INTERVAL '7 days')
         AND match_date <= CURRENT_DATE
@@ -706,9 +708,24 @@ export async function GET(req) {
     let vipWon = 0;
     let vipLost = 0;
     for (const row of vipRows) {
-      const pick = row.guide || row.tips;
-      if (!pick) continue;
-      const outcome = evalSelectionOutcome({ prediction: pick, ftScore: row.ft_score });
+      const raw = row.raw_data;
+      if (!raw) continue;
+      
+      const derived = computeDerivedPickFromStats({
+        hgs: Number(raw.hgs) || 0,
+        hgc: Number(raw.hgc) || 0,
+        ags: Number(raw.ags) || 0,
+        agc: Number(raw.agc) || 0,
+        ov25SheetPct: parseFloat(raw.ov25) || 0,
+        ggSheetPct: parseFloat(raw.gg) || 0,
+        homeSheetPct: parseFloat(raw.homeWin) || 0,
+        drawSheetPct: parseFloat(raw.draw) || 0,
+        awaySheetPct: parseFloat(raw.awayWin) || 0,
+      });
+
+      if (!derived) continue; // The Poisson model didn't find a high enough confidence pick
+
+      const outcome = evalSelectionOutcome({ prediction: derived.pickLabel, ftScore: row.ft_score });
       if (outcome === 'won') vipWon++;
       else if (outcome === 'lost') vipLost++;
     }
