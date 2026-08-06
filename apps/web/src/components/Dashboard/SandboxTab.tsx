@@ -536,7 +536,7 @@ export function BacktestingSandbox({ darkMode }: { darkMode?: boolean }) {
                     <LineChartIcon size={14} /> Cumulative Profit (Units)
                   </div>
                   <div className="w-full" style={{ minHeight: "250px", height: "250px" }}>
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minHeight={1}>
                       <LineChart data={results.chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"} vertical={false} />
                         <XAxis dataKey="bet" tick={{ fontSize: 10, fill: darkMode ? '#888' : '#aaa' }} tickLine={false} axisLine={false} />

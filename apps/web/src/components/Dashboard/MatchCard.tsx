@@ -627,7 +627,7 @@ function renderFormattedText(text: any) {
     if (part.startsWith("**") && part.endsWith("**")) {
       return <strong key={i} className="font-extrabold">{part.slice(2, -2)}</strong>;
     }
-    return part;
+    return <span key={i}>{part}</span>;
   });
 }
 
