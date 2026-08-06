@@ -70,7 +70,6 @@ export default function Header({
     }
   }, []);
 
-  }, []);
   return (
     <header
       className={`${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} border-b px-4 py-3`}
