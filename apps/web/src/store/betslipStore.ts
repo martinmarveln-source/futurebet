@@ -708,7 +708,8 @@ const useBetslipStore = create(
                       odds,
                     };
                   })
-            })),
+              };
+            }),
           };
         } catch {
           return persistedState;
