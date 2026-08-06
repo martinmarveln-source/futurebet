@@ -529,10 +529,18 @@ const useBetslipStore = create(
       tickets: [],
 
       trackThisBet: (systemStakes = null) => {
-        const slip = Array.isArray(get().matches) ? get().matches : [];
-        if (!slip.length) return { ok: false, reason: "empty" };
-        if (slip.some((m) => !m.selectedMarket || !m.selectedOption))
+        const rawSlip = Array.isArray(get().matches) ? get().matches : [];
+        if (!rawSlip.length) return { ok: false, reason: "empty" };
+        if (rawSlip.some((m) => !m.selectedMarket || !m.selectedOption))
           return { ok: false, reason: "missing_selection" };
+
+        const uniqueMatches = [];
+        for (const m of rawSlip) {
+          if (!uniqueMatches.some(x => normalizeCompare(x.match) === normalizeCompare(m.match))) {
+            uniqueMatches.push(m);
+          }
+        }
+        const slip = uniqueMatches.slice(0, 20);
 
         const fallbackStake = Number(get().stake);
 
@@ -654,9 +662,16 @@ const useBetslipStore = create(
           const matches = Array.isArray(state.matches) ? state.matches : [];
           const tickets = Array.isArray(state.tickets) ? state.tickets : [];
 
+          const uniqueMatches = [];
+          for (const m of matches) {
+            if (!uniqueMatches.some(x => normalizeCompare(x.match) === normalizeCompare(m.match))) {
+              uniqueMatches.push(ensureMatchShape(m));
+            }
+          }
+
           return {
             ...state,
-            matches: matches.map((m) => ensureMatchShape(m)),
+            matches: uniqueMatches.slice(0, 20),
             tickets: tickets.map((t) => ({
               ...t,
               selections: Array.isArray(t.selections)
