@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use client";
 
-import React, {
+import dynamic from "next/dynamic";import React, {
   useMemo,
   useState,
   lazy,
@@ -37,13 +37,13 @@ import { useExploreFilters } from "@/hooks/useExploreFilters";
 import { useHomeActions } from "@/hooks/useHomeActions";
 import { cn } from "@/utils/matchUtils";
 
-const BetSlip = lazy(() => import("@/components/Dashboard/BetSlip"));
-const PerformanceTracker = lazy(
-  () => import("@/components/Dashboard/PerformanceTracker")
+const BetSlip = dynamic(() => import("@/components/Dashboard/BetSlip"), { ssr: false });
+const PerformanceTracker = dynamic(
+  () => import("@/components/Dashboard/PerformanceTracker"), { ssr: false }
 );
-const TeamCompare = lazy(() => import("@/components/Dashboard/TeamCompare"));
-const GuideTab = lazy(() => import("@/components/Dashboard/GuideTab"));
-const SandboxTab = lazy(() => import("@/components/Dashboard/SandboxTab"));
+const TeamCompare = dynamic(() => import("@/components/Dashboard/TeamCompare"), { ssr: false });
+const GuideTab = dynamic(() => import("@/components/Dashboard/GuideTab"), { ssr: false });
+const SandboxTab = dynamic(() => import("@/components/Dashboard/SandboxTab"), { ssr: false });
 
 /* === UPGRADE: NORDIC THEME BACKGROUND === */
 function PremiumBackground({ darkMode }) {

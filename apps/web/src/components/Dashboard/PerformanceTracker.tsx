@@ -38,35 +38,9 @@ export function useLiveOddsArchive() {
   return useQuery({
     queryKey: ["live-odds-data-tracker"],
     queryFn: async () => {
-      const SHEET_ID = "1vMva92Yesm1YiJeC8_1mBqb2KtTv31ByaCuJK2B9qeY";
-      const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Odds2`;
-
-      const response = await fetch(CSV_URL);
+      const response = await fetch("/api/live-odds");
       if (!response.ok) return [];
-
-      const csvText = await response.text();
-      const rows = csvText.split("\n");
-      if (rows.length < 2) return [];
-
-      const headers = rows[0]
-        .split(",")
-        .map((h) => h.trim().replace(/^"|"$/g, ""));
-      const archiveData = [];
-
-      for (let i = 1; i < rows.length; i++) {
-        const rowText = rows[i].trim();
-        if (!rowText) continue;
-        const values = rowText.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-        let rowObj = {};
-        headers.forEach((header, index) => {
-          let val = values[index]
-            ? values[index].trim().replace(/^"|"$/g, "")
-            : null;
-          rowObj[header] = val;
-        });
-        archiveData.push(rowObj);
-      }
-      return archiveData;
+      return response.json();
     },
     staleTime: 1000 * 60 * 5, // 5 min cache
   });
