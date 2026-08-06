@@ -489,13 +489,13 @@ export default function PaymentsAdmin() {
             <p className="mb-2">Required environment variable:</p>
 
             <code className="bg-yellow-100 px-2 py-1 rounded font-mono text-xs">
-              SELAR_API_KEY=********
+              PAYSTACK_SECRET_KEY=********
             </code>
 
             <p className="mt-4 text-xs">
-              Configure Selar webhook URL:{" "}
+              Configure Paystack webhook URL:{" "}
               <code className="bg-yellow-100 px-1 rounded">
-                [your-domain]/api/payment/webhook
+                [your-domain]/api/payment/paystack-webhook
               </code>
             </p>
           </div>

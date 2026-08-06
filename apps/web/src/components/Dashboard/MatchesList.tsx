@@ -7,6 +7,7 @@ import MatchCard from "./MatchCard";
 import useUser from "@/utils/useUser";
 import useUserPermissions from "@/hooks/useUserPermissions";
 import UpgradeButton from "./UpgradeButton";
+import { toast } from "sonner";
 
 /* -----------------------------
    Small UI helper
@@ -15,7 +16,6 @@ function cn(...c) {
   return c.filter(Boolean).join(" ");
 }
 
-const UPGRADE_URL = "https://selar.com/8x155u0715";
 const API_EXPORT_URL = "/api/matches";
 
 function toNumber(v) {
@@ -364,16 +364,12 @@ export default function MatchesList({
   const basicAccess = access?.basic || buildFallbackAccess(hookTier).basic;
   const proAccess = access?.pro || buildFallbackAccess(hookTier).pro;
 
-  const handleUpgrade = useCallback(() => {
-    window.open(UPGRADE_URL, "_blank", "noopener,noreferrer");
-  }, []);
-
   const handleExport = useCallback(
     async (type) => {
       const selectedAccess = type === "basic" ? basicAccess : proAccess;
 
       if (!selectedAccess?.allowed) {
-        handleUpgrade();
+        toast.error("Please upgrade your plan to export matches.");
         return;
       }
 

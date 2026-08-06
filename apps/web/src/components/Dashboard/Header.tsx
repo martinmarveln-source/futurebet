@@ -25,7 +25,6 @@ export default function Header({
 }) {
   const { data: currentUser, refetch: refetchUser } = useUser();
   const { isAdmin, isPremium, canAccessAIInsights } = useUserPermissions();
-  const [upgradeStatus, setUpgradeStatus] = useState(null); // For success/error messages
 
   const [loginStreak, setLoginStreak] = useState(1);
   const [showStreakGlow, setShowStreakGlow] = useState(false);
@@ -71,62 +70,7 @@ export default function Header({
     }
   }, []);
 
-  // Selar payment link
-  const PAYMENT_LINK = "https://selar.com/8x155u0715";
-
-  // Handle upgrade button click
-  const handleUpgradeClick = () => {
-    try {
-      // Open payment link in new tab
-      window.open(PAYMENT_LINK, "_blank", "noopener,noreferrer");
-
-      // Set a message to inform user
-      setUpgradeStatus({
-        type: "info",
-        message:
-          "Payment page opened. Return here after completing payment - your account will upgrade automatically.",
-      });
-
-      // Clear the message after 10 seconds
-      setTimeout(() => setUpgradeStatus(null), 10000);
-
-      // Optional: Poll for user status update every 30 seconds for 5 minutes after upgrade attempt
-      const pollForUpgrade = () => {
-        let pollCount = 0;
-        const maxPolls = 10; // 5 minutes (30s * 10)
-
-        const interval = setInterval(async () => {
-          pollCount++;
-
-          try {
-            // Refetch user data to check if upgraded
-            await refetchUser();
-
-            // Stop polling after max attempts
-            if (pollCount >= maxPolls) {
-              clearInterval(interval);
-            }
-          } catch (error) {
-            console.error("Error polling user status:", error);
-          }
-        }, 30000); // Poll every 30 seconds
-
-        return interval;
-      };
-
-      // Start polling
-      pollForUpgrade();
-    } catch (error) {
-      console.error("Error opening payment link:", error);
-      setUpgradeStatus({
-        type: "error",
-        message: "Unable to open payment page. Please try again.",
-      });
-      setTimeout(() => setUpgradeStatus(null), 5000);
-    }
-  };
-
-
+  }, []);
   return (
     <header
       className={`${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} border-b px-4 py-3`}
@@ -140,29 +84,6 @@ export default function Header({
             Football Prediction Analytics
           </span>
         </div>
-
-        {/* Upgrade Status Message */}
-        {upgradeStatus && (
-          <div
-            className={`fixed top-20 right-4 z-50 px-4 py-3 rounded-lg shadow-lg max-w-sm ${
-              upgradeStatus.type === "error"
-                ? "bg-red-100 text-red-800 border border-red-200"
-                : upgradeStatus.type === "success"
-                  ? "bg-green-100 text-green-800 border border-green-200"
-                  : "bg-blue-100 text-blue-800 border border-blue-200"
-            }`}
-          >
-            <div className="flex items-start space-x-2">
-              <div className="flex-1 text-sm">{upgradeStatus.message}</div>
-              <button
-                onClick={() => setUpgradeStatus(null)}
-                className="flex-shrink-0 text-current opacity-70 hover:opacity-100"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        )}
 
         <div className="flex items-center space-x-2 md:space-x-4">
           {/* Daily Streak Badge */}
