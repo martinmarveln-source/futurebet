@@ -22,16 +22,13 @@ export async function GET(req: Request) {
 
     // Ensure table exists
     await sql`
-      CREATE TABLE IF NOT EXISTS ai_insight_usage (
+      CREATE TABLE IF NOT EXISTS ai_insight_logs (
         id SERIAL PRIMARY KEY,
         user_id TEXT NOT NULL,
         match_id TEXT NOT NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `;
-    
-    // Add match_id if it doesn't exist from an older schema version
-    await sql`ALTER TABLE ai_insight_usage ADD COLUMN IF NOT EXISTS match_id TEXT DEFAULT 'local-insight'`;
 
     // Load tier
     const [userRecord] = await sql`
@@ -58,7 +55,7 @@ export async function GET(req: Request) {
     // Today usage
     const [todayUsage] = await sql`
       SELECT COUNT(*)::int AS today_insights
-      FROM ai_insight_usage
+      FROM ai_insight_logs
       WHERE user_id = ${userId}
         AND DATE(created_at) = CURRENT_DATE
     `;
@@ -102,16 +99,13 @@ export async function POST(req: Request) {
 
     // Ensure table exists
     await sql`
-      CREATE TABLE IF NOT EXISTS ai_insight_usage (
+      CREATE TABLE IF NOT EXISTS ai_insight_logs (
         id SERIAL PRIMARY KEY,
         user_id TEXT NOT NULL,
         match_id TEXT NOT NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `;
-    
-    // Add match_id if it doesn't exist from an older schema version
-    await sql`ALTER TABLE ai_insight_usage ADD COLUMN IF NOT EXISTS match_id TEXT DEFAULT 'local-insight'`;
 
     // Load tier
     const [userRecord] = await sql`
@@ -145,7 +139,7 @@ export async function POST(req: Request) {
     if (!isUnlimited) {
       const [todayUsage] = await sql`
         SELECT COUNT(*)::int AS today_insights
-        FROM ai_insight_usage
+        FROM ai_insight_logs
         WHERE user_id = ${userId}
           AND DATE(created_at) = CURRENT_DATE
       `;
@@ -161,7 +155,7 @@ export async function POST(req: Request) {
 
     // Record the usage
     await sql`
-      INSERT INTO ai_insight_usage (user_id, match_id)
+      INSERT INTO ai_insight_logs (user_id, match_id)
       VALUES (${userId}, 'local-insight')
     `;
 
