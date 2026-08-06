@@ -29,6 +29,9 @@ export async function GET(req: Request) {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `;
+    
+    // Add match_id if it doesn't exist from an older schema version
+    await sql`ALTER TABLE ai_insight_usage ADD COLUMN IF NOT EXISTS match_id TEXT DEFAULT 'local-insight'`;
 
     // Load tier
     const [userRecord] = await sql`
@@ -106,6 +109,9 @@ export async function POST(req: Request) {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `;
+    
+    // Add match_id if it doesn't exist from an older schema version
+    await sql`ALTER TABLE ai_insight_usage ADD COLUMN IF NOT EXISTS match_id TEXT DEFAULT 'local-insight'`;
 
     // Load tier
     const [userRecord] = await sql`
