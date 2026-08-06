@@ -1,2 +1,2 @@
 [phases.install]
-cmds = ["npm install -g corepack@0.24.1 && corepack enable", "yarn install"]
+cmds = ["npm install -g corepack@0.24.1 && corepack enable", "YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install"]
