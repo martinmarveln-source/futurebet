@@ -620,6 +620,17 @@ const Section = memo(function Section({ darkMode, title, icon, children }) {
   );
 });
 
+function renderFormattedText(text: any) {
+  if (typeof text !== "string") return text;
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={i} className="font-extrabold">{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+}
+
 function InsightBlock({ title, children, darkMode }) {
   return (
     <div
@@ -629,7 +640,7 @@ function InsightBlock({ title, children, darkMode }) {
       )}
     >
       <div className="font-extrabold mb-2 text-xs opacity-70">{title}</div>
-      {children}
+      {renderFormattedText(children)}
     </div>
   );
 }

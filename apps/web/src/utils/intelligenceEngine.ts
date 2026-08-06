@@ -614,115 +614,115 @@ function buildNarratives(data) {
   const overview = `
 ${tone.opener}
 
-${homeTeam} possess an attacking metric of ${fmt(
+**${homeTeam}** possess an attacking metric of **${fmt(
     match.hgs
-  )} expected goals alongside a concession rate of ${fmt(
+  )}** expected goals alongside a concession rate of **${fmt(
     match.hgc
-  )}, juxtaposed against ${awayTeam}'s away metrics of ${fmt(
+  )}**, juxtaposed against **${awayTeam}**'s away metrics of **${fmt(
     match.ags
-  )} (GF) and ${fmt(match.agc)} (GA).
+  )}** (GF) and **${fmt(match.agc)}** (GA).
 
-Points-per-game distribution sits at ${fmt(homePPG)} vs ${fmt(
+Points-per-game distribution sits at **${fmt(homePPG)}** vs **${fmt(
     awayPPG
-  )}, supported by a short-term momentum distribution of ${safe(
+  )}**, supported by a short-term momentum distribution of **${safe(
     match.hPts
-  )} points to ${safe(match.aPts)} over the trailing 5-match window.
+  )}** points to **${safe(match.aPts)}** over the trailing 5-match window.
 
-The quantitative model values the primary outcome at ${probability}%, anchored by a structural delta of ${fmt(
+The quantitative model values the primary outcome at **${probability}%**, anchored by a structural delta of **${fmt(
     structural.composite
-  )} and a stability index of ${fmt(
+  )}** and a stability index of **${fmt(
     stability
-  )}. Momentum flow is flagged as ${momentum.toLowerCase()}, driving a centralized model trust rating of ${safe(
+  )}**. Momentum flow is flagged as **${momentum.toLowerCase()}**, driving a centralized model trust rating of **${safe(
     modelTrust
-  )}%.
+  )}%**.
 `;
 
   const tactical = `
-Tactical separation relies on ${homeTeam}'s attacking output (${fmt(
+Tactical separation relies on **${homeTeam}**'s attacking output (**${fmt(
     match.hgs
-  )}) intersecting with ${awayTeam}'s defensive decay (${fmt(
+  )}**) intersecting with **${awayTeam}**'s defensive decay (**${fmt(
     match.agc
-  )}), generating a baseline structural edge of ${fmt(structural.attackEdge)}.
+  )}**), generating a baseline structural edge of **${fmt(structural.attackEdge)}**.
 
-Conversely, ${awayTeam}'s offensive capacity (${fmt(
+Conversely, **${awayTeam}**'s offensive capacity (**${fmt(
     match.ags
-  )}) against ${homeTeam}'s resistance (${fmt(
+  )}**) against **${homeTeam}**'s resistance (**${fmt(
     match.hgc
-  )}) establishes the fixture's counter-threat profile.
+  )}**) establishes the fixture's counter-threat profile.
 
-BTTS propensities track at ${pct(match.hBtts)}% (${homeTeam}) and ${pct(
+BTTS propensities track at **${pct(match.hBtts)}%** (${homeTeam}) and **${pct(
     match.aBtts
-  )}% (${awayTeam}), mapping directly to a ${tempoProfile.toLowerCase()} game script.
+  )}%** (${awayTeam}), mapping directly to a **${tempoProfile.toLowerCase()}** game script.
 
-Shutout potential (Clean Sheet %: ${pct(match.hcs)} vs ${pct(
+Shutout potential (Clean Sheet %: **${pct(match.hcs)}** vs **${pct(
     match.acs
-  )}) combined with offensive zeroes (FTS %: ${pct(
+  )}**) combined with offensive zeroes (FTS %: **${pct(
     match.hfts ?? match.hFailedToScore
-  )} vs ${pct(
+  )}** vs **${pct(
     match.afts ?? match.aFailedToScore
-  )}) categorizes this matchup strictly as a state of ${defensiveState.toLowerCase()}.
+  )}**) categorizes this matchup strictly as a state of **${defensiveState.toLowerCase()}**.
 `;
 
   const marketAlignment = `
-Market alignment isolates on ${
+Market alignment isolates on **${
     guideMeta.marketAngle
-  }, carrying a ${probability}% true probability overlay against a system rating of ${safe(
+  }**, carrying a **${probability}%** true probability overlay against a system rating of **${safe(
     match.rating
-  ).toFixed(0)}%.
+  ).toFixed(0)}%**.
 
-Trailing head-to-head parameters over ${safe(
+Trailing head-to-head parameters over **${safe(
     match.H2H_GP
-  )} iterations indicate BTTS at ${pct(match.H2H_GG)}% and Over 2.5 at ${pct(
+  )}** iterations indicate BTTS at **${pct(match.H2H_GG)}%** and Over 2.5 at **${pct(
     match.H2H_OV
-  )}%.
+  )}%**.
 
-Algorithmic scoreline distribution highlights ${match.cScore || "N/A"} (${pct(
+Algorithmic scoreline distribution highlights **${match.cScore || "N/A"}** (**${pct(
     match.modelCSPercent
-  )}%) as the primary vector, trailed by ${match.cs2 || "N/A"} (${pct(
+  )}%**) as the primary vector, trailed by **${match.cs2 || "N/A"}** (**${pct(
     match.cs2Percent
-  )}%).
+  )}%**).
 
-Compared to market pricing, the implied probability rests at ${safe(
+Compared to market pricing, the implied probability rests at **${safe(
     surplus.impliedProbability
-  )}%, exposing a quantified mathematical surplus of ${safe(
+  )}%**, exposing a quantified mathematical surplus of **${safe(
     surplus.surplus
-  )} points. ${tone.closer}
+  )}** points. ${tone.closer}
 `;
 
   const goalProjection = `
-Expected total goals track to ${fmt(
+Expected total goals track to **${fmt(
     match.avg ||
       (safe(match.hgs) + safe(match.hgc) + safe(match.ags) + safe(match.agc)) /
         2
-  )}, distributed across Over 2.5 (${pct(match.ov25)}%) and Under 2.5 (${pct(
+  )}**, distributed across Over 2.5 (**${pct(match.ov25)}%**) and Under 2.5 (**${pct(
     match.un25
-  )}%) boundaries.
+  )}%**) boundaries.
 
-Early goal floor (Over 1.5) registers at ${pct(match.hgsOver15)}% vs ${pct(
+Early goal floor (Over 1.5) registers at **${pct(match.hgsOver15)}%** vs **${pct(
     match.agsOver15
-  )}%, establishing a highly robust baseline for scoring expectation.
+  )}%**, establishing a highly robust baseline for scoring expectation.
 
-H2H totals historically clear Over 2.5 at a ${pct(
+H2H totals historically clear Over 2.5 at a **${pct(
     match.H2H_OV
-  )}% clip across ${safe(match.H2H_GP)} encounters.
+  )}%** clip across **${safe(match.H2H_GP)}** encounters.
 
-This aggregate profile classifies the fixture explicitly within a ${goalEnvironment.toLowerCase()}.
+This aggregate profile classifies the fixture explicitly within a **${goalEnvironment.toLowerCase()}**.
 `;
 
   const riskReport = `
-Systemic risk triggers at ${risk.toLowerCase()}, paired with an overarching volatility flag of ${volatility.toLowerCase()}.
+Systemic risk triggers at **${risk.toLowerCase()}**, paired with an overarching volatility flag of **${volatility.toLowerCase()}**.
 
-Draw pressure calculates as ${drawPressure.toLowerCase()} (historical H2H draws: ${pct(
+Draw pressure calculates as **${drawPressure.toLowerCase()}** (historical H2H draws: **${pct(
     match.H2H_D
-  )}%), mapping a clear equilibrium threat if variance favors a stagnant script.
+  )}%**), mapping a clear equilibrium threat if variance favors a stagnant script.
 
-Upset channels are defined by ${awayTeam}'s away win frequency (${pct(
+Upset channels are defined by **${awayTeam}**'s away win frequency (**${pct(
     match.aWin
-  )}%) and ${homeTeam}'s home draw frequency (${pct(match.hDraw)}%).
+  )}%**) and **${homeTeam}**'s home draw frequency (**${pct(match.hDraw)}%**).
 
-Offensive suppression (FTS: ${pct(match.hfts ?? match.hFailedToScore)}% / ${pct(
+Offensive suppression (FTS: **${pct(match.hfts ?? match.hFailedToScore)}%** / **${pct(
     match.afts ?? match.aFailedToScore
-  )}%) remains the primary friction point preventing steeper total goals exposure.
+  )}%**) remains the primary friction point preventing steeper total goals exposure.
 `;
 
   return { overview, tactical, marketAlignment, goalProjection, riskReport };
