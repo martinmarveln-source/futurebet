@@ -457,7 +457,6 @@ export default function MatchesList({
       sortedMatches,
       selectedDate,
       effectiveSort,
-      handleUpgrade,
     ]
   );
 
