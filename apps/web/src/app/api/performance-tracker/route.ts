@@ -693,55 +693,70 @@ export async function GET(req) {
       return Response.json(buildTicketDTO(ticketId, ticketRows));
     }
 
-    // Calculate VIP outcomes for the last 7 days using the real VIP algorithm
-    const vipRows = await sql`
-      SELECT ft_score, raw_data 
-      FROM matches_cache
-      WHERE match_date >= (CURRENT_DATE - INTERVAL '7 days')
-        AND match_date <= CURRENT_DATE
-        AND chance ~ '^[0-9]+$' AND CAST(chance AS numeric) >= 65
-        AND rating ~ '^[0-9]+$' AND CAST(rating AS numeric) >= 55
-        AND ft_score IS NOT NULL
-        AND ft_score != ''
-    `;
-    
+    let vipWinRate = 0;
+    let vipTotal = 0;
     let vipWon = 0;
-    let vipLost = 0;
-    for (const row of vipRows) {
-      const raw = row.raw_data;
-      if (!raw) continue;
+
+    try {
+      // Calculate VIP outcomes for the last 7 days using the real VIP algorithm
+      const vipRows = await sql`
+        SELECT ft_score, raw_data 
+        FROM matches_cache
+        WHERE match_date >= (CURRENT_DATE - INTERVAL '7 days')
+          AND match_date <= CURRENT_DATE
+          AND chance ~ '^[0-9]+$' AND CAST(chance AS numeric) >= 65
+          AND rating ~ '^[0-9]+$' AND CAST(rating AS numeric) >= 55
+          AND ft_score IS NOT NULL
+          AND ft_score != ''
+      `;
       
-      const derived = computeDerivedPickFromStats({
-        hgs: Number(raw.hgs) || 0,
-        hgc: Number(raw.hgc) || 0,
-        ags: Number(raw.ags) || 0,
-        agc: Number(raw.agc) || 0,
-        hFormStr: String(raw.hForm || ''),
-        aFormStr: String(raw.aForm || ''),
-        hcs: parseFloat(raw.hcs) || 0,
-        acs: parseFloat(raw.acs) || 0,
-        hfts: parseFloat(raw.hfts) || 0,
-        afts: parseFloat(raw.afts) || 0,
-        h2hGp: parseFloat(raw.h2hGP) || 0,
-        h2hH: parseFloat(raw.h2hH) || 0,
-        h2hA: parseFloat(raw.h2hA) || 0,
-        h2hOv: parseFloat(raw.h2hOV) || 0,
-        h2hGg: parseFloat(raw.h2hGG) || 0,
-        ov25SheetPct: parseFloat(raw.ov25) || 0,
-        ggSheetPct: parseFloat(raw.gg) || 0,
-        homeSheetPct: parseFloat(raw.homeWin) || 0,
-        drawSheetPct: parseFloat(raw.draw) || 0,
-        awaySheetPct: parseFloat(raw.awayWin) || 0,
-      });
+      let vWon = 0;
+      let vLost = 0;
+      for (const row of vipRows) {
+        if (!row.raw_data) continue;
+        
+        let raw = {};
+        try {
+          raw = typeof row.raw_data === "string" ? JSON.parse(row.raw_data) : row.raw_data;
+        } catch (e) {
+          continue;
+        }
+        
+        const derived = computeDerivedPickFromStats({
+          hgs: Number(raw.hgs) || 0,
+          hgc: Number(raw.hgc) || 0,
+          ags: Number(raw.ags) || 0,
+          agc: Number(raw.agc) || 0,
+          hFormStr: String(raw.hForm || ''),
+          aFormStr: String(raw.aForm || ''),
+          hcs: parseFloat(raw.hcs) || 0,
+          acs: parseFloat(raw.acs) || 0,
+          hfts: parseFloat(raw.hfts) || 0,
+          afts: parseFloat(raw.afts) || 0,
+          h2hGp: parseFloat(raw.h2hGP) || 0,
+          h2hH: parseFloat(raw.h2hH) || 0,
+          h2hA: parseFloat(raw.h2hA) || 0,
+          h2hOv: parseFloat(raw.h2hOV) || 0,
+          h2hGg: parseFloat(raw.h2hGG) || 0,
+          ov25SheetPct: parseFloat(raw.ov25) || 0,
+          ggSheetPct: parseFloat(raw.gg) || 0,
+          homeSheetPct: parseFloat(raw.homeWin) || 0,
+          drawSheetPct: parseFloat(raw.draw) || 0,
+          awaySheetPct: parseFloat(raw.awayWin) || 0,
+        });
 
-      if (!derived) continue; // The Poisson model didn't find a high enough confidence pick
+        if (!derived) continue; // The Poisson model didn't find a high enough confidence pick
 
-      const outcome = evalSelectionOutcome({ prediction: derived.pickLabel, ftScore: row.ft_score });
-      if (outcome === 'won') vipWon++;
-      else if (outcome === 'lost') vipLost++;
+        const outcome = evalSelectionOutcome({ prediction: derived.pickLabel, ftScore: row.ft_score });
+        if (outcome === 'won') vWon++;
+        else if (outcome === 'lost') vLost++;
+      }
+      vipWon = vWon;
+      vipTotal = vWon + vLost;
+      vipWinRate = vipTotal > 0 ? Math.round((vWon / vipTotal) * 100) : 0;
+    } catch (vipErr) {
+      console.error("Error calculating VIP stats in tracker:", vipErr);
     }
-    const vipTotal = vipWon + vipLost;
-    const vipWinRate = vipTotal > 0 ? Math.round((vipWon / vipTotal) * 100) : 0;
 
     return Response.json({ bets: betRows, tickets, vipStats: { winRate: vipWinRate, total: vipTotal, won: vipWon } });
   } catch (err) {
