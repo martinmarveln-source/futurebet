@@ -592,14 +592,15 @@ export default function FutureBetDashboard() {
                     System Online
                   </span>
                 </div>
-                <h1
+                <h1 className="sr-only">Futurebet - AI Football Predictions & VIP Betting Analytics</h1>
+                <h2
                   className={cn(
                     "text-3xl sm:text-4xl font-black tracking-tighter uppercase",
                     darkMode ? "text-white" : "text-slate-900"
                   )}
                 >
                   {activeTabMeta.title}
-                </h1>
+                </h2>
                 <p
                   className={cn(
                     "mt-2 max-w-xl text-sm font-semibold",

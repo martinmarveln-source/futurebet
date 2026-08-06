@@ -12,21 +12,30 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://futurebet.com.ng"),
-  title: "FutureBet — Football Prediction Analytics",
+  title: "Futurebet | Best AI Football Prediction & Analytics",
   description:
-    "Football prediction, backtesting sandbox, and machine learning calibration.",
+    "Futurebet provides highly accurate AI football predictions, betting tips, backtesting, and VIP market context odds to help you win consistently.",
+  keywords: [
+    "Futurebet",
+    "Future bet",
+    "AI football predictions",
+    "betting analytics",
+    "VIP picks",
+    "football tips",
+    "value betting",
+  ],
   openGraph: {
-    title: "FutureBet — Football Prediction Analytics",
+    title: "Futurebet | AI Football Predictions",
     description:
-      "Football prediction, backtesting sandbox, and machine learning calibration.",
+      "Futurebet provides highly accurate AI football predictions, betting tips, and VIP market context odds.",
     url: "https://futurebet.com.ng",
-    siteName: "FutureBet",
+    siteName: "Futurebet",
     images: [
       {
         url: "/favicon.png",
         width: 512,
         height: 512,
-        alt: "FutureBet Logo",
+        alt: "Futurebet Logo",
       },
     ],
     locale: "en_NG",
@@ -34,9 +43,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "FutureBet — Football Prediction Analytics",
+    title: "Futurebet | AI Football Predictions",
     description:
-      "Football prediction, backtesting sandbox, and machine learning calibration.",
+      "Futurebet provides highly accurate AI football predictions and VIP betting tips.",
     images: ["/favicon.png"],
   },
   icons: {
@@ -72,16 +81,33 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "WebApplication",
-              name: "FutureBet",
-              url: "https://futurebet.com.ng",
-              description:
-                "Football prediction, backtesting sandbox, and machine learning calibration.",
-              applicationCategory: "SportsApplication",
-              operatingSystem: "Web",
-            }),
+            __html: JSON.stringify([
+              {
+                "@context": "https://schema.org",
+                "@type": "WebSite",
+                name: "Futurebet",
+                alternateName: "Future bet",
+                url: "https://futurebet.com.ng",
+              },
+              {
+                "@context": "https://schema.org",
+                "@type": "Organization",
+                name: "Futurebet",
+                url: "https://futurebet.com.ng",
+                logo: "https://futurebet.com.ng/favicon.png",
+                description: "AI Football Predictions and Betting Analytics",
+              },
+              {
+                "@context": "https://schema.org",
+                "@type": "WebApplication",
+                name: "Futurebet",
+                url: "https://futurebet.com.ng",
+                description:
+                  "Futurebet provides highly accurate AI football predictions, betting tips, backtesting, and VIP market context odds to help you win consistently.",
+                applicationCategory: "SportsApplication",
+                operatingSystem: "Web",
+              }
+            ]),
           }}
         />
         {/* PWA Service Worker Registration */}
