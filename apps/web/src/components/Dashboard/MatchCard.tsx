@@ -1578,10 +1578,19 @@ export default function MatchCard({
     if (!oddsHistory.length || !match?.match) return null;
     const matchStr = String(match.match).toLowerCase();
     const matchRows = oddsHistory.filter((row) => {
-      const home = String(row["Home Team"] || "").toLowerCase();
-      const away = String(row["Away Team"] || "").toLowerCase();
+      const home = String(row["Home Team"] || "").toLowerCase().trim();
+      const away = String(row["Away Team"] || "").toLowerCase().trim();
       if (!home || !away) return false;
-      return matchStr.includes(home) || matchStr.includes(away);
+      
+      const parts = matchStr.split(/\s+vs\s+|\s+-\s+/);
+      const mHome = (parts[0] || matchStr).trim();
+      const mAway = (parts[1] || "").trim();
+      
+      const homeMatch = home.includes(mHome) || mHome.includes(home);
+      const awayMatch = away.includes(mAway) || mAway.includes(away);
+      const isReversed = (home.includes(mAway) || mAway.includes(home)) && (away.includes(mHome) || mHome.includes(away));
+      
+      return (homeMatch && awayMatch) || isReversed;
     });
     if (!matchRows.length) return null;
 

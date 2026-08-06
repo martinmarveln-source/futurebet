@@ -1492,11 +1492,19 @@ export default function PerformanceTracker({ darkMode }) {
                 const mo = parsePredictionToMarketOption(s.prediction);
                 const matchStr = String(s.match).toLowerCase();
                 const matchRows = oddsHistory.filter((row) => {
-                  const h = String(row["Home Team"] || "").toLowerCase();
-                  const a = String(row["Away Team"] || "").toLowerCase();
-                  return (
-                    h && a && (matchStr.includes(h) || matchStr.includes(a))
-                  );
+                  const home = String(row["Home Team"] || "").toLowerCase().trim();
+                  const away = String(row["Away Team"] || "").toLowerCase().trim();
+                  if (!home || !away) return false;
+                  
+                  const parts = matchStr.split(/\s+vs\s+|\s+-\s+/);
+                  const mHome = (parts[0] || matchStr).trim();
+                  const mAway = (parts[1] || "").trim();
+                  
+                  const homeMatch = home.includes(mHome) || mHome.includes(home);
+                  const awayMatch = away.includes(mAway) || mAway.includes(away);
+                  const isReversed = (home.includes(mAway) || mAway.includes(home)) && (away.includes(mHome) || mHome.includes(away));
+                  
+                  return (homeMatch && awayMatch) || isReversed;
                 });
 
                 let legClosing = Number(s.odds) || 1;
@@ -1726,17 +1734,19 @@ export default function PerformanceTracker({ darkMode }) {
                             let clvValue = null;
                             const matchStr = String(s.match).toLowerCase();
                             const matchRows = oddsHistory.filter((row) => {
-                              const h = String(
-                                row["Home Team"] || ""
-                              ).toLowerCase();
-                              const a = String(
-                                row["Away Team"] || ""
-                              ).toLowerCase();
-                              return (
-                                h &&
-                                a &&
-                                (matchStr.includes(h) || matchStr.includes(a))
-                              );
+                              const home = String(row["Home Team"] || "").toLowerCase().trim();
+                              const away = String(row["Away Team"] || "").toLowerCase().trim();
+                              if (!home || !away) return false;
+                              
+                              const parts = matchStr.split(/\s+vs\s+|\s+-\s+/);
+                              const mHome = (parts[0] || matchStr).trim();
+                              const mAway = (parts[1] || "").trim();
+                              
+                              const homeMatch = home.includes(mHome) || mHome.includes(home);
+                              const awayMatch = away.includes(mAway) || mAway.includes(away);
+                              const isReversed = (home.includes(mAway) || mAway.includes(home)) && (away.includes(mHome) || mHome.includes(away));
+                              
+                              return (homeMatch && awayMatch) || isReversed;
                             });
 
                             if (matchRows.length > 0 && s.odds) {
