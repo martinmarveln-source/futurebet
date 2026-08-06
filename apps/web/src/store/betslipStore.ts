@@ -672,10 +672,19 @@ const useBetslipStore = create(
           return {
             ...state,
             matches: uniqueMatches.slice(0, 20),
-            tickets: tickets.map((t) => ({
+            tickets: tickets.filter((t) => !Array.isArray(t.selections) || t.selections.length <= 20).map((t) => {
+              const uniqueSelections = [];
+              if (Array.isArray(t.selections)) {
+                for (const s of t.selections) {
+                  if (!uniqueSelections.some(x => normalizeCompare(x.match) === normalizeCompare(s.match))) {
+                    uniqueSelections.push(s);
+                  }
+                }
+              }
+
+              return {
               ...t,
-              selections: Array.isArray(t.selections)
-                ? t.selections.map((s) => {
+              selections: uniqueSelections.map((s) => {
                     const dateRaw = String(
                       s.dateRaw || s.date || s.match_date || ""
                     ).trim();
@@ -699,7 +708,6 @@ const useBetslipStore = create(
                       odds,
                     };
                   })
-                : [],
             })),
           };
         } catch {
