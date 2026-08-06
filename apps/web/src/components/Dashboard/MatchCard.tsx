@@ -1679,10 +1679,14 @@ export default function MatchCard({
 
   const extendedOvers = useMemo(() => {
     const ov25 = pct(match?.ov25);
-    if (!ov25 || ov25 === 0) return { over35: 0, over45: 0 };
+    if (!ov25 || ov25 === 0) return { over15: 0, over35: 0, over45: 0 };
     
     // Inverse calculate lambda from Over 2.5
     const lambda = inferLambdaFromOver25(ov25 / 100);
+    
+    // Calculate P(X <= 1) for Over 1.5
+    const pUnder15 = poissonProb(lambda, 0) + poissonProb(lambda, 1);
+    const pOver15 = Math.max(0, 1 - pUnder15);
     
     // Calculate P(X <= 3) for Over 3.5
     const pUnder35 = poissonProb(lambda, 0) + poissonProb(lambda, 1) + poissonProb(lambda, 2) + poissonProb(lambda, 3);
@@ -1693,6 +1697,7 @@ export default function MatchCard({
     const pOver45 = Math.max(0, 1 - pUnder45);
     
     return {
+      over15: Math.round(pOver15 * 100),
       over35: Math.round(pOver35 * 100),
       over45: Math.round(pOver45 * 100)
     };
@@ -2970,11 +2975,7 @@ export default function MatchCard({
                     <Meter
                       darkMode={darkMode}
                       label="Over 1.5"
-                      value={
-                        match?.ov15 ||
-                        avg(match?.hgsOver15, match?.agsOver15) ||
-                        75
-                      }
+                      value={extendedOvers.over15 || 75}
                       colorClass="from-blue-400 to-cyan-300"
                     />
                     <Meter
