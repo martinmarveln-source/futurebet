@@ -1859,14 +1859,12 @@ export default function MatchCard({
     setIsSharing(true);
 
     try {
-      const { default: html2canvas } = await import("html2canvas");
-      const canvas = await html2canvas(cardRef.current, {
-        scale: 2,
-        useCORS: true,
+      const { toPng } = await import("html-to-image");
+      const dataUrl = await toPng(cardRef.current, {
+        pixelRatio: 2,
         backgroundColor: darkMode ? "#0a0a0a" : "#ffffff",
       });
 
-      const dataUrl = canvas.toDataURL("image/png");
       const fileName = `FutureBet-${match?.match || "Pick"}.png`.replace(/\s+/g, '-');
 
       // Attempt native share if supported (mobile/some desktop)
