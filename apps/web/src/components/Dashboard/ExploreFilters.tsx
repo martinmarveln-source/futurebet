@@ -118,6 +118,7 @@ export function ExploreFilters({
               {/* Rating Band Dropdown */}
               <div className="flex-1 min-w-[140px] relative">
                 <select
+                  aria-label="Filter by rating band"
                   value={ratingBand}
                   onChange={(e) => setRatingBand(e.target.value)}
                   className={cn(
@@ -187,6 +188,7 @@ export function ExploreFilters({
         >
           <div className="relative w-full sm:w-[160px]">
             <select
+              aria-label="Filter by odds availability"
               value={oddsMode}
               onChange={(e) => setOddsMode(e.target.value)}
               className={cn(
@@ -206,6 +208,7 @@ export function ExploreFilters({
 
           <div className="relative w-full sm:w-[160px]">
             <select
+              aria-label="Filter by odds range"
               value={oddsFilter}
               onChange={(e) => setOddsFilter(e.target.value)}
               className={cn(

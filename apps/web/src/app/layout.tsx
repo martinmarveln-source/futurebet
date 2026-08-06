@@ -6,7 +6,6 @@ import { InstallPrompt } from "@/components/InstallPrompt";
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
   themeColor: "#ffffff",
 };
 

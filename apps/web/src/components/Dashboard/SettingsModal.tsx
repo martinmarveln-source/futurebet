@@ -596,6 +596,7 @@ export default function SettingsModal({
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold block">Max Matches per Alert</label>
                   <select
+                    aria-label="Max Matches per Alert"
                     value={alertMaxMatches}
                     onChange={(e) => { setAlertMaxMatches(Number(e.target.value)); setTouched(true); }}
                     className={cn("w-32 px-3 py-2 rounded-xl border outline-none text-sm transition", tones.input)}

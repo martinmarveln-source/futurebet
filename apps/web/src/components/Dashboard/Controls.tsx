@@ -685,6 +685,7 @@ export default function Controls({
           </button>
 
           <select
+            aria-label="Sort matches by"
             value={canUseAdvancedControls ? sortBy || "date" : "date"}
             onChange={(e) =>
               canUseAdvancedControls && setSortBy?.(e.target.value)

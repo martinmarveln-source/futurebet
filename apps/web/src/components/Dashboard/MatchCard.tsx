@@ -1112,6 +1112,7 @@ function BetslipMarketModal({
                 </div>
                 {isCorrectScore ? (
                   <input
+                    aria-label="Correct score prediction"
                     value={correctScore}
                     onChange={(e) => setCorrectScore(e.target.value)}
                     onKeyDown={(e) => {
@@ -2801,6 +2802,7 @@ export default function MatchCard({
 
                   <button
                     type="button"
+                    aria-label="More actions"
                     onClick={(e) => {
                       e.preventDefault();
                       setShowMoreMenu(!showMoreMenu);

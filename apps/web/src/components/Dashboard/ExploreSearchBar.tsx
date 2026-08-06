@@ -32,6 +32,7 @@ export function ExploreSearchBar({
             className={darkMode ? "text-gray-300" : "text-gray-500"}
           />
           <input
+            aria-label="Search query"
             value={exploreQuery}
             onChange={(e) => setExploreQuery(e.target.value)}
             placeholder="Search match, league, market, pick…"
@@ -45,6 +46,7 @@ export function ExploreSearchBar({
           {exploreQuery ? (
             <button
               type="button"
+              aria-label="Clear"
               onClick={() => setExploreQuery("")}
               className={cn(
                 "p-1 rounded-xl border transition active:scale-[0.99]",
