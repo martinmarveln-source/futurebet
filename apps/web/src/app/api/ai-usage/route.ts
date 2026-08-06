@@ -160,10 +160,10 @@ export async function POST(req: Request) {
     `;
 
     return Response.json({ ok: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error tracking AI usage:", error);
     return Response.json(
-      { ok: false, error: "Failed to track usage" },
+      { ok: false, error: error?.message || String(error) },
       { status: 500 }
     );
   }
