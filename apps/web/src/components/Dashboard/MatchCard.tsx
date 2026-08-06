@@ -47,6 +47,38 @@ const getConvictionColor = (tier) => {
 };
 
 /* =============================================================================
+  POISSON MATH HELPERS 
+============================================================================= */
+function factorial(n: number): number {
+  if (n === 0 || n === 1) return 1;
+  let result = 1;
+  for (let i = 2; i <= n; i++) result *= i;
+  return result;
+}
+
+function poissonProb(lambda: number, k: number): number {
+  return (Math.exp(-lambda) * Math.pow(lambda, k)) / factorial(k);
+}
+
+function inferLambdaFromOver25(targetOver25Prob: number): number {
+  if (targetOver25Prob >= 0.99) return 5.0; 
+  if (targetOver25Prob <= 0.01) return 0.5; 
+  
+  let lo = 0.5;
+  let hi = 5.0;
+  
+  for (let i = 0; i < 20; i++) {
+    const mid = (lo + hi) / 2;
+    const pUnder25 = poissonProb(mid, 0) + poissonProb(mid, 1) + poissonProb(mid, 2);
+    const pOver25 = 1 - pUnder25;
+    
+    if (pOver25 < targetOver25Prob) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+/* =============================================================================
   DATA FETCHERS 
 ============================================================================= */
 export function useMlArchive() {
@@ -1645,6 +1677,27 @@ export default function MatchCard({
     ? rawPredictedScore
     : "🔒 Silver+";
 
+  const extendedOvers = useMemo(() => {
+    const ov25 = pct(match?.ov25);
+    if (!ov25 || ov25 === 0) return { over35: 0, over45: 0 };
+    
+    // Inverse calculate lambda from Over 2.5
+    const lambda = inferLambdaFromOver25(ov25 / 100);
+    
+    // Calculate P(X <= 3) for Over 3.5
+    const pUnder35 = poissonProb(lambda, 0) + poissonProb(lambda, 1) + poissonProb(lambda, 2) + poissonProb(lambda, 3);
+    const pOver35 = Math.max(0, 1 - pUnder35);
+    
+    // Calculate P(X <= 4) for Over 4.5
+    const pUnder45 = pUnder35 + poissonProb(lambda, 4);
+    const pOver45 = Math.max(0, 1 - pUnder45);
+    
+    return {
+      over35: Math.round(pOver35 * 100),
+      over45: Math.round(pOver45 * 100)
+    };
+  }, [match?.ov25]);
+
   const vipScore = useMemo(
     () => Math.round(chance * 0.6 + ratingPercentage * 0.4),
     [chance, ratingPercentage]
@@ -2929,6 +2982,18 @@ export default function MatchCard({
                       label="Over 2.5"
                       value={match?.ov25}
                       colorClass="from-blue-500 to-cyan-400"
+                    />
+                    <Meter
+                      darkMode={darkMode}
+                      label="Over 3.5"
+                      value={extendedOvers.over35}
+                      colorClass="from-blue-600 to-cyan-500"
+                    />
+                    <Meter
+                      darkMode={darkMode}
+                      label="Over 4.5"
+                      value={extendedOvers.over45}
+                      colorClass="from-blue-700 to-cyan-600"
                     />
 
                     <Meter
