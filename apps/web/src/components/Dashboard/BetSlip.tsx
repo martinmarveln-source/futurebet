@@ -579,6 +579,7 @@ export default function BetSlip({ darkMode = false }) {
                       ₦
                     </span>
                     <input
+                      aria-label="Stake per bet"
                       type="number"
                       value={systemStakes[bet.size] || ""}
                       onChange={(e) =>

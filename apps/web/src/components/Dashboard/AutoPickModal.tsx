@@ -402,6 +402,7 @@ export default function AutoPickModal({
                       {field === "startDate" ? "Start Date" : "End Date"}
                     </div>
                     <input
+                      aria-label={field === "startDate" ? "Start Date" : "End Date"}
                       type="date"
                       value={autoCustomRange?.[field] || ""}
                       onChange={(e) =>
@@ -493,6 +494,7 @@ export default function AutoPickModal({
                 )}
               />
               <input
+                aria-label="Search specific leagues"
                 type="text"
                 placeholder="Search specific leagues..."
                 value={leagueSearch}

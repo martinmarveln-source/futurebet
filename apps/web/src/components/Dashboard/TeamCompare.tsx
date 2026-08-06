@@ -1850,6 +1850,7 @@ function TeamSearchSpotlight({
               className={darkMode ? "text-gray-400" : "text-gray-400"}
             />
             <input
+              aria-label="Search by team or league"
               placeholder="Search by team or league..."
               className="w-full bg-transparent border-none outline-none text-sm font-bold placeholder:font-semibold placeholder:text-gray-400 dark:text-white text-gray-900"
               value={query}

@@ -99,6 +99,7 @@ function MultiSelectPopover({
                 {label}
               </div>
               <button
+                aria-label="Close"
                 onClick={() => setOpen(false)}
                 className={cn(
                   "p-1.5 rounded-xl transition",
@@ -114,6 +115,7 @@ function MultiSelectPopover({
                 className="absolute left-3 top-1/2 -translate-y-1/2 opacity-50"
               />
               <input
+                aria-label={placeholder || "Search items"}
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder={placeholder}
@@ -443,6 +445,7 @@ function DateRangePopover({
                   From
                 </label>
                 <input
+                  aria-label="From date"
                   type="date"
                   value={customFrom}
                   onChange={(e) => setCustomFrom(e.target.value)}
@@ -464,6 +467,7 @@ function DateRangePopover({
                   To
                 </label>
                 <input
+                  aria-label="To date"
                   type="date"
                   value={customTo}
                   onChange={(e) => setCustomTo(e.target.value)}

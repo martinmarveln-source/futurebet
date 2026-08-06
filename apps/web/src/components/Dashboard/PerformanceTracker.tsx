@@ -1220,6 +1220,7 @@ export default function PerformanceTracker({ darkMode }) {
           </div>
           <div className="flex flex-wrap gap-2 w-full sm:w-auto">
             <input
+              aria-label="Shared ticket ID"
               value={sharedTicketId}
               onChange={(e) => setSharedTicketId(e.target.value)}
               placeholder="Paste Ticket ID e.g. FB-20260126-ABC123"

@@ -241,6 +241,7 @@ export default function BetslipMarketModal({
 
             {isCorrectScore ? (
               <input
+                aria-label="Correct score prediction"
                 value={correctScore}
                 onChange={(e) => setCorrectScore(e.target.value)}
                 onKeyDown={(e) => {

@@ -184,6 +184,7 @@ export default function Header({
 
 
           <button
+            aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
             onClick={() => setDarkMode(!darkMode)}
             className={`p-2 rounded-lg transition-transform active:scale-95 ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-100 hover:bg-gray-200"}`}
           >
@@ -242,12 +243,14 @@ export default function Header({
                 <User className="h-5 w-5" />
               </a>
               <button
+                aria-label="Settings"
                 onClick={onShowSettings}
                 className={`p-2 rounded-lg transition-transform active:scale-95 ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-100 hover:bg-gray-200"}`}
               >
                 <Settings className="h-5 w-5" />
               </button>
               <button
+                aria-label="Sign out"
                 onClick={() => signOut({ callbackUrl: "/", redirect: true })}
                 className={`p-2 rounded-lg text-red-600 transition-transform active:scale-95 ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-100 hover:bg-gray-200"}`}
               >
