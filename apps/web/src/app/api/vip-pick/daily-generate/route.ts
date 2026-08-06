@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { sql } from "@vercel/postgres";
+import sql from "@/app/api/utils/sql";
 import { computeDerivedPickFromStats } from "@/utils/vipAlgorithm";
 export const dynamic = "force-dynamic";
 
