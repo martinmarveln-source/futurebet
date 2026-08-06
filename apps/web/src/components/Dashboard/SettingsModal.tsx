@@ -354,63 +354,68 @@ export default function SettingsModal({
             </p>
           </div>
 
-          {/* Privacy note */}
-          <div className={cn("rounded-2xl border p-3 flex gap-3", tones.hint)}>
-            <Shield size={18} className="mt-0.5 shrink-0" />
-            <div className="min-w-0">
-              <div className="text-sm font-extrabold">Privacy note</div>
-              <div className="text-xs leading-relaxed opacity-90">
-                Keep your bot token private. If you rotate your token in BotFather, update it here.
+          {/* Telegram Settings (Admin Only) */}
+          {isAdmin && (
+            <>
+              {/* Privacy note */}
+              <div className={cn("rounded-2xl border p-3 flex gap-3", tones.hint)}>
+                <Shield size={18} className="mt-0.5 shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-sm font-extrabold">Privacy note (Admin Only)</div>
+                  <div className="text-xs leading-relaxed opacity-90">
+                    Keep your bot token private. If you rotate your token in BotFather, update it here.
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          {/* Bot Token */}
-          <div className="space-y-2">
-            <label className="block text-sm font-extrabold">Telegram Bot Token</label>
-            <input
-              ref={tokenRef}
-              type="text"
-              value={telegramToken}
-              onChange={(e) => { setTelegramToken(e.target.value); setTouched(true); }}
-              placeholder="123456789:AAxxxxxxxxxxxxxxxxxxxx"
-              className={cn("w-full px-4 py-3 rounded-xl border outline-none transition", tones.input)}
-              autoComplete="off"
-              spellCheck={false}
-            />
-            {!isTokenValid ? (
-              <div className={cn("text-xs flex items-center gap-2 rounded-xl border px-3 py-2", tones.warn)}>
-                <AlertTriangle size={16} /> Token format looks wrong.
+              {/* Bot Token */}
+              <div className="space-y-2">
+                <label className="block text-sm font-extrabold">Telegram Bot Token</label>
+                <input
+                  ref={tokenRef}
+                  type="text"
+                  value={telegramToken}
+                  onChange={(e) => { setTelegramToken(e.target.value); setTouched(true); }}
+                  placeholder="123456789:AAxxxxxxxxxxxxxxxxxxxx"
+                  className={cn("w-full px-4 py-3 rounded-xl border outline-none transition", tones.input)}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                {!isTokenValid ? (
+                  <div className={cn("text-xs flex items-center gap-2 rounded-xl border px-3 py-2", tones.warn)}>
+                    <AlertTriangle size={16} /> Token format looks wrong.
+                  </div>
+                ) : telegramToken.trim().length > 0 ? (
+                  <div className={cn("text-xs flex items-center gap-2 rounded-xl border px-3 py-2", tones.ok)}>
+                    <CheckCircle2 size={16} /> Token looks valid.
+                  </div>
+                ) : null}
               </div>
-            ) : telegramToken.trim().length > 0 ? (
-              <div className={cn("text-xs flex items-center gap-2 rounded-xl border px-3 py-2", tones.ok)}>
-                <CheckCircle2 size={16} /> Token looks valid.
-              </div>
-            ) : null}
-          </div>
 
-          {/* Chat ID */}
-          <div className="space-y-2">
-            <label className="block text-sm font-extrabold">Telegram Chat ID</label>
-            <input
-              type="text"
-              value={telegramChatId}
-              onChange={(e) => { setTelegramChatId(e.target.value); setTouched(true); }}
-              placeholder="e.g. 123456789 or -1001234567890"
-              className={cn("w-full px-4 py-3 rounded-xl border outline-none transition", tones.input)}
-              autoComplete="off"
-              inputMode="numeric"
-            />
-            {!isChatIdValid ? (
-              <div className={cn("text-xs flex items-center gap-2 rounded-xl border px-3 py-2", tones.warn)}>
-                <AlertTriangle size={16} /> Chat ID should be numeric.
+              {/* Chat ID */}
+              <div className="space-y-2">
+                <label className="block text-sm font-extrabold">Telegram Chat ID</label>
+                <input
+                  type="text"
+                  value={telegramChatId}
+                  onChange={(e) => { setTelegramChatId(e.target.value); setTouched(true); }}
+                  placeholder="e.g. 123456789 or -1001234567890"
+                  className={cn("w-full px-4 py-3 rounded-xl border outline-none transition", tones.input)}
+                  autoComplete="off"
+                  inputMode="numeric"
+                />
+                {!isChatIdValid ? (
+                  <div className={cn("text-xs flex items-center gap-2 rounded-xl border px-3 py-2", tones.warn)}>
+                    <AlertTriangle size={16} /> Chat ID should be numeric.
+                  </div>
+                ) : telegramChatId.trim().length > 0 ? (
+                  <div className={cn("text-xs flex items-center gap-2 rounded-xl border px-3 py-2", tones.ok)}>
+                    <CheckCircle2 size={16} /> Chat ID looks valid.
+                  </div>
+                ) : null}
               </div>
-            ) : telegramChatId.trim().length > 0 ? (
-              <div className={cn("text-xs flex items-center gap-2 rounded-xl border px-3 py-2", tones.ok)}>
-                <CheckCircle2 size={16} /> Chat ID looks valid.
-              </div>
-            ) : null}
-          </div>
+            </>
+          )}
 
           {/* ── Auto-Alerts Section ───────────────────────────────────── */}
           <div className={cn("rounded-2xl border p-4 space-y-4", tones.section)}>

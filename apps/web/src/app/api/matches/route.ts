@@ -9,7 +9,7 @@ import { computeIntelligence } from "@/utils/intelligenceEngine";
 
 let cachedPayload = null;
 let cacheTimestamp = 0;
-const CACHE_DURATION = 6 * 60 * 60 * 1000; // 6 hours
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 /* -------------------------------------------------------------------------- */
 /*                             GOOGLE SHEETS CONFIG                           */

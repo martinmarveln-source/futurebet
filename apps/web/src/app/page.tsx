@@ -206,7 +206,6 @@ export default function FutureBetDashboard() {
   const isPro = isAdmin || isPremium;
   const canSeeHomeTab = isAdmin || isPremium || isSilver;
   const canUseAutoPick = isAdmin || isPremium;
-  const UPGRADE_URL = "https://selar.com/8x155u0715";
 
   const [showPremiumHomeModal, setShowPremiumHomeModal] = useState(false);
 
@@ -519,7 +518,6 @@ export default function FutureBetDashboard() {
           open={showPremiumHomeModal}
           onClose={() => setShowPremiumHomeModal(false)}
           darkMode={darkMode}
-          upgradeUrl={UPGRADE_URL}
         />
 
         <BetslipMarketModal
@@ -944,6 +942,7 @@ export default function FutureBetDashboard() {
           onSave={handleSaveSettings}
           isLoading={savePreferencesMutation?.isPending}
           isPremium={isAdmin || isPremium}
+          isAdmin={isAdmin}
         />
 
         {/* --- WEEKLY PERFORMANCE REPORT --- */}
