@@ -1430,8 +1430,43 @@ export async function GET(request) {
       }
     }
 
+    let finalMatches = payload.matches;
+    const tier = exportAccess?.tier || "free";
+    const isFree = tier === "free";
+    const isSilver = tier === "silver";
+
+    if (isFree || isSilver) {
+      finalMatches = payload.matches.map((m) => {
+        const newMatch = { ...m };
+        
+        if (isFree) {
+          delete newMatch.intelligence;
+          delete newMatch.convictionTier;
+          delete newMatch.convictionStrength;
+          delete newMatch.biasStrength;
+          delete newMatch.marketBias;
+          delete newMatch.fairOdds;
+          delete newMatch.premiumScore;
+          delete newMatch.alignmentScore;
+        }
+
+        // Both Free and Silver shouldn't see FT score (only Premium/Admin)
+        delete newMatch.ftScore;
+        delete newMatch.ft_score;
+        
+        if (newMatch.raw_data) {
+          newMatch.raw_data = { ...newMatch.raw_data };
+          delete newMatch.raw_data.ftScore;
+          delete newMatch.raw_data.ft_score;
+        }
+
+        return newMatch;
+      });
+    }
+
     return Response.json({
-      ...payload,
+      matches: finalMatches,
+      summary: payload.summary,
       exportAccess,
     });
   } catch (error) {
