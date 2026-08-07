@@ -59,20 +59,21 @@ export default function ArchivePage() {
     let hasMainPickEvaluation = false;
     
     if (mainPick && hasValidScore) {
-       if (mainPick.includes('OVER 2.5') || mainPick.includes('OV2.5') || mainPick === 'OV25') { isMainPickHit = hg + ag > 2.5; hasMainPickEvaluation = true; }
-       else if (mainPick.includes('UNDER 2.5') || mainPick.includes('UN2.5') || mainPick === 'UN25') { isMainPickHit = hg + ag < 2.5; hasMainPickEvaluation = true; }
-       else if (mainPick.includes('OVER 1.5') || mainPick.includes('OV1.5') || mainPick === 'OV15') { isMainPickHit = hg + ag > 1.5; hasMainPickEvaluation = true; }
-       else if (mainPick.includes('UNDER 1.5') || mainPick.includes('UN1.5') || mainPick === 'UN15') { isMainPickHit = hg + ag < 1.5; hasMainPickEvaluation = true; }
-       else if (mainPick.includes('OVER 3.5') || mainPick.includes('OV3.5') || mainPick === 'OV35') { isMainPickHit = hg + ag > 3.5; hasMainPickEvaluation = true; }
-       else if (mainPick.includes('UNDER 3.5') || mainPick.includes('UN3.5') || mainPick === 'UN35') { isMainPickHit = hg + ag < 3.5; hasMainPickEvaluation = true; }
-       else if (mainPick.includes('BTTS - YES') || mainPick === 'GG' || mainPick === 'YES') { isMainPickHit = hg > 0 && ag > 0; hasMainPickEvaluation = true; }
-       else if (mainPick.includes('BTTS - NO') || mainPick === 'NG' || mainPick === 'NO') { isMainPickHit = hg === 0 || ag === 0; hasMainPickEvaluation = true; }
-       else if (mainPick.includes('1X')) { isMainPickHit = hg >= ag; hasMainPickEvaluation = true; }
-       else if (mainPick.includes('X2')) { isMainPickHit = ag >= hg; hasMainPickEvaluation = true; }
-       else if (mainPick.includes('12')) { isMainPickHit = hg !== ag; hasMainPickEvaluation = true; }
-       else if (mainPick === '1' || mainPick.includes('HOME')) { isMainPickHit = hg > ag; hasMainPickEvaluation = true; }
-       else if (mainPick === '2' || mainPick.includes('AWAY')) { isMainPickHit = ag > hg; hasMainPickEvaluation = true; }
-       else if (mainPick === 'X' || mainPick.includes('DRAW')) { isMainPickHit = hg === ag; hasMainPickEvaluation = true; }
+       const p = mainPick.replace(/\s+/g, ''); // remove all whitespace for easier matching
+       if (p.includes('OVER2.5') || p.includes('OV2.5') || p.includes('0V2.5') || p.includes('O2.5') || p.includes('02.5') || p === 'OV25') { isMainPickHit = hg + ag > 2.5; hasMainPickEvaluation = true; }
+       else if (p.includes('UNDER2.5') || p.includes('UN2.5') || p.includes('U2.5') || p === 'UN25') { isMainPickHit = hg + ag < 2.5; hasMainPickEvaluation = true; }
+       else if (p.includes('OVER1.5') || p.includes('OV1.5') || p.includes('0V1.5') || p.includes('O1.5') || p.includes('01.5') || p === 'OV15') { isMainPickHit = hg + ag > 1.5; hasMainPickEvaluation = true; }
+       else if (p.includes('UNDER1.5') || p.includes('UN1.5') || p.includes('U1.5') || p === 'UN15') { isMainPickHit = hg + ag < 1.5; hasMainPickEvaluation = true; }
+       else if (p.includes('OVER3.5') || p.includes('OV3.5') || p.includes('0V3.5') || p.includes('O3.5') || p.includes('03.5') || p === 'OV35') { isMainPickHit = hg + ag > 3.5; hasMainPickEvaluation = true; }
+       else if (p.includes('UNDER3.5') || p.includes('UN3.5') || p.includes('U3.5') || p === 'UN35') { isMainPickHit = hg + ag < 3.5; hasMainPickEvaluation = true; }
+       else if (p.includes('BTTS-YES') || p === 'GG' || p === 'YES' || p.includes('BTTSYES')) { isMainPickHit = hg > 0 && ag > 0; hasMainPickEvaluation = true; }
+       else if (p.includes('BTTS-NO') || p === 'NG' || p === 'NO' || p.includes('BTTSNO')) { isMainPickHit = hg === 0 || ag === 0; hasMainPickEvaluation = true; }
+       else if (p.includes('1X')) { isMainPickHit = hg >= ag; hasMainPickEvaluation = true; }
+       else if (p.includes('X2')) { isMainPickHit = ag >= hg; hasMainPickEvaluation = true; }
+       else if (p.includes('12')) { isMainPickHit = hg !== ag; hasMainPickEvaluation = true; }
+       else if (p === '1' || p.includes('HOME')) { isMainPickHit = hg > ag; hasMainPickEvaluation = true; }
+       else if (p === '2' || p.includes('AWAY')) { isMainPickHit = ag > hg; hasMainPickEvaluation = true; }
+       else if (p === 'X' || p.includes('DRAW')) { isMainPickHit = hg === ag; hasMainPickEvaluation = true; }
     }
 
     return {
