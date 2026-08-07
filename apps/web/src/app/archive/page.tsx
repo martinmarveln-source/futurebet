@@ -1,8 +1,8 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format, subDays } from "date-fns";
-import { ChevronLeft, Calendar as CalendarIcon, Loader2, Lock, CheckCircle2, XCircle, MinusCircle } from "lucide-react";
+import { ChevronLeft, Calendar as CalendarIcon, Loader2, Lock, CheckCircle2, XCircle, MinusCircle, Trophy, Activity, Target } from "lucide-react";
 import Link from "next/link";
 
 export default function ArchivePage() {
@@ -95,6 +95,32 @@ export default function ArchivePage() {
     );
   };
 
+  // Pre-calculate statistics
+  const { evaluatedMatches, totalValid, hits1X2, hitsBTTS, hitsOU25 } = useMemo(() => {
+    const rawMatches = data?.matches || [];
+    let validCount = 0;
+    let h1X2 = 0;
+    let hBTTS = 0;
+    let hOU25 = 0;
+    
+    const evaluated = rawMatches.map((match: any) => {
+      const ev = evaluateMatch(match);
+      if (ev.hasValidScore) {
+         validCount++;
+         if (ev.is1x2Hit) h1X2++;
+         if (ev.isBttsHit) hBTTS++;
+         if (ev.isOu25Hit) hOU25++;
+      }
+      return ev;
+    });
+
+    return { evaluatedMatches: evaluated, totalValid: validCount, hits1X2: h1X2, hitsBTTS: hBTTS, hitsOU25: hOU25 };
+  }, [data]);
+
+  const winRate1X2 = totalValid > 0 ? Math.round((hits1X2 / totalValid) * 100) : 0;
+  const winRateBTTS = totalValid > 0 ? Math.round((hitsBTTS / totalValid) * 100) : 0;
+  const winRateOU25 = totalValid > 0 ? Math.round((hitsOU25 / totalValid) * 100) : 0;
+
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-[#030712] pb-24">
       {/* Header */}
@@ -136,16 +162,76 @@ export default function ArchivePage() {
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex items-center justify-between px-2">
+            
+            {/* Stats Summary */}
+            {totalValid > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                
+                {/* 1X2 Stat Card */}
+                <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex flex-col justify-between relative overflow-hidden">
+                  <div className="flex items-center gap-2 mb-2 z-10 relative">
+                    <div className="p-1.5 bg-amber-100 dark:bg-amber-900/30 rounded-lg text-amber-500">
+                      <Trophy className="w-4 h-4" />
+                    </div>
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">1X2 Accuracy</span>
+                  </div>
+                  <div className="flex items-end gap-2 z-10 relative">
+                    <span className="text-4xl font-black text-slate-800 dark:text-white tracking-tighter">{winRate1X2}%</span>
+                    <span className="text-sm font-bold text-slate-400 mb-1.5">{hits1X2} / {totalValid} won</span>
+                  </div>
+                  {/* Progress bar background decoration */}
+                  <div className="absolute bottom-0 left-0 h-1.5 bg-gray-100 dark:bg-slate-800 w-full z-0">
+                    <div className="h-full bg-amber-500" style={{ width: `${winRate1X2}%` }}></div>
+                  </div>
+                </div>
+
+                {/* BTTS Stat Card */}
+                <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex flex-col justify-between relative overflow-hidden">
+                  <div className="flex items-center gap-2 mb-2 z-10 relative">
+                    <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-500">
+                      <Activity className="w-4 h-4" />
+                    </div>
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">BTTS Accuracy</span>
+                  </div>
+                  <div className="flex items-end gap-2 z-10 relative">
+                    <span className="text-4xl font-black text-slate-800 dark:text-white tracking-tighter">{winRateBTTS}%</span>
+                    <span className="text-sm font-bold text-slate-400 mb-1.5">{hitsBTTS} / {totalValid} won</span>
+                  </div>
+                  <div className="absolute bottom-0 left-0 h-1.5 bg-gray-100 dark:bg-slate-800 w-full z-0">
+                    <div className="h-full bg-blue-500" style={{ width: `${winRateBTTS}%` }}></div>
+                  </div>
+                </div>
+
+                {/* O/U 2.5 Stat Card */}
+                <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex flex-col justify-between relative overflow-hidden">
+                  <div className="flex items-center gap-2 mb-2 z-10 relative">
+                    <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-500">
+                      <Target className="w-4 h-4" />
+                    </div>
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">O/U 2.5 Accuracy</span>
+                  </div>
+                  <div className="flex items-end gap-2 z-10 relative">
+                    <span className="text-4xl font-black text-slate-800 dark:text-white tracking-tighter">{winRateOU25}%</span>
+                    <span className="text-sm font-bold text-slate-400 mb-1.5">{hitsOU25} / {totalValid} won</span>
+                  </div>
+                  <div className="absolute bottom-0 left-0 h-1.5 bg-gray-100 dark:bg-slate-800 w-full z-0">
+                    <div className="h-full bg-purple-500" style={{ width: `${winRateOU25}%` }}></div>
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            <div className="flex items-center justify-between px-2 mt-8">
               <h2 className="text-lg font-bold text-slate-800 dark:text-white">
-                Results for {format(selectedDate, "MMMM do, yyyy")}
+                Match Results Details
               </h2>
               <span className="bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-3 py-1 rounded-full text-xs font-bold">
-                {data?.matches?.length || 0} Matches
+                {evaluatedMatches.length} Matches
               </span>
             </div>
 
-            {data?.matches?.length > 0 ? (
+            {evaluatedMatches.length > 0 ? (
               <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse min-w-[800px]">
@@ -161,8 +247,7 @@ export default function ArchivePage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-slate-800/80">
-                      {data.matches.map((match: any, idx: number) => {
-                        const ev = evaluateMatch(match);
+                      {evaluatedMatches.map((ev: any, idx: number) => {
                         return (
                           <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-slate-800/30 transition-colors">
                             <td className="p-4 whitespace-nowrap">
