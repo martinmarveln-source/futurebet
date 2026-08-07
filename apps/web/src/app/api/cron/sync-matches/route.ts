@@ -121,79 +121,94 @@ export async function GET(request: Request) {
     let inserted = 0;
     let skipped = 0;
 
-    for (const row of dataRows) {
-      const dateStr = row[COL.date] || "";
-      const matchLabel = row[COL.match] || "";
-      if (!dateStr || !matchLabel) { skipped++; continue; }
-
-      const matchDate = parseMatchDate(dateStr);
-      const matchTime = row[COL.time] || null;
-      const country = row[COL.country] || "";
-      const league = row[COL.league] || "";
-
-      // Parse home/away from "Home - Away" format
-      const parts = matchLabel.split(" - ");
-      const homeTeam = parts[0]?.trim() || matchLabel;
-      const awayTeam = parts[1]?.trim() || "";
-
-      const guide = row[COL.pick] || "";
-      const tips = row[COL.tips] || "";
-      const chance = toNum(row[COL.chance]);
-      const rating = toNum(row[COL.rating]);
-      const predictionValidation = row[COL.predictionValidation] || "";
-      const homeWin = toNum(row[COL.homeWin]);
-      const drawProb = toNum(row[COL.draw]);
-      const awayWin = toNum(row[COL.awayWin]);
-      const gg = toNum(row[COL.gg]);
-      const ng = toNum(row[COL.ng]);
-      const ov25 = toNum(row[COL.ov25]);
-      const un25 = toNum(row[COL.un25]);
-      const ftScore = row[COL.ftScore] || null;
-      const flag = row[COL.flag] || "";
-
-      const rawData: Record<string, string> = {};
-      Object.entries(COL).forEach(([k, i]) => { rawData[k] = row[i] || ""; });
-
-      try {
-        await sql`
-          INSERT INTO matches_cache (
-            match_date, match_time, country, league,
-            home_team, away_team, match_label,
-            guide, tips, chance, rating, prediction_validation,
-            home_win, draw_prob, away_win, gg, ng, ov25, un25,
-            ft_score, flag, raw_data
-          ) VALUES (
-            ${matchDate}, ${matchTime}, ${country}, ${league},
-            ${homeTeam}, ${awayTeam}, ${matchLabel},
-            ${guide}, ${tips}, ${chance}, ${rating}, ${predictionValidation},
-            ${homeWin}, ${drawProb}, ${awayWin}, ${gg}, ${ng}, ${ov25}, ${un25},
-            ${ftScore}, ${flag}, ${JSON.stringify(rawData)}
-          )
-          ON CONFLICT (match_date, home_team, away_team)
-          DO UPDATE SET
-            match_time = EXCLUDED.match_time,
-            guide = EXCLUDED.guide,
-            tips = EXCLUDED.tips,
-            chance = EXCLUDED.chance,
-            rating = EXCLUDED.rating,
-            prediction_validation = EXCLUDED.prediction_validation,
-            home_win = EXCLUDED.home_win,
-            draw_prob = EXCLUDED.draw_prob,
-            away_win = EXCLUDED.away_win,
-            gg = EXCLUDED.gg,
-            ng = EXCLUDED.ng,
-            ov25 = EXCLUDED.ov25,
-            un25 = EXCLUDED.un25,
-            ft_score = EXCLUDED.ft_score,
-            flag = EXCLUDED.flag,
-            raw_data = EXCLUDED.raw_data,
-            synced_at = NOW()
-        `;
-        inserted++;
-      } catch (err: any) {
-        console.error("Row insert error:", err.message);
-        skipped++;
+    // Helper to chunk arrays
+    const chunkArray = (arr: any[], size: number) => {
+      const chunks = [];
+      for (let i = 0; i < arr.length; i += size) {
+        chunks.push(arr.slice(i, i + size));
       }
+      return chunks;
+    };
+
+    const chunks = chunkArray(dataRows, 50);
+
+    for (const chunk of chunks) {
+      await Promise.all(
+        chunk.map(async (row: any[]) => {
+          const dateStr = row[COL.date] || "";
+          const matchLabel = row[COL.match] || "";
+          if (!dateStr || !matchLabel) { skipped++; return; }
+
+          const matchDate = parseMatchDate(dateStr);
+          const matchTime = row[COL.time] || null;
+          const country = row[COL.country] || "";
+          const league = row[COL.league] || "";
+
+          // Parse home/away from "Home - Away" format
+          const parts = matchLabel.split(" - ");
+          const homeTeam = parts[0]?.trim() || matchLabel;
+          const awayTeam = parts[1]?.trim() || "";
+
+          const guide = row[COL.pick] || "";
+          const tips = row[COL.tips] || "";
+          const chance = toNum(row[COL.chance]);
+          const rating = toNum(row[COL.rating]);
+          const predictionValidation = row[COL.predictionValidation] || "";
+          const homeWin = toNum(row[COL.homeWin]);
+          const drawProb = toNum(row[COL.draw]);
+          const awayWin = toNum(row[COL.awayWin]);
+          const gg = toNum(row[COL.gg]);
+          const ng = toNum(row[COL.ng]);
+          const ov25 = toNum(row[COL.ov25]);
+          const un25 = toNum(row[COL.un25]);
+          const ftScore = row[COL.ftScore] || null;
+          const flag = row[COL.flag] || "";
+
+          const rawData: Record<string, string> = {};
+          Object.entries(COL).forEach(([k, i]) => { rawData[k] = row[i] || ""; });
+
+          try {
+            await sql`
+              INSERT INTO matches_cache (
+                match_date, match_time, country, league,
+                home_team, away_team, match_label,
+                guide, tips, chance, rating, prediction_validation,
+                home_win, draw_prob, away_win, gg, ng, ov25, un25,
+                ft_score, flag, raw_data
+              ) VALUES (
+                ${matchDate}, ${matchTime}, ${country}, ${league},
+                ${homeTeam}, ${awayTeam}, ${matchLabel},
+                ${guide}, ${tips}, ${chance}, ${rating}, ${predictionValidation},
+                ${homeWin}, ${drawProb}, ${awayWin}, ${gg}, ${ng}, ${ov25}, ${un25},
+                ${ftScore}, ${flag}, ${JSON.stringify(rawData)}
+              )
+              ON CONFLICT (match_date, home_team, away_team)
+              DO UPDATE SET
+                match_time = EXCLUDED.match_time,
+                guide = EXCLUDED.guide,
+                tips = EXCLUDED.tips,
+                chance = EXCLUDED.chance,
+                rating = EXCLUDED.rating,
+                prediction_validation = EXCLUDED.prediction_validation,
+                home_win = EXCLUDED.home_win,
+                draw_prob = EXCLUDED.draw_prob,
+                away_win = EXCLUDED.away_win,
+                gg = EXCLUDED.gg,
+                ng = EXCLUDED.ng,
+                ov25 = EXCLUDED.ov25,
+                un25 = EXCLUDED.un25,
+                ft_score = EXCLUDED.ft_score,
+                flag = EXCLUDED.flag,
+                raw_data = EXCLUDED.raw_data,
+                synced_at = NOW()
+            `;
+            inserted++;
+          } catch (err: any) {
+            console.error("Row insert error:", err.message);
+            skipped++;
+          }
+        })
+      );
     }
 
     return NextResponse.json({
