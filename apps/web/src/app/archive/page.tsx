@@ -2,9 +2,8 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format, subDays } from "date-fns";
-import { ChevronLeft, Calendar as CalendarIcon, Loader2, Lock } from "lucide-react";
+import { ChevronLeft, Calendar as CalendarIcon, Loader2, Lock, CheckCircle2, XCircle, MinusCircle } from "lucide-react";
 import Link from "next/link";
-import ArchiveMatchCard from "@/components/ArchiveMatchCard";
 
 export default function ArchivePage() {
   const [selectedDate, setSelectedDate] = useState<Date>(subDays(new Date(), 1));
@@ -35,6 +34,67 @@ export default function ArchivePage() {
      )
   }
 
+  // Helper function to evaluate outcomes for a single match row
+  const evaluateMatch = (match: any) => {
+    const scoreRaw = match.ftScore || match.ft_score || (match.raw_data && match.raw_data.ftScore) || "";
+    const hasValidScore = typeof scoreRaw === 'string' && scoreRaw.includes(':');
+    
+    let hg = 0, ag = 0;
+    if (hasValidScore) {
+      const parts = scoreRaw.split(':');
+      hg = parseInt(parts[0], 10) || 0;
+      ag = parseInt(parts[1], 10) || 0;
+    }
+
+    const actual1X2 = hg > ag ? "HOME" : hg < ag ? "AWAY" : "DRAW";
+    const actualBTTS = hg > 0 && ag > 0 ? "YES" : "NO";
+    const actualOU25 = hg + ag > 2.5 ? "OVER" : "UNDER";
+
+    const homeProb = parseFloat(match.homeWin || match.raw_data?.homeWin || 0);
+    const drawProb = parseFloat(match.draw || match.raw_data?.draw || 0);
+    const awayProb = parseFloat(match.awayWin || match.raw_data?.awayWin || 0);
+    const bttsYesProb = parseFloat(match.gg || match.raw_data?.gg || 0);
+    const bttsNoProb = parseFloat(match.ng || match.raw_data?.ng || 0);
+    const over25Prob = parseFloat(match.ov25 || match.raw_data?.ov25 || 0);
+    const under25Prob = parseFloat(match.un25 || match.raw_data?.un25 || 0);
+
+    let algo1X2Favored = "HOME";
+    let max1x2 = homeProb;
+    if (drawProb > max1x2) { algo1X2Favored = "DRAW"; max1x2 = drawProb; }
+    if (awayProb > max1x2) { algo1X2Favored = "AWAY"; max1x2 = awayProb; }
+
+    const algoBTTSFavored = bttsYesProb >= bttsNoProb ? "YES" : "NO";
+    const algoOU25Favored = over25Prob >= under25Prob ? "OVER" : "UNDER";
+
+    return {
+      hasValidScore,
+      scoreRaw,
+      mainPick: (match.pick || match.raw_data?.pick || match.tips || match.raw_data?.tips || "").toUpperCase(),
+      matchName: match.match || match.match_label || match.raw_data?.match || `${match.home_team} vs ${match.away_team}`,
+      leagueInfo: `${match.country || match.raw_data?.country} • ${match.league || match.raw_data?.league}`,
+      time: match.match_time || match.time || match.raw_data?.time || match.match_date?.split('T')[0],
+      is1x2Hit: actual1X2 === algo1X2Favored,
+      isBttsHit: actualBTTS === algoBTTSFavored,
+      isOu25Hit: actualOU25 === algoOU25Favored,
+      algo1X2Favored,
+      algoBTTSFavored,
+      algoOU25Favored
+    };
+  };
+
+  const getStatusIcon = (hit: boolean, favored: string, hasScore: boolean) => {
+    if (!hasScore) return <MinusCircle className="w-4 h-4 text-gray-400" />;
+    return hit ? (
+      <span className="flex items-center gap-1 text-xs font-bold text-green-700 bg-green-100 dark:bg-green-900/40 dark:text-green-400 px-2 py-1 rounded-md w-fit">
+        <CheckCircle2 className="w-3.5 h-3.5" /> {favored}
+      </span>
+    ) : (
+      <span className="flex items-center gap-1 text-xs font-bold text-red-700 bg-red-100 dark:bg-red-900/40 dark:text-red-400 px-2 py-1 rounded-md w-fit">
+        <XCircle className="w-3.5 h-3.5" /> {favored}
+      </span>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-[#030712] pb-24">
       {/* Header */}
@@ -48,8 +108,8 @@ export default function ArchivePage() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto p-4 md:p-6">
-        {/* Date Picker (Simple native date input for reliability on mobile) */}
+      <div className="max-w-7xl mx-auto p-4 md:p-6">
+        {/* Date Picker */}
         <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
              <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-xl text-blue-600 dark:text-blue-400">
@@ -60,7 +120,7 @@ export default function ArchivePage() {
           <input 
             type="date" 
             value={dateStr}
-            max={format(subDays(new Date(), 1), "yyyy-MM-dd")} // Can only select past dates
+            max={format(subDays(new Date(), 1), "yyyy-MM-dd")} 
             onChange={(e) => {
               if (e.target.value) setSelectedDate(new Date(e.target.value));
             }}
@@ -75,8 +135,8 @@ export default function ArchivePage() {
             <p className="text-slate-500 font-medium">Loading historical data...</p>
           </div>
         ) : (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between px-2">
               <h2 className="text-lg font-bold text-slate-800 dark:text-white">
                 Results for {format(selectedDate, "MMMM do, yyyy")}
               </h2>
@@ -86,10 +146,67 @@ export default function ArchivePage() {
             </div>
 
             {data?.matches?.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {data.matches.map((match: any, idx: number) => (
-                  <ArchiveMatchCard key={idx} match={match} />
-                ))}
+              <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[800px]">
+                    <thead>
+                      <tr className="bg-gray-50 dark:bg-slate-800/50 border-b border-gray-200 dark:border-slate-800">
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Time</th>
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Match / League</th>
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Score</th>
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Main Pick</th>
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">1X2 Outcome</th>
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">BTTS</th>
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">O/U 2.5</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-slate-800/80">
+                      {data.matches.map((match: any, idx: number) => {
+                        const ev = evaluateMatch(match);
+                        return (
+                          <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-slate-800/30 transition-colors">
+                            <td className="p-4 whitespace-nowrap">
+                              <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">
+                                {ev.time}
+                              </span>
+                            </td>
+                            <td className="p-4 min-w-[200px]">
+                              <div className="font-bold text-sm text-slate-800 dark:text-white mb-0.5">
+                                {ev.matchName}
+                              </div>
+                              <div className="text-[10px] text-gray-400 uppercase font-semibold">
+                                {ev.leagueInfo}
+                              </div>
+                            </td>
+                            <td className="p-4 text-center whitespace-nowrap">
+                              <span className="inline-block px-3 py-1 bg-slate-800 text-white dark:bg-slate-700 font-mono font-bold text-sm rounded border border-slate-700 shadow-inner">
+                                {ev.hasValidScore ? ev.scoreRaw.replace(':', ' - ') : 'N/A'}
+                              </span>
+                            </td>
+                            <td className="p-4 whitespace-nowrap">
+                              {ev.mainPick ? (
+                                <span className="bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-xs font-bold px-2 py-1 rounded border border-blue-100 dark:border-blue-800/50">
+                                  {ev.mainPick}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="p-4 whitespace-nowrap">
+                              {getStatusIcon(ev.is1x2Hit, ev.algo1X2Favored, ev.hasValidScore)}
+                            </td>
+                            <td className="p-4 whitespace-nowrap">
+                              {getStatusIcon(ev.isBttsHit, ev.algoBTTSFavored, ev.hasValidScore)}
+                            </td>
+                            <td className="p-4 whitespace-nowrap">
+                              {getStatusIcon(ev.isOu25Hit, ev.algoOU25Favored, ev.hasValidScore)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             ) : (
               <div className="bg-white dark:bg-slate-900 border border-dashed border-gray-300 dark:border-slate-700 rounded-2xl p-12 flex flex-col items-center text-center">

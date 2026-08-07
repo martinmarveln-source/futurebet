@@ -12,8 +12,10 @@ function makeQueryClient() {
   const handleError = (error: Error | any) => {
     if (error?.name === 'AbortError') return;
     const msg = error?.response?.data?.error || error?.message || 'An unexpected error occurred';
-    // Don't toast for common 401s if handled by auth layer
-    if (msg.toLowerCase().includes('unauthorized') || msg.toLowerCase().includes('not logged in')) return;
+    
+    // Don't toast for common 401s or premium gate rejections handled by the UI
+    const lowerMsg = msg.toLowerCase();
+    if (lowerMsg.includes('unauthorized') || lowerMsg.includes('not logged in') || lowerMsg.includes('premium_required')) return;
     
     toast.error(msg, {
       description: 'Please try again or contact support if the issue persists.',
