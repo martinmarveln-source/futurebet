@@ -282,17 +282,17 @@ export default function ArchivePage() {
 
             {evaluatedMatches.length > 0 ? (
               <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse min-w-[800px]">
-                    <thead>
-                      <tr className="bg-gray-50 dark:bg-slate-800/50 border-b border-gray-200 dark:border-slate-800">
-                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Time</th>
-                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Match / League</th>
-                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Score</th>
-                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Main Pick</th>
-                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">1X2 Outcome</th>
-                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">BTTS</th>
-                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">O/U 2.5</th>
+                <div className="overflow-x-auto max-h-[70vh] overflow-y-auto rounded-xl">
+                  <table className="w-full text-left border-collapse min-w-[800px] relative">
+                    <thead className="sticky top-0 z-20 shadow-sm">
+                      <tr className="bg-gray-100 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-slate-800">Time</th>
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-slate-800">Match / League</th>
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center bg-gray-100 dark:bg-slate-800">Score</th>
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-slate-800">Main Pick</th>
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-slate-800">1X2 Outcome</th>
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-slate-800">BTTS</th>
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-slate-800">O/U 2.5</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-slate-800/80">
