@@ -135,58 +135,66 @@ export async function POST(request) {
       ? Math.min(50, Math.max(1, Number(body.alert_max_matches)))
       : (existing.alert_max_matches ?? 10);
 
-    const result = await sql`
-      INSERT INTO user_preferences (
-        user_id,
-        favorite_leagues,
-        default_chance_threshold,
-        default_rating_threshold,
-        favorite_markets,
-        telegram_bot_token,
-        telegram_chat_id,
-        alert_enabled,
-        alert_send_time,
-        alert_min_chance,
-        alert_min_rating,
-        alert_min_hist_rate,
-        alert_markets,
-        alert_pick_type,
-        alert_max_matches
-      ) VALUES (
-        ${userId},
-        ${favorite_leagues},
-        ${default_chance_threshold},
-        ${default_rating_threshold},
-        ${favorite_markets},
-        ${telegram_bot_token},
-        ${telegram_chat_id},
-        ${alert_enabled},
-        ${alert_send_time},
-        ${alert_min_chance},
-        ${alert_min_rating},
-        ${alert_min_hist_rate},
-        ${alert_markets},
-        ${alert_pick_type},
-        ${alert_max_matches}
-      )
-      ON CONFLICT (user_id) DO UPDATE SET
-        favorite_leagues          = EXCLUDED.favorite_leagues,
-        default_chance_threshold  = EXCLUDED.default_chance_threshold,
-        default_rating_threshold  = EXCLUDED.default_rating_threshold,
-        favorite_markets          = EXCLUDED.favorite_markets,
-        telegram_bot_token        = EXCLUDED.telegram_bot_token,
-        telegram_chat_id          = EXCLUDED.telegram_chat_id,
-        alert_enabled             = EXCLUDED.alert_enabled,
-        alert_send_time           = EXCLUDED.alert_send_time,
-        alert_min_chance          = EXCLUDED.alert_min_chance,
-        alert_min_rating          = EXCLUDED.alert_min_rating,
-        alert_min_hist_rate       = EXCLUDED.alert_min_hist_rate,
-        alert_markets             = EXCLUDED.alert_markets,
-        alert_pick_type           = EXCLUDED.alert_pick_type,
-        alert_max_matches         = EXCLUDED.alert_max_matches,
-        updated_at                = CURRENT_TIMESTAMP
-      RETURNING *
-    `;
+    let result;
+    if (existingRows.length > 0) {
+      result = await sql`
+        UPDATE user_preferences SET
+          favorite_leagues          = ${favorite_leagues},
+          default_chance_threshold  = ${default_chance_threshold},
+          default_rating_threshold  = ${default_rating_threshold},
+          favorite_markets          = ${favorite_markets},
+          telegram_bot_token        = ${telegram_bot_token},
+          telegram_chat_id          = ${telegram_chat_id},
+          alert_enabled             = ${alert_enabled},
+          alert_send_time           = ${alert_send_time},
+          alert_min_chance          = ${alert_min_chance},
+          alert_min_rating          = ${alert_min_rating},
+          alert_min_hist_rate       = ${alert_min_hist_rate},
+          alert_markets             = ${alert_markets},
+          alert_pick_type           = ${alert_pick_type},
+          alert_max_matches         = ${alert_max_matches},
+          updated_at                = CURRENT_TIMESTAMP
+        WHERE user_id = ${userId}
+        RETURNING *
+      `;
+    } else {
+      result = await sql`
+        INSERT INTO user_preferences (
+          user_id,
+          favorite_leagues,
+          default_chance_threshold,
+          default_rating_threshold,
+          favorite_markets,
+          telegram_bot_token,
+          telegram_chat_id,
+          alert_enabled,
+          alert_send_time,
+          alert_min_chance,
+          alert_min_rating,
+          alert_min_hist_rate,
+          alert_markets,
+          alert_pick_type,
+          alert_max_matches
+        ) VALUES (
+          ${userId},
+          ${favorite_leagues},
+          ${default_chance_threshold},
+          ${default_rating_threshold},
+          ${favorite_markets},
+          ${telegram_bot_token},
+          ${telegram_chat_id},
+          ${alert_enabled},
+          ${alert_send_time},
+          ${alert_min_chance},
+          ${alert_min_rating},
+          ${alert_min_hist_rate},
+          ${alert_markets},
+          ${alert_pick_type},
+          ${alert_max_matches}
+        )
+        RETURNING *
+      `;
+    }
 
     return Response.json({ preferences: result[0] });
   } catch (error) {
