@@ -14,6 +14,7 @@ import {
   Zap,
   Lock,
 } from "lucide-react";
+import useUserPermissions from "@/hooks/useUserPermissions";
 
 function cn(...c) {
   return c.filter(Boolean).join(" ");
@@ -49,6 +50,7 @@ export default function SettingsModal({
   isLoading,
   isPremium = false, // passed from parent — true for Admin/Premium users
 }) {
+  const { isAdmin } = useUserPermissions();
   // ── Web Push ─────────────────────────────────────────────────────────────
   const [pushEnabled, setPushEnabled] = useState(false);
   const [isSubscribing, setIsSubscribing] = useState(false);
