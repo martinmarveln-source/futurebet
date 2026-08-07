@@ -320,7 +320,7 @@ export default function ArchivePage() {
                             </td>
                             <td className="p-4 text-center whitespace-nowrap">
                               <span className="font-bold text-sm text-slate-700 dark:text-slate-300">
-                                {ev.chance !== "-" ? `${ev.chance}%` : "-"}
+                                {ev.chance !== "-" ? (String(ev.chance).includes('%') ? ev.chance : `${ev.chance}%`) : "-"}
                               </span>
                             </td>
                             <td className="p-4 whitespace-nowrap">
