@@ -22,7 +22,7 @@ export async function GET(req) {
     const role = userRecord?.user_role || "free";
     const subStatus = userRecord?.subscription_status || "free";
     const subValid =
-      userRecord?.subscription_expires_at &&
+      !userRecord?.subscription_expires_at ||
       new Date(userRecord.subscription_expires_at) > new Date();
 
     const isAdmin = role === "admin";
@@ -91,7 +91,7 @@ export async function POST(req) {
     const role = userRecord?.user_role || "free";
     const subStatus = userRecord?.subscription_status || "free";
     const subValid =
-      userRecord?.subscription_expires_at &&
+      !userRecord?.subscription_expires_at ||
       new Date(userRecord.subscription_expires_at) > new Date();
 
     const isAdmin = role === "admin";
