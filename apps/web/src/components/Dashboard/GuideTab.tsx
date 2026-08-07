@@ -1614,8 +1614,113 @@ export default function GuideTab({ darkMode = false }) {
 
       {/* 19 */}
       <section>
+        <SectionTitle darkMode={darkMode} icon={Terminal}>
+          19. Backtesting Sandbox Manual
+        </SectionTitle>
+        <Card darkMode={darkMode} className="space-y-6">
+          <div>
+            <h3
+              className={cn(
+                "text-lg font-black mb-3",
+                darkMode ? "text-white" : "text-gray-900"
+              )}
+            >
+              Purpose
+            </h3>
+            <Paragraph darkMode={darkMode}>
+              The Algorithmic Sandbox allows users to backtest the model against past predictions by configuring chance, rating thresholds, and market focus to see simulated historical returns.
+            </Paragraph>
+          </div>
+          <div>
+            <h3
+              className={cn(
+                "text-lg font-black mb-3",
+                darkMode ? "text-white" : "text-gray-900"
+              )}
+            >
+              Access
+            </h3>
+            <BulletList
+              darkMode={darkMode}
+              items={[
+                "Free/Silver: locked",
+                "Premium: unlocked",
+                "Admin: unlocked",
+              ]}
+            />
+          </div>
+          <div>
+            <h3
+              className={cn(
+                "text-lg font-black mb-3",
+                darkMode ? "text-white" : "text-gray-900"
+              )}
+            >
+              How it works
+            </h3>
+            <BulletList
+              darkMode={darkMode}
+              items={[
+                <span key="1"><strong className="text-blue-500">Filters:</strong> Adjust Minimum Chance, Minimum Rating, and Market Type.</span>,
+                <span key="2"><strong className="text-blue-500">Assumed Odds:</strong> Set an expected average odds line to calculate hypothetical ROI and profit margins over historical matches.</span>,
+                <span key="3"><strong className="text-blue-500">Insights:</strong> See Win Rate, Net Profit/Loss, Maximum Drawdowns, and Longest Winning/Losing Streaks.</span>,
+              ]}
+            />
+          </div>
+        </Card>
+      </section>
+
+      {/* 20 */}
+      <section>
+        <SectionTitle darkMode={darkMode} icon={Terminal}>
+          20. Usage Limits & Tracking
+        </SectionTitle>
+        <Card darkMode={darkMode} className="space-y-6">
+          <div>
+            <h3
+              className={cn(
+                "text-lg font-black mb-3",
+                darkMode ? "text-white" : "text-gray-900"
+              )}
+            >
+              Comparison Tracking Limits
+            </h3>
+            <DataTable
+              darkMode={darkMode}
+              headers={["Tier", "Daily Compare Limit"]}
+              rows={[
+                [<span key="1">Guest (Logged Out)</span>, "5 comparisons per day", ""],
+                [<span key="2">Free (Logged In)</span>, "10 comparisons per day", ""],
+                [<span key="3">Silver, Premium & Admin</span>, "Unlimited comparisons", ""],
+              ]}
+            />
+          </div>
+          <div>
+            <h3
+              className={cn(
+                "text-lg font-black mb-3",
+                darkMode ? "text-white" : "text-gray-900"
+              )}
+            >
+              AI Insights Limits
+            </h3>
+            <DataTable
+              darkMode={darkMode}
+              headers={["Tier", "Daily AI Insights"]}
+              rows={[
+                [<span key="1">Guest / Free</span>, "0 (Locked)", ""],
+                [<span key="2">Silver</span>, "Limited daily quota (depends on plan)", ""],
+                [<span key="3">Premium & Admin</span>, "Unlimited insights", ""],
+              ]}
+            />
+          </div>
+        </Card>
+      </section>
+
+      {/* 21 */}
+      <section>
         <SectionTitle darkMode={darkMode} icon={AlertTriangle}>
-          19. Troubleshooting Guide
+          21. Troubleshooting Guide
         </SectionTitle>
         <Card darkMode={darkMode} className="space-y-6">
           <div>
@@ -1657,10 +1762,10 @@ export default function GuideTab({ darkMode = false }) {
         </Card>
       </section>
 
-      {/* 20 */}
+      {/* 22 */}
       <section>
         <SectionTitle darkMode={darkMode} icon={Zap}>
-          20. Upgrade Guidance Summary
+          22. Upgrade Guidance Summary
         </SectionTitle>
         <Card darkMode={darkMode} className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
