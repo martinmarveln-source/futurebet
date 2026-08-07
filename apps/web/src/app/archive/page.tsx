@@ -134,8 +134,18 @@ export default function ArchivePage() {
        </div>
      )
   }
-
-
+  const getStatusIcon = (hit: boolean, favored: string, hasScore: boolean) => {
+    if (!hasScore) return <MinusCircle className="w-4 h-4 text-gray-400" />;
+    return hit ? (
+      <span className="flex items-center gap-1 text-xs font-bold text-green-700 bg-green-100 dark:bg-green-900/40 dark:text-green-400 px-2 py-1 rounded-md w-fit">
+        <CheckCircle2 className="w-3.5 h-3.5" /> {favored}
+      </span>
+    ) : (
+      <span className="flex items-center gap-1 text-xs font-bold text-red-700 bg-red-100 dark:bg-red-900/40 dark:text-red-400 px-2 py-1 rounded-md w-fit">
+        <XCircle className="w-3.5 h-3.5" /> {favored}
+      </span>
+    );
+  };
   const winRate1X2 = totalValid > 0 ? Math.round((hits1X2 / totalValid) * 100) : 0;
   const winRateBTTS = totalValid > 0 ? Math.round((hitsBTTS / totalValid) * 100) : 0;
   const winRateOU25 = totalValid > 0 ? Math.round((hitsOU25 / totalValid) * 100) : 0;
