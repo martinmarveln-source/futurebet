@@ -66,16 +66,40 @@ export default function ArchivePage() {
     const algoBTTSFavored = bttsYesProb >= bttsNoProb ? "YES" : "NO";
     const algoOU25Favored = over25Prob >= under25Prob ? "OVER" : "UNDER";
 
+    const mainPick = (match.pick || match.raw_data?.pick || match.tips || match.raw_data?.tips || "").toUpperCase();
+
+    let isMainPickHit = false;
+    let hasMainPickEvaluation = false;
+    
+    if (mainPick && hasValidScore) {
+       if (mainPick.includes('OVER 2.5') || mainPick.includes('OV2.5') || mainPick === 'OV25') { isMainPickHit = hg + ag > 2.5; hasMainPickEvaluation = true; }
+       else if (mainPick.includes('UNDER 2.5') || mainPick.includes('UN2.5') || mainPick === 'UN25') { isMainPickHit = hg + ag < 2.5; hasMainPickEvaluation = true; }
+       else if (mainPick.includes('OVER 1.5') || mainPick.includes('OV1.5') || mainPick === 'OV15') { isMainPickHit = hg + ag > 1.5; hasMainPickEvaluation = true; }
+       else if (mainPick.includes('UNDER 1.5') || mainPick.includes('UN1.5') || mainPick === 'UN15') { isMainPickHit = hg + ag < 1.5; hasMainPickEvaluation = true; }
+       else if (mainPick.includes('OVER 3.5') || mainPick.includes('OV3.5') || mainPick === 'OV35') { isMainPickHit = hg + ag > 3.5; hasMainPickEvaluation = true; }
+       else if (mainPick.includes('UNDER 3.5') || mainPick.includes('UN3.5') || mainPick === 'UN35') { isMainPickHit = hg + ag < 3.5; hasMainPickEvaluation = true; }
+       else if (mainPick.includes('BTTS - YES') || mainPick === 'GG' || mainPick === 'YES') { isMainPickHit = hg > 0 && ag > 0; hasMainPickEvaluation = true; }
+       else if (mainPick.includes('BTTS - NO') || mainPick === 'NG' || mainPick === 'NO') { isMainPickHit = hg === 0 || ag === 0; hasMainPickEvaluation = true; }
+       else if (mainPick.includes('1X')) { isMainPickHit = hg >= ag; hasMainPickEvaluation = true; }
+       else if (mainPick.includes('X2')) { isMainPickHit = ag >= hg; hasMainPickEvaluation = true; }
+       else if (mainPick.includes('12')) { isMainPickHit = hg !== ag; hasMainPickEvaluation = true; }
+       else if (mainPick === '1' || mainPick.includes('HOME')) { isMainPickHit = hg > ag; hasMainPickEvaluation = true; }
+       else if (mainPick === '2' || mainPick.includes('AWAY')) { isMainPickHit = ag > hg; hasMainPickEvaluation = true; }
+       else if (mainPick === 'X' || mainPick.includes('DRAW')) { isMainPickHit = hg === ag; hasMainPickEvaluation = true; }
+    }
+
     return {
       hasValidScore,
       scoreRaw,
-      mainPick: (match.pick || match.raw_data?.pick || match.tips || match.raw_data?.tips || "").toUpperCase(),
+      mainPick,
       matchName: match.match || match.match_label || match.raw_data?.match || `${match.home_team} vs ${match.away_team}`,
       leagueInfo: `${match.country || match.raw_data?.country} • ${match.league || match.raw_data?.league}`,
       time: match.match_time || match.time || match.raw_data?.time || match.match_date?.split('T')[0],
       is1x2Hit: actual1X2 === algo1X2Favored,
       isBttsHit: actualBTTS === algoBTTSFavored,
       isOu25Hit: actualOU25 === algoOU25Favored,
+      isMainPickHit,
+      hasMainPickEvaluation,
       algo1X2Favored,
       algoBTTSFavored,
       algoOU25Favored
@@ -96,12 +120,14 @@ export default function ArchivePage() {
   };
 
   // Pre-calculate statistics
-  const { evaluatedMatches, totalValid, hits1X2, hitsBTTS, hitsOU25 } = useMemo(() => {
+  const { evaluatedMatches, totalValid, hits1X2, hitsBTTS, hitsOU25, totalMainPickValid, hitsMainPick } = useMemo(() => {
     const rawMatches = data?.matches || [];
     let validCount = 0;
     let h1X2 = 0;
     let hBTTS = 0;
     let hOU25 = 0;
+    let mpValid = 0;
+    let hMP = 0;
     
     const evaluated = rawMatches.map((match: any) => {
       const ev = evaluateMatch(match);
@@ -110,16 +136,22 @@ export default function ArchivePage() {
          if (ev.is1x2Hit) h1X2++;
          if (ev.isBttsHit) hBTTS++;
          if (ev.isOu25Hit) hOU25++;
+         
+         if (ev.hasMainPickEvaluation) {
+           mpValid++;
+           if (ev.isMainPickHit) hMP++;
+         }
       }
       return ev;
     });
 
-    return { evaluatedMatches: evaluated, totalValid: validCount, hits1X2: h1X2, hitsBTTS: hBTTS, hitsOU25: hOU25 };
+    return { evaluatedMatches: evaluated, totalValid: validCount, hits1X2: h1X2, hitsBTTS: hBTTS, hitsOU25: hOU25, totalMainPickValid: mpValid, hitsMainPick: hMP };
   }, [data]);
 
   const winRate1X2 = totalValid > 0 ? Math.round((hits1X2 / totalValid) * 100) : 0;
   const winRateBTTS = totalValid > 0 ? Math.round((hitsBTTS / totalValid) * 100) : 0;
   const winRateOU25 = totalValid > 0 ? Math.round((hitsOU25 / totalValid) * 100) : 0;
+  const winRateMainPick = totalMainPickValid > 0 ? Math.round((hitsMainPick / totalMainPickValid) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-[#030712] pb-24">
@@ -165,8 +197,25 @@ export default function ArchivePage() {
             
             {/* Stats Summary */}
             {totalValid > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 
+                {/* Main Pick Stat Card */}
+                <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex flex-col justify-between relative overflow-hidden ring-2 ring-blue-500/20">
+                  <div className="flex items-center gap-2 mb-2 z-10 relative">
+                    <div className="p-1.5 bg-blue-500 rounded-lg text-white shadow-md shadow-blue-500/20">
+                      <Target className="w-4 h-4" />
+                    </div>
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Main Pick</span>
+                  </div>
+                  <div className="flex items-end gap-2 z-10 relative">
+                    <span className="text-4xl font-black text-slate-800 dark:text-white tracking-tighter">{winRateMainPick}%</span>
+                    <span className="text-sm font-bold text-slate-400 mb-1.5">{hitsMainPick} / {totalMainPickValid} won</span>
+                  </div>
+                  <div className="absolute bottom-0 left-0 h-1.5 bg-gray-100 dark:bg-slate-800 w-full z-0">
+                    <div className="h-full bg-blue-500" style={{ width: `${winRateMainPick}%` }}></div>
+                  </div>
+                </div>
+
                 {/* 1X2 Stat Card */}
                 <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex flex-col justify-between relative overflow-hidden">
                   <div className="flex items-center gap-2 mb-2 z-10 relative">
@@ -270,9 +319,18 @@ export default function ArchivePage() {
                             </td>
                             <td className="p-4 whitespace-nowrap">
                               {ev.mainPick ? (
-                                <span className="bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-xs font-bold px-2 py-1 rounded border border-blue-100 dark:border-blue-800/50">
-                                  {ev.mainPick}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <span className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 text-xs font-bold px-2 py-1 rounded border border-slate-200 dark:border-slate-700">
+                                    {ev.mainPick}
+                                  </span>
+                                  {ev.hasMainPickEvaluation && (
+                                    ev.isMainPickHit ? (
+                                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                    ) : (
+                                      <XCircle className="w-4 h-4 text-red-500" />
+                                    )
+                                  )}
+                                </div>
                               ) : (
                                 <span className="text-gray-400">-</span>
                               )}
