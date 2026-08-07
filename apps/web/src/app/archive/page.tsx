@@ -60,12 +60,12 @@ export default function ArchivePage() {
     
     if (mainPick && hasValidScore) {
        const p = mainPick.replace(/\s+/g, ''); // remove all whitespace for easier matching
-       if (p.includes('OVER2.5') || p.includes('OV2.5') || p.includes('0V2.5') || p.includes('O2.5') || p.includes('02.5') || p === 'OV25') { isMainPickHit = hg + ag > 2.5; hasMainPickEvaluation = true; }
-       else if (p.includes('UNDER2.5') || p.includes('UN2.5') || p.includes('U2.5') || p === 'UN25') { isMainPickHit = hg + ag < 2.5; hasMainPickEvaluation = true; }
-       else if (p.includes('OVER1.5') || p.includes('OV1.5') || p.includes('0V1.5') || p.includes('O1.5') || p.includes('01.5') || p === 'OV15') { isMainPickHit = hg + ag > 1.5; hasMainPickEvaluation = true; }
-       else if (p.includes('UNDER1.5') || p.includes('UN1.5') || p.includes('U1.5') || p === 'UN15') { isMainPickHit = hg + ag < 1.5; hasMainPickEvaluation = true; }
-       else if (p.includes('OVER3.5') || p.includes('OV3.5') || p.includes('0V3.5') || p.includes('O3.5') || p.includes('03.5') || p === 'OV35') { isMainPickHit = hg + ag > 3.5; hasMainPickEvaluation = true; }
-       else if (p.includes('UNDER3.5') || p.includes('UN3.5') || p.includes('U3.5') || p === 'UN35') { isMainPickHit = hg + ag < 3.5; hasMainPickEvaluation = true; }
+       if (p.includes('OVER2.5') || p.includes('OV2.5') || p.includes('0V2.5') || p.includes('O2.5') || p.includes('02.5') || p.includes('OV.2.5') || p === 'OV25') { isMainPickHit = hg + ag > 2.5; hasMainPickEvaluation = true; }
+       else if (p.includes('UNDER2.5') || p.includes('UN2.5') || p.includes('U2.5') || p.includes('UN.2.5') || p === 'UN25') { isMainPickHit = hg + ag < 2.5; hasMainPickEvaluation = true; }
+       else if (p.includes('OVER1.5') || p.includes('OV1.5') || p.includes('0V1.5') || p.includes('O1.5') || p.includes('01.5') || p.includes('OV.1.5') || p === 'OV15') { isMainPickHit = hg + ag > 1.5; hasMainPickEvaluation = true; }
+       else if (p.includes('UNDER1.5') || p.includes('UN1.5') || p.includes('U1.5') || p.includes('UN.1.5') || p === 'UN15') { isMainPickHit = hg + ag < 1.5; hasMainPickEvaluation = true; }
+       else if (p.includes('OVER3.5') || p.includes('OV3.5') || p.includes('0V3.5') || p.includes('O3.5') || p.includes('03.5') || p.includes('OV.3.5') || p === 'OV35') { isMainPickHit = hg + ag > 3.5; hasMainPickEvaluation = true; }
+       else if (p.includes('UNDER3.5') || p.includes('UN3.5') || p.includes('U3.5') || p.includes('UN.3.5') || p === 'UN35') { isMainPickHit = hg + ag < 3.5; hasMainPickEvaluation = true; }
        else if (p.includes('BTTS-YES') || p === 'GG' || p === 'YES' || p.includes('BTTSYES')) { isMainPickHit = hg > 0 && ag > 0; hasMainPickEvaluation = true; }
        else if (p.includes('BTTS-NO') || p === 'NG' || p === 'NO' || p.includes('BTTSNO')) { isMainPickHit = hg === 0 || ag === 0; hasMainPickEvaluation = true; }
        else if (p.includes('1X')) { isMainPickHit = hg >= ag; hasMainPickEvaluation = true; }
