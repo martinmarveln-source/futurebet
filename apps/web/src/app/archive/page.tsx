@@ -80,6 +80,7 @@ export default function ArchivePage() {
       hasValidScore,
       scoreRaw,
       mainPick,
+      chance: match.chance || match.model_chance || match.raw_data?.chance || match.raw_data?.model_chance || "-",
       matchName: match.match || match.match_label || match.raw_data?.match || `${match.home_team} vs ${match.away_team}`,
       leagueInfo: `${match.country || match.raw_data?.country} • ${match.league || match.raw_data?.league}`,
       time: match.match_time || match.time || match.raw_data?.time || match.match_date?.split('T')[0],
@@ -288,6 +289,7 @@ export default function ArchivePage() {
                         <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-slate-800">Time</th>
                         <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-slate-800">Match / League</th>
                         <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center bg-gray-100 dark:bg-slate-800">Score</th>
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-slate-800 text-center">Chances</th>
                         <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-slate-800">Main Pick</th>
                         <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-slate-800">1X2 Outcome</th>
                         <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-slate-800">BTTS</th>
@@ -314,6 +316,11 @@ export default function ArchivePage() {
                             <td className="p-4 text-center whitespace-nowrap">
                               <span className="inline-block px-3 py-1 bg-slate-800 text-white dark:bg-slate-700 font-mono font-bold text-sm rounded border border-slate-700 shadow-inner">
                                 {ev.hasValidScore ? ev.scoreRaw.replace(':', ' - ') : 'N/A'}
+                              </span>
+                            </td>
+                            <td className="p-4 text-center whitespace-nowrap">
+                              <span className="font-bold text-sm text-slate-700 dark:text-slate-300">
+                                {ev.chance !== "-" ? `${ev.chance}%` : "-"}
                               </span>
                             </td>
                             <td className="p-4 whitespace-nowrap">
