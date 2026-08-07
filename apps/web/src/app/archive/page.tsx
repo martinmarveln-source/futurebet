@@ -21,6 +21,107 @@ export default function ArchivePage() {
     }
   });
 
+  // Helper function to evaluate outcomes for a single match row
+  const evaluateMatch = (match: any) => {
+    const scoreRaw = match.ftScore || match.ft_score || (match.raw_data && match.raw_data.ftScore) || "";
+    const hasValidScore = typeof scoreRaw === 'string' && scoreRaw.includes(':');
+    
+    let hg = 0, ag = 0;
+    if (hasValidScore) {
+      const parts = scoreRaw.split(':');
+      hg = parseInt(parts[0], 10) || 0;
+      ag = parseInt(parts[1], 10) || 0;
+    }
+
+    const actual1X2 = hg > ag ? "HOME" : hg < ag ? "AWAY" : "DRAW";
+    const actualBTTS = hg > 0 && ag > 0 ? "YES" : "NO";
+    const actualOU25 = hg + ag > 2.5 ? "OVER" : "UNDER";
+
+    const homeProb = parseFloat(match.homeWin || match.raw_data?.homeWin || 0);
+    const drawProb = parseFloat(match.draw || match.raw_data?.draw || 0);
+    const awayProb = parseFloat(match.awayWin || match.raw_data?.awayWin || 0);
+    const bttsYesProb = parseFloat(match.gg || match.raw_data?.gg || 0);
+    const bttsNoProb = parseFloat(match.ng || match.raw_data?.ng || 0);
+    const over25Prob = parseFloat(match.ov25 || match.raw_data?.ov25 || 0);
+    const under25Prob = parseFloat(match.un25 || match.raw_data?.un25 || 0);
+
+    let algo1X2Favored = "HOME";
+    let max1x2 = homeProb;
+    if (drawProb > max1x2) { algo1X2Favored = "DRAW"; max1x2 = drawProb; }
+    if (awayProb > max1x2) { algo1X2Favored = "AWAY"; max1x2 = awayProb; }
+
+    const algoBTTSFavored = bttsYesProb >= bttsNoProb ? "YES" : "NO";
+    const algoOU25Favored = over25Prob >= under25Prob ? "OVER" : "UNDER";
+
+    const mainPick = (match.pick || match.raw_data?.pick || match.tips || match.raw_data?.tips || "").toUpperCase();
+
+    let isMainPickHit = false;
+    let hasMainPickEvaluation = false;
+    
+    if (mainPick && hasValidScore) {
+       if (mainPick.includes('OVER 2.5') || mainPick.includes('OV2.5') || mainPick === 'OV25') { isMainPickHit = hg + ag > 2.5; hasMainPickEvaluation = true; }
+       else if (mainPick.includes('UNDER 2.5') || mainPick.includes('UN2.5') || mainPick === 'UN25') { isMainPickHit = hg + ag < 2.5; hasMainPickEvaluation = true; }
+       else if (mainPick.includes('OVER 1.5') || mainPick.includes('OV1.5') || mainPick === 'OV15') { isMainPickHit = hg + ag > 1.5; hasMainPickEvaluation = true; }
+       else if (mainPick.includes('UNDER 1.5') || mainPick.includes('UN1.5') || mainPick === 'UN15') { isMainPickHit = hg + ag < 1.5; hasMainPickEvaluation = true; }
+       else if (mainPick.includes('OVER 3.5') || mainPick.includes('OV3.5') || mainPick === 'OV35') { isMainPickHit = hg + ag > 3.5; hasMainPickEvaluation = true; }
+       else if (mainPick.includes('UNDER 3.5') || mainPick.includes('UN3.5') || mainPick === 'UN35') { isMainPickHit = hg + ag < 3.5; hasMainPickEvaluation = true; }
+       else if (mainPick.includes('BTTS - YES') || mainPick === 'GG' || mainPick === 'YES') { isMainPickHit = hg > 0 && ag > 0; hasMainPickEvaluation = true; }
+       else if (mainPick.includes('BTTS - NO') || mainPick === 'NG' || mainPick === 'NO') { isMainPickHit = hg === 0 || ag === 0; hasMainPickEvaluation = true; }
+       else if (mainPick.includes('1X')) { isMainPickHit = hg >= ag; hasMainPickEvaluation = true; }
+       else if (mainPick.includes('X2')) { isMainPickHit = ag >= hg; hasMainPickEvaluation = true; }
+       else if (mainPick.includes('12')) { isMainPickHit = hg !== ag; hasMainPickEvaluation = true; }
+       else if (mainPick === '1' || mainPick.includes('HOME')) { isMainPickHit = hg > ag; hasMainPickEvaluation = true; }
+       else if (mainPick === '2' || mainPick.includes('AWAY')) { isMainPickHit = ag > hg; hasMainPickEvaluation = true; }
+       else if (mainPick === 'X' || mainPick.includes('DRAW')) { isMainPickHit = hg === ag; hasMainPickEvaluation = true; }
+    }
+
+    return {
+      hasValidScore,
+      scoreRaw,
+      mainPick,
+      matchName: match.match || match.match_label || match.raw_data?.match || `${match.home_team} vs ${match.away_team}`,
+      leagueInfo: `${match.country || match.raw_data?.country} • ${match.league || match.raw_data?.league}`,
+      time: match.match_time || match.time || match.raw_data?.time || match.match_date?.split('T')[0],
+      is1x2Hit: actual1X2 === algo1X2Favored,
+      isBttsHit: actualBTTS === algoBTTSFavored,
+      isOu25Hit: actualOU25 === algoOU25Favored,
+      isMainPickHit,
+      hasMainPickEvaluation,
+      algo1X2Favored,
+      algoBTTSFavored,
+      algoOU25Favored
+    };
+  };
+
+  // Pre-calculate statistics
+  const { evaluatedMatches, totalValid, hits1X2, hitsBTTS, hitsOU25, totalMainPickValid, hitsMainPick } = useMemo(() => {
+    const rawMatches = data?.matches || [];
+    let validCount = 0;
+    let h1X2 = 0;
+    let hBTTS = 0;
+    let hOU25 = 0;
+    let mpValid = 0;
+    let hMP = 0;
+    
+    const evaluated = rawMatches.map((match: any) => {
+      const ev = evaluateMatch(match);
+      if (ev.hasValidScore) {
+         validCount++;
+         if (ev.is1x2Hit) h1X2++;
+         if (ev.isBttsHit) hBTTS++;
+         if (ev.isOu25Hit) hOU25++;
+         
+         if (ev.hasMainPickEvaluation) {
+           mpValid++;
+           if (ev.isMainPickHit) hMP++;
+         }
+      }
+      return ev;
+    });
+
+    return { evaluatedMatches: evaluated, totalValid: validCount, hits1X2: h1X2, hitsBTTS: hBTTS, hitsOU25: hOU25, totalMainPickValid: mpValid, hitsMainPick: hMP };
+  }, [data]);
+
   if (error && error.message === "PREMIUM_REQUIRED") {
      return (
        <div className="min-h-screen bg-slate-100 dark:bg-[#030712] p-6 flex flex-col items-center justify-center text-center">
