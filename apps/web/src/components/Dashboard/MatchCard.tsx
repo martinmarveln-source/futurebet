@@ -2267,6 +2267,8 @@ export default function MatchCard({
                   : rawMatchStr.split("-");
                 const hTeam = (parts[0] || "Home").trim();
                 const aTeam = (parts[1] || "Away").trim();
+                const rawFtScore = match?.ft_score || match?.raw_data?.ftScore || match?.ftScore;
+                const ftScore = rawFtScore && rawFtScore !== "#N/A" ? rawFtScore : null;
                 return (
                   <div className="mb-4 mt-2">
                     <div className="flex justify-center mb-3">
@@ -2323,6 +2325,18 @@ export default function MatchCard({
                         >
                           VS
                         </div>
+                        {(isAdmin || isPremium) && ftScore && (
+                          <div
+                            className={cn(
+                              "mt-2 px-2 py-0.5 rounded text-[10px] font-black border tracking-wider",
+                              darkMode
+                                ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400"
+                                : "bg-emerald-50 border-emerald-200 text-emerald-700"
+                            )}
+                          >
+                            FT: {ftScore}
+                          </div>
+                        )}
                       </div>
                       <div className="flex flex-col items-center gap-2.5 flex-1 w-[40%] relative z-10">
                         <span
