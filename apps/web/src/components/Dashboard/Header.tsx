@@ -126,11 +126,7 @@ export default function Header({
                   </div>
                   {userPermissions && (
                     <div className="text-xs text-gray-500">
-                      {userPermissions.isAdmin ? (
-                        <span className="text-purple-600 font-semibold">
-                          Admin
-                        </span>
-                      ) : userPermissions.isPremium ? (
+                      {(userPermissions.isAdmin || userPermissions.isPremium) ? (
                         <span className="text-yellow-600 font-semibold">
                           Premium
                         </span>

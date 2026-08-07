@@ -1178,10 +1178,8 @@ export default function FutureBetDashboard() {
                 <span className="hidden sm:inline">Performance</span>
                 <span className="sm:hidden">Perf</span>
                 <span className="rounded-full bg-purple-500 px-1.5 py-0.5 text-[10px] font-black text-white sm:text-xs">
-                  <span className="hidden sm:inline">
-                    {isAdmin ? "ADMIN" : "PREMIUM"}
-                  </span>
-                  <span className="sm:hidden">{isAdmin ? "ADM" : "PRO"}</span>
+                  <span className="hidden sm:inline">PREMIUM</span>
+                  <span className="sm:hidden">PRO</span>
                 </span>
               </button>
             )}

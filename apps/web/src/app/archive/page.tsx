@@ -26,7 +26,7 @@ export default function ArchivePage() {
        <div className="min-h-screen bg-slate-100 dark:bg-[#030712] p-6 flex flex-col items-center justify-center text-center">
          <Lock className="w-16 h-16 text-slate-400 mb-4" />
          <h1 className="text-2xl font-black text-slate-800 dark:text-white mb-2">Premium Feature</h1>
-         <p className="text-slate-500 mb-6 max-w-md">The Past Results archive is strictly available to Silver, Premium, and Admin members.</p>
+         <p className="text-slate-500 mb-6 max-w-md">The Past Results archive is strictly available to Silver and Premium members.</p>
          <Link href="/" className="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30">
            Go Back Home
          </Link>

@@ -449,7 +449,7 @@ export default function FutureBetDashboard() {
           title: "Algorithmic Sandbox",
           subtitle:
             "Quantitative backtesting and machine learning calibration.",
-          badge: isAdmin || isPremium ? "Admin / Pro" : "Locked",
+          badge: isAdmin || isPremium ? "Pro" : "Locked",
         };
       case "guide":
         return {

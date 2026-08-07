@@ -60,7 +60,7 @@ export function TabNavigation({
                 ? "text-gray-500 hover:text-gray-200"
                 : "text-gray-500 hover:text-gray-800"
             )}
-            title="Premium/Admin only"
+            title="Premium only"
           >
             <Lock className="h-3 w-3 sm:h-4 sm:w-4" />
             <span>Home</span>
@@ -161,10 +161,8 @@ export function TabNavigation({
             <span className="hidden sm:inline">Performance</span>
             <span className="sm:hidden">Perf</span>
             <span className="px-1.5 py-0.5 text-[10px] sm:text-xs font-semibold bg-purple-500 text-white rounded-full">
-              <span className="hidden sm:inline">
-                {isAdmin ? "ADMIN" : "PREMIUM"}
-              </span>
-              <span className="sm:hidden">{isAdmin ? "ADM" : "PRO"}</span>
+              <span className="hidden sm:inline">PREMIUM</span>
+              <span className="sm:hidden">PRO</span>
             </span>
           </button>
         )}
@@ -186,10 +184,8 @@ export function TabNavigation({
             <span className="hidden sm:inline">Sandbox</span>
             <span className="sm:hidden">Box</span>
             <span className="px-1.5 py-0.5 text-[10px] sm:text-xs font-semibold bg-cyan-500 text-white rounded-full">
-              <span className="hidden sm:inline">
-                {isAdmin ? "ADMIN" : "PREMIUM"}
-              </span>
-              <span className="sm:hidden">{isAdmin ? "ADM" : "PRO"}</span>
+              <span className="hidden sm:inline">PREMIUM</span>
+              <span className="sm:hidden">PRO</span>
             </span>
           </button>
         )}
