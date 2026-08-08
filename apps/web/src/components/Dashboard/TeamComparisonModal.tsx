@@ -3305,7 +3305,7 @@ export default function TeamComparisonModal({
                 <div className="p-4 overflow-x-auto">
                   {leagueTable && leagueTable.length ? (
                     <div className={cx(
-                      "rounded-xl border overflow-hidden",
+                      "rounded-xl border overflow-x-auto",
                       darkMode ? "border-white/10" : "border-gray-200"
                     )}>
                       <table className="w-full text-left text-xs whitespace-nowrap">
