@@ -1575,24 +1575,35 @@ export default function VipPick({ darkMode = false }) {
                   VIP Picks (Today)
                 </h2>
 
-                <p
-                  className={cn(
-                    "text-sm",
-                    darkMode ? "text-gray-300" : "text-gray-600",
-                  )}
-                >
-                  Filtered: Chance ≥ {thresholds.minChance}%, Rating ≥{" "}
-                  {thresholds.minRating}%.
-                </p>
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap">
+                  <div
+                    className={cn(
+                      "inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-widest shadow-sm",
+                      darkMode
+                        ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                        : "bg-amber-50 border-amber-300 text-amber-700"
+                    )}
+                  >
+                    <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500/20 text-[9px] shadow-[0_0_8px_rgba(245,158,11,0.3)]">
+                      🎯
+                    </span>
+                    Chance ≥ {thresholds.minChance}% &bull; Rating ≥ {thresholds.minRating}%
+                  </div>
 
-                <p
-                  className={cn(
-                    "text-[11px]",
-                    darkMode ? "text-gray-400" : "text-gray-500",
-                  )}
-                >
-                  ✅ Pick is computed from stats (Poisson xG).
-                </p>
+                  <div
+                    className={cn(
+                      "inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-widest shadow-sm",
+                      darkMode
+                        ? "bg-blue-500/10 border-blue-500/30 text-blue-400"
+                        : "bg-blue-50 border-blue-300 text-blue-700"
+                    )}
+                  >
+                    <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-blue-500/20 text-[9px] shadow-[0_0_8px_rgba(59,130,246,0.3)]">
+                      🤖
+                    </span>
+                    Poisson xG Computed
+                  </div>
+                </div>
               </div>
             </div>
 
