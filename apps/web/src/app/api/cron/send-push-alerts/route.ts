@@ -58,9 +58,9 @@ export async function GET(request: Request) {
     // 1. Fetch today's high-value matches
     const today = new Date().toISOString().split("T")[0];
     const matches = await sql`
-      SELECT * FROM matches 
-      WHERE DATE(match_time) = ${today}
-        AND pick != 'N/A'
+      SELECT * FROM matches_cache 
+      WHERE match_date = ${today}
+        AND (pick IS NOT NULL AND pick != 'N/A')
         AND chance >= 70
         AND rating >= 60
       ORDER BY rating DESC, chance DESC
