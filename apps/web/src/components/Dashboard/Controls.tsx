@@ -689,6 +689,58 @@ export default function Controls({
           </button>
 
           <select
+            aria-label="Chance Threshold"
+            value={chanceThreshold}
+            onChange={(e) => canUseThresholds && setChanceThreshold?.(Number(e.target.value))}
+            disabled={!canUseThresholds}
+            className={cn(
+              "min-w-[140px] px-4 py-3 rounded-xl border text-xs font-bold outline-none cursor-pointer transition-all",
+              darkMode
+                ? "bg-black/50 border-white/10 text-white focus:border-blue-500/50"
+                : "bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-400 focus:bg-white",
+              !canUseThresholds ? "opacity-50 cursor-not-allowed" : ""
+            )}
+            title={!canUseThresholds ? "Silver+ required" : "Minimum Chance"}
+          >
+            <option value="0">Any Chance</option>
+            <option value="50">50%+</option>
+            <option value="55">55%+</option>
+            <option value="60">60%+</option>
+            <option value="65">65%+</option>
+            <option value="70">70%+</option>
+            <option value="75">75%+</option>
+            <option value="80">80%+</option>
+            <option value="85">85%+</option>
+            <option value="90">90%+</option>
+          </select>
+
+          <select
+            aria-label="Rating Threshold"
+            value={ratingThreshold}
+            onChange={(e) => canUseThresholds && setRatingThreshold?.(Number(e.target.value))}
+            disabled={!canUseThresholds}
+            className={cn(
+              "min-w-[140px] px-4 py-3 rounded-xl border text-xs font-bold outline-none cursor-pointer transition-all",
+              darkMode
+                ? "bg-black/50 border-white/10 text-white focus:border-amber-500/50"
+                : "bg-gray-50 border-gray-200 text-gray-900 focus:border-amber-400 focus:bg-white",
+              !canUseThresholds ? "opacity-50 cursor-not-allowed" : ""
+            )}
+            title={!canUseThresholds ? "Silver+ required" : "Minimum Rating"}
+          >
+            <option value="0">Any Rating</option>
+            <option value="50">50%+</option>
+            <option value="55">55%+</option>
+            <option value="60">60%+</option>
+            <option value="65">65%+</option>
+            <option value="70">70%+</option>
+            <option value="75">75%+</option>
+            <option value="80">80%+</option>
+            <option value="85">85%+</option>
+            <option value="90">90%+</option>
+          </select>
+
+          <select
             aria-label="Sort matches by"
             value={canUseAdvancedControls ? sortBy || "date" : "date"}
             onChange={(e) =>
@@ -830,152 +882,7 @@ export default function Controls({
         </div>
       )}
 
-      {/* === UPGRADE 2: NEON RANGE SLIDERS === */}
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-6 relative z-10">
-        {/* Chance Threshold */}
-        <div
-          className={cn(
-            "rounded-[28px] border p-6 relative overflow-hidden transition-all",
-            darkMode
-              ? "bg-white/[0.02] border-white/5 hover:border-white/10"
-              : "bg-white border-gray-200 shadow-sm hover:shadow-md"
-          )}
-        >
-          {darkMode && (
-            <div className="absolute -top-10 -right-10 w-40 h-40 bg-blue-500/10 rounded-full blur-[60px] pointer-events-none" />
-          )}
 
-          <div className="flex items-start justify-between gap-4 mb-8">
-            <div>
-              <div className="text-[10px] font-black uppercase tracking-[0.25em] text-blue-500 mb-1.5">
-                Chance Threshold
-              </div>
-              <div
-                className={cn(
-                  "text-xs font-semibold",
-                  darkMode ? "text-gray-400" : "text-gray-500"
-                )}
-              >
-                Minimum algorithm probability required.
-              </div>
-            </div>
-            <div
-              className={cn(
-                "text-4xl font-black tabular-nums tracking-tighter leading-none",
-                darkMode ? "text-white" : "text-gray-900"
-              )}
-            >
-              {chanceThreshold}
-              <span className="text-xl text-gray-500 ml-0.5">%</span>
-            </div>
-          </div>
-
-          <div className="relative group pt-2 pb-1">
-            <div
-              className={cn(
-                "absolute top-1/2 -translate-y-1/2 left-0 h-2 rounded-full pointer-events-none transition-all",
-                darkMode
-                  ? "bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.6)]"
-                  : "bg-blue-500"
-              )}
-              style={{ width: `${chanceThreshold}%` }}
-            />
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={chanceThreshold}
-              onChange={(e) => setChanceThreshold?.(Number(e.target.value))}
-              disabled={!canUseThresholds}
-              className={cn(
-                "w-full appearance-none bg-transparent h-2 rounded-full outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-110 relative z-10",
-                darkMode
-                  ? "[&::-webkit-slider-runnable-track]:bg-white/10 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0_0_15px_rgba(255,255,255,0.8)]"
-                  : "[&::-webkit-slider-runnable-track]:bg-gray-100 [&::-webkit-slider-thumb]:bg-blue-600 [&::-webkit-slider-thumb]:shadow-lg",
-                !canUseThresholds ? "opacity-50 cursor-not-allowed" : ""
-              )}
-            />
-          </div>
-
-          {!canUseThresholds && (
-            <div className="mt-4 text-[10px] font-black text-rose-500 uppercase tracking-[0.2em] flex items-center gap-1.5 bg-rose-500/10 w-fit px-3 py-1.5 rounded-lg border border-rose-500/20">
-              <Lock size={12} /> Silver+ Required
-            </div>
-          )}
-        </div>
-
-        {/* Rating Threshold */}
-        <div
-          className={cn(
-            "rounded-[28px] border p-6 relative overflow-hidden transition-all",
-            darkMode
-              ? "bg-white/[0.02] border-white/5 hover:border-white/10"
-              : "bg-white border-gray-200 shadow-sm hover:shadow-md"
-          )}
-        >
-          {darkMode && (
-            <div className="absolute -top-10 -right-10 w-40 h-40 bg-amber-500/10 rounded-full blur-[60px] pointer-events-none" />
-          )}
-
-          <div className="flex items-start justify-between gap-4 mb-8">
-            <div>
-              <div className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-500 mb-1.5">
-                Rating Threshold
-              </div>
-              <div
-                className={cn(
-                  "text-xs font-semibold",
-                  darkMode ? "text-gray-400" : "text-gray-500"
-                )}
-              >
-                Minimum quality/edge score required.
-              </div>
-            </div>
-            <div
-              className={cn(
-                "text-4xl font-black tabular-nums tracking-tighter leading-none",
-                darkMode ? "text-white" : "text-gray-900"
-              )}
-            >
-              {ratingThreshold}
-              <span className="text-xl text-gray-500 ml-0.5">%</span>
-            </div>
-          </div>
-
-          <div className="relative group pt-2 pb-1">
-            <div
-              className={cn(
-                "absolute top-1/2 -translate-y-1/2 left-0 h-2 rounded-full pointer-events-none transition-all",
-                darkMode
-                  ? "bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.6)]"
-                  : "bg-amber-500"
-              )}
-              style={{ width: `${ratingThreshold}%` }}
-            />
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={ratingThreshold}
-              onChange={(e) => setRatingThreshold?.(Number(e.target.value))}
-              disabled={!canUseThresholds}
-              className={cn(
-                "w-full appearance-none bg-transparent h-2 rounded-full outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-110 relative z-10",
-                darkMode
-                  ? "[&::-webkit-slider-runnable-track]:bg-white/10 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0_0_15px_rgba(255,255,255,0.8)]"
-                  : "[&::-webkit-slider-runnable-track]:bg-gray-100 [&::-webkit-slider-thumb]:bg-amber-500 [&::-webkit-slider-thumb]:shadow-lg",
-                !canUseThresholds ? "opacity-50 cursor-not-allowed" : ""
-              )}
-            />
-          </div>
-
-          {!canUseThresholds && (
-            <div className="mt-4 text-[10px] font-black text-rose-500 uppercase tracking-[0.2em] flex items-center gap-1.5 bg-rose-500/10 w-fit px-3 py-1.5 rounded-lg border border-rose-500/20">
-              <Lock size={12} /> Silver+ Required
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
