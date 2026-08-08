@@ -60,7 +60,7 @@ export async function GET(request: Request) {
     const matches = await sql`
       SELECT * FROM matches_cache 
       WHERE match_date = ${today}
-        AND (pick IS NOT NULL AND pick != 'N/A')
+        AND (guide IS NOT NULL AND guide != 'N/A')
         AND chance >= 70
         AND rating >= 60
       ORDER BY rating DESC, chance DESC
@@ -73,7 +73,7 @@ export async function GET(request: Request) {
 
     // 2. Format the push payload
     const bestMatch = matches[0];
-    const pickLabel = bestMatch.pick;
+    const pickLabel = bestMatch.guide;
     const bodyText = `${bestMatch.home_team} vs ${bestMatch.away_team}\nPick: ${pickLabel} (${bestMatch.chance}% Confidence)\nTotal top picks today: ${matches.length}`;
     
     const payload = JSON.stringify({
