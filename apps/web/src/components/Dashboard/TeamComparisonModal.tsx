@@ -2503,18 +2503,18 @@ export default function TeamComparisonModal({
     
     const headers = ["#", "Team", "GP", "W", "D", "L", "GS", "GC", "GD", "PTS"];
     const rows = leagueTable.map((t, i) => {
-      const gd = t.gd != null && String(t.gd).trim() !== "" ? t.gd : "0";
+      const getStat = (val) => val != null && String(val).trim() !== "" ? val : "0";
       return [
         i + 1,
         String(t.team).replace(/"/g, ""),
-        t.gp,
-        t.win,
-        t.draw,
-        t.lost,
-        t.gs,
-        t.gc,
-        gd,
-        t.pts
+        getStat(t.gp),
+        getStat(t.win),
+        getStat(t.draw),
+        getStat(t.lost),
+        getStat(t.gs),
+        getStat(t.gc),
+        getStat(t.gd),
+        getStat(t.pts)
       ].join("\t");
     });
     
@@ -3329,7 +3329,15 @@ export default function TeamComparisonModal({
                         <tbody className="divide-y divide-gray-200 dark:divide-white/10">
                           {leagueTable.map((t, i) => {
                             const rank = i + 1;
-                            const gd = t.gd != null && String(t.gd).trim() !== "" ? t.gd : "0";
+                            const getStat = (val) => val != null && String(val).trim() !== "" ? val : "0";
+                            const gp = getStat(t.gp);
+                            const win = getStat(t.win);
+                            const draw = getStat(t.draw);
+                            const lost = getStat(t.lost);
+                            const gs = getStat(t.gs);
+                            const gc = getStat(t.gc);
+                            const gd = getStat(t.gd);
+                            const pts = getStat(t.pts);
                             
                             const nt = normalizeTeam(t.team);
                             const nh = normalizeTeam(homeTeam);
@@ -3350,23 +3358,29 @@ export default function TeamComparisonModal({
                                       : "hover:bg-gray-50/80"
                                 )}
                               >
-                                <td className="px-4 py-3 font-bold">
-                                  {rank <= 4
-                                    ? "🟢 "
-                                    : rank > leagueTable.length - 3
-                                    ? "🔴 "
-                                    : ""}
-                                  {rank}
+                                <td className="px-4 py-3">
+                                  <span
+                                    className={cx(
+                                      "inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold",
+                                      rank <= 4
+                                        ? "bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400"
+                                        : rank > leagueTable.length - 3
+                                        ? "bg-red-500/10 text-red-600 dark:bg-red-500/20 dark:text-red-400"
+                                        : "bg-gray-100 text-gray-500 dark:bg-white/5 dark:text-gray-400"
+                                    )}
+                                  >
+                                    {rank}
+                                  </span>
                                 </td>
                                 <td className="px-4 py-3">{String(t.team).replace(/"/g, "")}</td>
-                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{t.gp}</td>
-                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{t.win}</td>
-                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{t.draw}</td>
-                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{t.lost}</td>
-                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{t.gs}</td>
-                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{t.gc}</td>
+                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{gp}</td>
+                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{win}</td>
+                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{draw}</td>
+                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{lost}</td>
+                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{gs}</td>
+                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{gc}</td>
                                 <td className={cx("px-4 py-3", Number(gd) > 0 ? "text-green-600 dark:text-green-400" : Number(gd) < 0 ? "text-red-600 dark:text-red-400" : "text-gray-500 dark:text-gray-400")}>{gd}</td>
-                                <td className="px-4 py-3 font-bold">{t.pts}</td>
+                                <td className="px-4 py-3 font-bold">{pts}</td>
                               </tr>
                             );
                           })}
