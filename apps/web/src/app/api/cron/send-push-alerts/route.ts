@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import sql from "../../../utils/sql";
+import sql from "../../utils/sql";
 import webpush from "web-push";
 
 // Configure web-push with VAPID keys from environment variables
