@@ -57,24 +57,35 @@ export async function GET(request: Request) {
 
     // 1. Fetch today's high-value matches
     const today = new Date().toISOString().split("T")[0];
-    const matches = await sql`
+    const rawMatches = await sql`
       SELECT * FROM matches_cache 
       WHERE match_date = ${today}
         AND (guide IS NOT NULL AND guide != 'N/A')
         AND chance >= 70
         AND rating >= 60
       ORDER BY rating DESC, chance DESC
-      LIMIT 10
     `;
 
+    // Filter out matches that have already started (match_time is stored in WAT timezone)
+    const nowUTC = new Date();
+    const nowWATMinutes = nowUTC.getUTCHours() * 60 + nowUTC.getUTCMinutes() + 60;
+
+    const matches = rawMatches.filter((m) => {
+      if (!m.match_time) return true;
+      const parts = String(m.match_time).split(":");
+      const kickoffWATMinutes = parseInt(parts[0] ?? "0", 10) * 60 + parseInt(parts[1] ?? "0", 10);
+      // Exclude if kickoff has already passed (allow up to 5 min grace window)
+      return kickoffWATMinutes >= nowWATMinutes - 5;
+    });
+
     if (matches.length === 0) {
-      return NextResponse.json({ message: "No high-value matches found today. Skipping push alerts." });
+      return NextResponse.json({ message: "No upcoming high-value matches found today. Skipping push alerts." });
     }
 
-    // 2. Format the push payload
+    // 2. Format the push payload (pick the top upcoming match)
     const bestMatch = matches[0];
     const pickLabel = bestMatch.guide;
-    const bodyText = `${bestMatch.home_team} vs ${bestMatch.away_team}\nPick: ${pickLabel} (${bestMatch.chance}% Confidence)\nTotal top picks today: ${matches.length}`;
+    const bodyText = `${bestMatch.home_team} vs ${bestMatch.away_team}\nPick: ${pickLabel} (${bestMatch.chance}% Confidence)\nUpcoming top picks: ${matches.length}`;
     
     const payload = JSON.stringify({
       title: "🔥 High-Value Picks Detected!",
