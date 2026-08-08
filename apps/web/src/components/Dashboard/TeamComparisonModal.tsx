@@ -1456,6 +1456,8 @@ function buildAnalystNarrative({
   };
 }
 
+const normalizeTeam = (name) => String(name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
 const PremiumIntelligenceReport = React.memo(
   function PremiumIntelligenceReport({
     match,
@@ -1739,19 +1741,26 @@ const PremiumIntelligenceReport = React.memo(
         awayRecentRows: awayRecent,
         parsedH2HRows: parsedH2H,
       });
-      // ===== League Table Structural Edge =====
+      // ===== League Table Context (Edge & Motivation) =====
       let structuralEdge = null;
+      let motivation = null;
 
       if (Array.isArray(leagueTable) && leagueTable?.length) {
-        const homeRow = leagueTable.find(
-          (t) => String(t.team).replace(/"/g, "") === homeTeam
-        );
+        const normHome = normalizeTeam(homeTeam);
+        const normAway = normalizeTeam(awayTeam);
+        
+        const homeRow = leagueTable.find((t) => {
+          const nt = normalizeTeam(t.team);
+          return nt.includes(normHome) || normHome.includes(nt);
+        });
 
-        const awayRow = leagueTable.find(
-          (t) => String(t.team).replace(/"/g, "") === awayTeam
-        );
+        const awayRow = leagueTable.find((t) => {
+          const nt = normalizeTeam(t.team);
+          return nt.includes(normAway) || normAway.includes(nt);
+        });
 
         if (homeRow && awayRow) {
+          // --- Structural Edge ---
           const homePPG = Number(homeRow.pts) / Number(homeRow.gp || 1);
           const awayPPG = Number(awayRow.pts) / Number(awayRow.gp || 1);
 
@@ -1769,28 +1778,11 @@ const PremiumIntelligenceReport = React.memo(
                 ? awayTeam
                 : "Even",
           };
-        }
-      }
 
-      // ===== Motivation Engine =====
-
-      let motivation = null;
-
-      if (Array.isArray(leagueTable) && leagueTable.length) {
-        const homeRow = leagueTable.find(
-          (t) => String(t.team).replace(/"/g, "") === homeTeam
-        );
-
-        const awayRow = leagueTable.find(
-          (t) => String(t.team).replace(/"/g, "") === awayTeam
-        );
-
-        if (homeRow && awayRow) {
+          // --- Motivation Engine ---
           const totalTeams = leagueTable.length;
-
           const homeRank = Number(homeRow.sn || 0);
           const awayRank = Number(awayRow.sn || 0);
-
           const relegationLine = totalTeams - 3;
           const titleLine = 3;
 
@@ -2092,7 +2084,12 @@ const PremiumIntelligenceReport = React.memo(
               </div>
             </div>
             {report?.structuralEdge && (
-              <div className="rounded-2xl p-3 ring-1 bg-white/5 ring-white/10">
+              <div
+                className={cx(
+                  "rounded-2xl p-3 ring-1",
+                  darkMode ? "bg-white/5 ring-white/10" : "bg-white ring-gray-200"
+                )}
+              >
                 <div className="text-sm font-bold">Structural Edge</div>
 
                 <div className="text-xs mt-1 leading-relaxed opacity-80">
@@ -2122,7 +2119,12 @@ const PremiumIntelligenceReport = React.memo(
               </div>
             )}
             {report?.motivation && (
-              <div className="rounded-2xl p-3 ring-1 bg-white/5 ring-white/10">
+              <div
+                className={cx(
+                  "rounded-2xl p-3 ring-1",
+                  darkMode ? "bg-white/5 ring-white/10" : "bg-white ring-gray-200"
+                )}
+              >
                 <div className="text-sm font-bold">Motivation Context</div>
 
                 <div className="text-xs mt-1 leading-relaxed opacity-80">
@@ -2487,7 +2489,7 @@ export default function TeamComparisonModal({
 
     fetch(`/api/league-table?country=${country}&league=${league}`)
       .then((res) => res.json())
-      .then((data) => setLeagueTable(data))
+      .then((data) => setLeagueTable(data.table || []))
       .catch(() => setLeagueTable([]));
   }, [country, league]);
 
@@ -3285,9 +3287,14 @@ export default function TeamComparisonModal({
                             <tr
                               key={i}
                               className={
-                                t.team === homeTeam || t.team === awayTeam
-                                  ? "bg-blue-500/10 font-semibold"
-                                  : ""
+                                (() => {
+                                  const nt = normalizeTeam(t.team);
+                                  const nh = normalizeTeam(homeTeam);
+                                  const na = normalizeTeam(awayTeam);
+                                  return (nt.includes(nh) || nh.includes(nt)) || (nt.includes(na) || na.includes(nt))
+                                    ? "bg-blue-500/10 font-semibold"
+                                    : "";
+                                })()
                               }
                             >
                               <td className="font-bold">
