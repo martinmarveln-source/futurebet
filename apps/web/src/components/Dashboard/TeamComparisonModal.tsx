@@ -1765,8 +1765,8 @@ const PremiumIntelligenceReport = React.memo(
           const awayPPG = Number(awayRow.pts) / Number(awayRow.gp || 1);
 
           structuralEdge = {
-            homeRank: homeRow.sn,
-            awayRank: awayRow.sn,
+            homeRank: leagueTable.indexOf(homeRow) + 1,
+            awayRank: leagueTable.indexOf(awayRow) + 1,
             homePPG: homePPG.toFixed(2),
             awayPPG: awayPPG.toFixed(2),
             homeGD: homeRow.gd,
@@ -1781,8 +1781,8 @@ const PremiumIntelligenceReport = React.memo(
 
           // --- Motivation Engine ---
           const totalTeams = leagueTable.length;
-          const homeRank = Number(homeRow.sn || 0);
-          const awayRank = Number(awayRow.sn || 0);
+          const homeRank = leagueTable.indexOf(homeRow) + 1;
+          const awayRank = leagueTable.indexOf(awayRow) + 1;
           const relegationLine = totalTeams - 3;
           const titleLine = 3;
 
@@ -3282,7 +3282,7 @@ export default function TeamComparisonModal({
                       </thead>
                       <tbody>
                         {leagueTable.map((t, i) => {
-                          const rank = t.sn || i + 1;
+                          const rank = i + 1;
                           return (
                             <tr
                               key={i}
