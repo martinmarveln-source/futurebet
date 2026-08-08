@@ -38,6 +38,8 @@ export function ExploreFilters({
     setRatingThreshold(num);
   };
 
+  const { kickoffFilter, setKickoffFilter } = filterPanelProps || {};
+
   return (
     <div
       className={cn(
@@ -139,13 +141,36 @@ export function ExploreFilters({
                 </div>
               </div>
 
+              {/* Kickoff Status Dropdown */}
+              <div className="flex-1 min-w-[140px] relative">
+                <select
+                  aria-label="Filter by kickoff status"
+                  value={kickoffFilter || "all"}
+                  onChange={(e) => setKickoffFilter?.(e.target.value)}
+                  className={cn(
+                    "w-full px-4 py-3 rounded-xl border text-[11px] font-black uppercase tracking-widest outline-none transition-all cursor-pointer appearance-none",
+                    darkMode
+                      ? "bg-black/50 border-white/10 text-gray-200 focus:border-amber-500/50"
+                      : "bg-white border-gray-200 text-gray-700 focus:border-amber-400"
+                  )}
+                >
+                  <option value="all">Kickoff: ALL</option>
+                  <option value="upcoming">Kickoff: UPCOMING</option>
+                  <option value="passed">Kickoff: PASSED</option>
+                </select>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
+                  ▼
+                </div>
+              </div>
+
               {/* Quick Reset */}
-              {(strengthOnly || ratingBand !== "All") && (
+              {(strengthOnly || ratingBand !== "All" || (kickoffFilter && kickoffFilter !== "all")) && (
                 <button
                   type="button"
                   onClick={() => {
                     setStrengthOnly(false);
                     setRatingBand("All");
+                    if (setKickoffFilter) setKickoffFilter("all");
                   }}
                   className={cn(
                     "p-2.5 rounded-xl border transition-colors flex items-center justify-center shrink-0",

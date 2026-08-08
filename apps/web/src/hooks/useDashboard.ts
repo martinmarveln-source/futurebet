@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession, signOut } from "@/lib/auth-client";
 import useUserPermissions from "@/hooks/useUserPermissions";
+import { useKickoffTime } from "@/hooks/useKickoffTime";
 
 function getDbMarketName(pickStr) {
   const rawMarket = String(pickStr || "").trim().toUpperCase();
@@ -131,6 +132,7 @@ export default function useDashboard() {
   ]);
   const [chanceThreshold, setChanceThreshold] = useState(10);
   const [ratingThreshold, setRatingThreshold] = useState(10);
+  const [kickoffFilter, setKickoffFilter] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -236,6 +238,8 @@ export default function useDashboard() {
     ]
   );
 
+  const { hasKickoffPassed } = useKickoffTime();
+
   const filteredMatches = useMemo(() => {
     if (!matchesData?.matches) return [];
 
@@ -255,6 +259,11 @@ export default function useDashboard() {
         return false;
       if (selectedMatches.length > 0 && !selectedMatches.includes(match.match))
         return false;
+
+      // Kickoff filter
+      const isPassed = hasKickoffPassed(match);
+      if (kickoffFilter === "passed" && !isPassed) return false;
+      if (kickoffFilter === "upcoming" && isPassed) return false;
 
       // Handle both decimal (0.75) and percentage (75) formats for chance and rating
       const chancePercent =
@@ -389,6 +398,8 @@ export default function useDashboard() {
     chanceThreshold,
     ratingThreshold,
     onlyAlignedPredictions,
+    kickoffFilter,
+    hasKickoffPassed,
     sortBy,
   ]);
 
@@ -427,6 +438,8 @@ export default function useDashboard() {
     setRatingThreshold,
     onlyAlignedPredictions,
     setOnlyAlignedPredictions,
+    kickoffFilter,
+    setKickoffFilter,
     sortBy,
     setSortBy,
     showFilters,

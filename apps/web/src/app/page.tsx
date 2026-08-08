@@ -232,6 +232,8 @@ export default function FutureBetDashboard() {
     setRatingThreshold,
     onlyAlignedPredictions,
     setOnlyAlignedPredictions,
+    kickoffFilter,
+    setKickoffFilter,
     sortBy,
     setSortBy,
     showDatePicker,
@@ -385,6 +387,8 @@ export default function FutureBetDashboard() {
       setSelectedMarkets,
       onlyAlignedPredictions,
       setOnlyAlignedPredictions,
+      kickoffFilter,
+      setKickoffFilter,
     }),
     [
       dateRange,
@@ -399,6 +403,8 @@ export default function FutureBetDashboard() {
       setSelectedMarkets,
       onlyAlignedPredictions,
       setOnlyAlignedPredictions,
+      kickoffFilter,
+      setKickoffFilter,
     ]
   );
 
