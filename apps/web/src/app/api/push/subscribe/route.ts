@@ -19,6 +19,18 @@ export async function POST(request: Request) {
     const { endpoint, keys: { p256dh, auth: authKey } } = subscription;
 
     await sql`
+      CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id BIGSERIAL PRIMARY KEY,
+        user_id UUID NOT NULL,
+        endpoint TEXT NOT NULL,
+        p256dh TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, endpoint)
+      )
+    `;
+
+    await sql`
       INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
       VALUES (${userId}, ${endpoint}, ${p256dh}, ${authKey})
       ON CONFLICT (user_id, endpoint) DO UPDATE SET
