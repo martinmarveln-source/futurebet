@@ -498,57 +498,62 @@ export default function SettingsModal({
                   </p>
                 </div>
 
-                {/* Confidence slider */}
-                <div className="space-y-1.5">
-                  <label className="flex items-center justify-between text-xs font-bold">
-                    <span className="flex items-center gap-1.5">
-                      <Filter size={13} /> Min Confidence
-                    </span>
-                    <span className={cn("font-extrabold", darkMode ? "text-blue-400" : "text-blue-600")}>
-                      {alertMinChance}%
-                    </span>
+                {/* Confidence Dropdown */}
+                <div className="space-y-1.5 flex items-center justify-between">
+                  <label className="flex items-center gap-1.5 text-xs font-bold">
+                    <Filter size={13} /> Min Confidence
                   </label>
-                  <input
-                    type="range" min={0} max={100} step={5}
+                  <select
                     value={alertMinChance}
                     onChange={(e) => { setAlertMinChance(Number(e.target.value)); setTouched(true); }}
-                    className={cn("w-full h-2 rounded-full", tones.slider)}
-                  />
+                    className={cn(
+                      "text-xs font-extrabold px-3 py-1.5 rounded-lg border outline-none cursor-pointer",
+                      darkMode ? "bg-gray-800 border-gray-700 text-blue-400" : "bg-white border-gray-200 text-blue-600"
+                    )}
+                  >
+                    {[0, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90].map((val) => (
+                      <option key={val} value={val}>{val}+%</option>
+                    ))}
+                  </select>
                 </div>
 
-                {/* Rating slider */}
-                <div className="space-y-1.5">
-                  <label className="flex items-center justify-between text-xs font-bold">
-                    <span>Min Rating</span>
-                    <span className={cn("font-extrabold", darkMode ? "text-blue-400" : "text-blue-600")}>
-                      {alertMinRating}%
-                    </span>
+                {/* Rating Dropdown */}
+                <div className="space-y-1.5 flex items-center justify-between">
+                  <label className="flex items-center gap-1.5 text-xs font-bold">
+                    Min Rating
                   </label>
-                  <input
-                    type="range" min={0} max={100} step={5}
+                  <select
                     value={alertMinRating}
                     onChange={(e) => { setAlertMinRating(Number(e.target.value)); setTouched(true); }}
-                    className={cn("w-full h-2 rounded-full", tones.slider)}
-                  />
+                    className={cn(
+                      "text-xs font-extrabold px-3 py-1.5 rounded-lg border outline-none cursor-pointer",
+                      darkMode ? "bg-gray-800 border-gray-700 text-blue-400" : "bg-white border-gray-200 text-blue-600"
+                    )}
+                  >
+                    {[0, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90].map((val) => (
+                      <option key={val} value={val}>{val}+%</option>
+                    ))}
+                  </select>
                 </div>
 
-                {/* Hist Win Rate slider */}
-                <div className="space-y-1.5">
-                  <label className="flex items-center justify-between text-xs font-bold">
-                    <span>Min Hist. Win Rate</span>
-                    <span className={cn("font-extrabold", darkMode ? "text-amber-400" : "text-amber-600")}>
-                      {alertMinHistRate > 0 ? `${alertMinHistRate}%` : "Off"}
-                    </span>
+                {/* Hist Win Rate Dropdown */}
+                <div className="space-y-1.5 flex items-center justify-between">
+                  <label className="flex items-center gap-1.5 text-xs font-bold">
+                    Min Hist. Win Rate
                   </label>
-                  <input
-                    type="range" min={0} max={100} step={5}
+                  <select
                     value={alertMinHistRate}
                     onChange={(e) => { setAlertMinHistRate(Number(e.target.value)); setTouched(true); }}
-                    className={cn("w-full h-2 rounded-full", tones.slider)}
-                  />
-                  <p className={cn("text-xs", tones.muted)}>
-                    Set to 0 to disable this filter.
-                  </p>
+                    className={cn(
+                      "text-xs font-extrabold px-3 py-1.5 rounded-lg border outline-none cursor-pointer",
+                      darkMode ? "bg-gray-800 border-gray-700 text-amber-400" : "bg-white border-gray-200 text-amber-600"
+                    )}
+                  >
+                    <option value={0}>Off (0%)</option>
+                    {[10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90].map((val) => (
+                      <option key={val} value={val}>{val}+%</option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Markets multi-select */}
