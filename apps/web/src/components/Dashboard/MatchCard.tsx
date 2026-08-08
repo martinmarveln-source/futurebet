@@ -1534,7 +1534,7 @@ export default function MatchCard({
   const { data: oddsHistory = [] } = useLiveOddsArchive();
 
   const mlStats = useMemo(() => {
-    if (!archiveData.length || !match?.chance || !match?.rating || !match?.pick) {
+    if (!archiveData.length || !match?.chance || !match?.rating) {
       return { winRate: null, sampleSize: 0, label: "—", totalWins: 0 };
     }
 
@@ -1543,7 +1543,21 @@ export default function MatchCard({
     const normalizedMatchChance = matchChance <= 1 && matchChance > 0 ? matchChance * 100 : matchChance;
     const normalizedMatchRating = matchRating <= 1 && matchRating > 0 ? matchRating * 100 : matchRating;
 
-    const dbMarket = getDbMarketName(match.pick);
+    // Use Primary AI Pick instead of raw ML Pick
+    const recommendedOpt = getRecommendedMarket(match);
+    const fallbackOpt = normalizePickDescriptor(match?.pick || match?.options || "");
+    const active = recommendedOpt || fallbackOpt;
+
+    let primaryMarket = match?.pick;
+    if (active) {
+      if (active.market === "1X2") primaryMarket = active.option;
+      else if (active.market === "BTTS") primaryMarket = active.option === "Yes" ? "GG" : "NG";
+      else if (active.market === "Over 2.5") primaryMarket = "OV2.5";
+      else if (active.market === "Under 2.5") primaryMarket = "UN2.5";
+      else primaryMarket = active.option || match?.pick;
+    }
+
+    const dbMarket = getDbMarketName(primaryMarket);
 
     // 1. First, search +/- 5 range of this match's chance and rating (for the same market)
     let matchedRows = archiveData.filter((row: any) => {
@@ -2927,21 +2941,7 @@ export default function MatchCard({
                   }
                   darkMode={darkMode}
                 />
-                <SmallStat
-                  k="ML Pick"
-                  v={
-                    canSeeAdvancedData ? (
-                      <span className="flex items-center gap-1 text-emerald-500">
-                        <Brain size={12} /> {match?.pick || "—"}
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1.5 cursor-pointer text-amber-500 text-sm w-full">
-                        <Lock size={12} />
-                      </span>
-                    )
-                  }
-                  darkMode={darkMode}
-                />
+
                 <SmallStat
                   k="Hist. Win Rate"
                   v={
