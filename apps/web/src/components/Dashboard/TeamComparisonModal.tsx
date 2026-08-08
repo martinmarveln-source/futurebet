@@ -2497,6 +2497,31 @@ export default function TeamComparisonModal({
   const [tab, setTab] = React.useState("overview");
   const [showGuide, setShowGuide] = React.useState(false);
   const [leagueTable, setLeagueTable] = React.useState([]);
+
+  const handleCopyTable = React.useCallback(() => {
+    if (!leagueTable || !leagueTable.length) return;
+    
+    const headers = ["#", "Team", "GP", "W", "D", "L", "GS", "GC", "GD", "PTS"];
+    const rows = leagueTable.map((t, i) => {
+      const gd = t.gd != null && String(t.gd).trim() !== "" ? t.gd : "0";
+      return [
+        i + 1,
+        String(t.team).replace(/"/g, ""),
+        t.gp,
+        t.win,
+        t.draw,
+        t.lost,
+        t.gs,
+        t.gc,
+        gd,
+        t.pts
+      ].join("\t");
+    });
+    
+    const text = [headers.join("\t"), ...rows].join("\n");
+    navigator.clipboard.writeText(text);
+  }, [leagueTable]);
+
   const tabs = React.useMemo(
     () => [
       {
@@ -3262,63 +3287,92 @@ export default function TeamComparisonModal({
                   title="League Table"
                   subtitle={league ? `${league} standings` : "League standings"}
                   darkMode={darkMode}
+                  right={
+                    <button
+                      onClick={handleCopyTable}
+                      className={cx(
+                        "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold shadow-sm transition",
+                        darkMode
+                          ? "border-white/10 bg-white/5 text-gray-200 hover:bg-white/10"
+                          : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                      )}
+                    >
+                      <Copy size={14} />
+                      Copy Table
+                    </button>
+                  }
                 />
                 <div className="p-4 overflow-x-auto">
                   {leagueTable && leagueTable.length ? (
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="text-left border-b">
-                          <th>#</th>
-                          <th>Team</th>
-                          <th>GP</th>
-                          <th>W</th>
-                          <th>D</th>
-                          <th>L</th>
-                          <th>GS</th>
-                          <th>GC</th>
-                          <th>GD</th>
-                          <th>PTS</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {leagueTable.map((t, i) => {
-                          const rank = i + 1;
-                          return (
-                            <tr
-                              key={i}
-                              className={
-                                (() => {
-                                  const nt = normalizeTeam(t.team);
-                                  const nh = normalizeTeam(homeTeam);
-                                  const na = normalizeTeam(awayTeam);
-                                  return (nt.includes(nh) || nh.includes(nt)) || (nt.includes(na) || na.includes(nt))
-                                    ? "bg-blue-500/10 font-semibold"
-                                    : "";
-                                })()
-                              }
-                            >
-                              <td className="font-bold">
-                                {rank <= 4
-                                  ? "🟢 "
-                                  : rank > leagueTable.length - 3
-                                  ? "🔴 "
-                                  : ""}
-                                {rank}
-                              </td>
-                              <td>{String(t.team).replace(/"/g, "")}</td>
-                              <td>{t.gp}</td>
-                              <td>{t.win}</td>
-                              <td>{t.draw}</td>
-                              <td>{t.lost}</td>
-                              <td>{t.gs}</td>
-                              <td>{t.gc}</td>
-                              <td>{t.gd}</td>
-                              <td className="font-bold">{t.pts}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                    <div className={cx(
+                      "rounded-xl border overflow-hidden",
+                      darkMode ? "border-white/10" : "border-gray-200"
+                    )}>
+                      <table className="w-full text-left text-xs whitespace-nowrap">
+                        <thead className={cx(
+                          "border-b uppercase tracking-wider text-[10px] font-bold",
+                          darkMode ? "border-white/10 bg-white/[0.02] text-gray-400" : "border-gray-200 bg-gray-50/50 text-gray-500"
+                        )}>
+                          <tr>
+                            <th className="px-4 py-3">#</th>
+                            <th className="px-4 py-3">Team</th>
+                            <th className="px-4 py-3">GP</th>
+                            <th className="px-4 py-3">W</th>
+                            <th className="px-4 py-3">D</th>
+                            <th className="px-4 py-3">L</th>
+                            <th className="px-4 py-3">GS</th>
+                            <th className="px-4 py-3">GC</th>
+                            <th className="px-4 py-3">GD</th>
+                            <th className="px-4 py-3">PTS</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 dark:divide-white/10">
+                          {leagueTable.map((t, i) => {
+                            const rank = i + 1;
+                            const gd = t.gd != null && String(t.gd).trim() !== "" ? t.gd : "0";
+                            
+                            const nt = normalizeTeam(t.team);
+                            const nh = normalizeTeam(homeTeam);
+                            const na = normalizeTeam(awayTeam);
+                            const isMatchTeam = (nt.includes(nh) || nh.includes(nt)) || (nt.includes(na) || na.includes(nt));
+                            
+                            return (
+                              <tr
+                                key={i}
+                                className={cx(
+                                  "transition-colors",
+                                  isMatchTeam
+                                    ? darkMode 
+                                      ? "bg-blue-500/10 border-l-2 border-l-blue-500 font-semibold" 
+                                      : "bg-blue-50/80 border-l-2 border-l-blue-500 font-semibold text-blue-900"
+                                    : darkMode 
+                                      ? "hover:bg-white/[0.02]" 
+                                      : "hover:bg-gray-50/80"
+                                )}
+                              >
+                                <td className="px-4 py-3 font-bold">
+                                  {rank <= 4
+                                    ? "🟢 "
+                                    : rank > leagueTable.length - 3
+                                    ? "🔴 "
+                                    : ""}
+                                  {rank}
+                                </td>
+                                <td className="px-4 py-3">{String(t.team).replace(/"/g, "")}</td>
+                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{t.gp}</td>
+                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{t.win}</td>
+                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{t.draw}</td>
+                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{t.lost}</td>
+                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{t.gs}</td>
+                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{t.gc}</td>
+                                <td className={cx("px-4 py-3", Number(gd) > 0 ? "text-green-600 dark:text-green-400" : Number(gd) < 0 ? "text-red-600 dark:text-red-400" : "text-gray-500 dark:text-gray-400")}>{gd}</td>
+                                <td className="px-4 py-3 font-bold">{t.pts}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   ) : (
                     <div className="text-sm opacity-60">
                       League table not available
