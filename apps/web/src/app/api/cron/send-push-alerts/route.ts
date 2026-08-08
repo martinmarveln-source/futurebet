@@ -6,13 +6,7 @@ import webpush from "web-push";
 const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || "";
 
-if (vapidPublicKey && vapidPrivateKey) {
-  webpush.setVapidDetails(
-    "mailto:admin@futurebet.com", // You should ideally use your domain contact here
-    vapidPublicKey,
-    vapidPrivateKey
-  );
-}
+// VAPID keys will be configured inside the GET handler to catch initialization errors
 
 // Ensure the push_subscriptions table exists (failsafe)
 async function ensureSubscriptionsTable() {
@@ -40,6 +34,20 @@ export async function GET(request: Request) {
   if (!vapidPublicKey || !vapidPrivateKey) {
     return NextResponse.json(
       { error: "VAPID keys not configured on server" },
+      { status: 500 }
+    );
+  }
+
+  try {
+    webpush.setVapidDetails(
+      "mailto:admin@futurebet.com", 
+      vapidPublicKey,
+      vapidPrivateKey
+    );
+  } catch (error: any) {
+    console.error("VAPID Key Configuration Error:", error);
+    return NextResponse.json(
+      { error: "Invalid VAPID keys format in environment variables: " + error.message },
       { status: 500 }
     );
   }
