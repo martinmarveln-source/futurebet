@@ -18,7 +18,7 @@
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { argon2Verify } from 'argon2-wasm-edge';
 import { betterAuth } from 'better-auth';
-import { createAuthMiddleware } from 'better-auth/api';
+import { createAuthMiddleware, APIError } from 'better-auth/api';
 import { verifyPassword } from 'better-auth/crypto';
 import { bearer } from 'better-auth/plugins';
 import ws from 'ws';
@@ -125,8 +125,51 @@ export const auth = betterAuth({
       if (ctx.path !== '/sign-up/email') return;
       const body = ctx.body as { email?: unknown; name?: unknown } | undefined;
       if (!body || typeof body.email !== 'string') return;
+      
+      const email = body.email.toLowerCase();
+
+      // --- 1. BLOCK DISPOSABLE EMAILS ---
+      const disposableDomains = [
+        'mailinator.com', '10minutemail.com', 'tempmail.com', 'yopmail.com', 
+        'guerrillamail.com', 'throwawaymail.com', 'sharklasers.com', 'dispostable.com',
+        'temp-mail.org', 'tempmail.net'
+      ];
+      const domain = email.split('@')[1];
+      if (disposableDomains.includes(domain)) {
+        throw new APIError('BAD_REQUEST', {
+          message: 'Disposable email addresses are not allowed. Please use a valid email.'
+        });
+      }
+
+      // --- 2. IP RATE LIMITING (Max 3 signups per hour per IP) ---
+      let ip = ctx.request?.headers.get('x-forwarded-for') || 
+               ctx.request?.headers.get('x-real-ip') || 
+               'unknown';
+      // If multiple IPs are present, use the first one
+      if (ip.includes(',')) ip = ip.split(',')[0].trim();
+
+      if (ip !== 'unknown' && ip !== '127.0.0.1' && ip !== '::1') {
+        try {
+          const recentSignups = await pool.query(
+            `SELECT COUNT(*) FROM signup_ips WHERE ip_address = $1 AND created_at > NOW() - INTERVAL '1 hour'`,
+            [ip]
+          );
+          if (parseInt(recentSignups.rows[0].count, 10) >= 3) {
+             throw new APIError('TOO_MANY_REQUESTS', {
+               message: 'Too many signups from this IP. Please try again later.'
+             });
+          }
+          // Log the IP
+          await pool.query('INSERT INTO signup_ips (ip_address) VALUES ($1)', [ip]);
+        } catch (err) {
+           if (err instanceof APIError) throw err;
+           console.error("Error in IP tracking:", err);
+        }
+      }
+
+      // --- 3. AUTO-FILL NAME ---
       if (typeof body.name === 'string' && body.name.trim().length > 0) return;
-      const derived = body.email.split('@')[0];
+      const derived = email.split('@')[0];
       body.name = derived && derived.length > 0 ? derived : 'User';
     }),
     after: createAuthMiddleware(async (ctx) => {
