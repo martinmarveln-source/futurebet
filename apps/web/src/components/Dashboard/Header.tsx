@@ -76,7 +76,7 @@ export default function Header({
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <h1 className="text-2xl font-bold text-blue-600">FutureBet</h1>
+          <div className="text-2xl font-bold text-blue-600">FutureBet</div>
           <span
             className={`hidden md:inline text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}
           >

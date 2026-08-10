@@ -15,15 +15,20 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://futurebet.com.ng"),
   title: "Futurebet | Best AI Football Prediction & Analytics",
   description:
-    "Futurebet provides highly accurate AI football predictions, betting tips, backtesting, and VIP market context odds to help you win consistently.",
+    "Futurebet provides highly accurate AI football predictions, betting tips, algorithmic football predictions, backtesting, and VIP market context odds to help you win consistently.",
+  applicationName: "FutureBet",
+  authors: [{ name: "FutureBet Team", url: "https://futurebet.com.ng" }],
   keywords: [
     "Futurebet",
-    "Future bet",
     "AI football predictions",
-    "betting analytics",
-    "VIP picks",
+    "VIP betting tips",
+    "algorithmic football predictions",
+    "sure wins today",
     "football tips",
     "value betting",
+    "soccer predictions",
+    "betting analytics",
+    "football algorithm"
   ],
   openGraph: {
     title: "Futurebet | AI Football Predictions",
@@ -128,6 +133,30 @@ export default function RootLayout({
                 });
               }
             `,
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              "name": "FutureBet",
+              "applicationCategory": "SportsApplication",
+              "operatingSystem": "Web",
+              "url": "https://futurebet.com.ng",
+              "description": "Futurebet provides highly accurate AI football predictions, algorithmic betting tips, backtesting, and VIP market context odds.",
+              "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "NGN"
+              },
+              "creator": {
+                "@type": "Organization",
+                "name": "FutureBet",
+                "url": "https://futurebet.com.ng"
+              }
+            })
           }}
         />
       </head>
