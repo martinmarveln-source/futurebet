@@ -38,7 +38,7 @@ export function ReferralCard({ darkMode = false, user = null }) {
     }
   });
 
-  const refCode = user?.referralCode || user?.referral_code || "Log in to view";
+  const refCode = stats?.referralCode || user?.referralCode || user?.referral_code || "Log in to view";
   const referralLink = `https://futurebet.com.ng/?ref=${refCode}`;
   
   const pendingCount = stats?.pendingCount || 0;

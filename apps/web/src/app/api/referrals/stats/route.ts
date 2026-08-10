@@ -12,6 +12,21 @@ export async function GET() {
 
     const userId = session.user.id;
 
+    // Check and auto-generate referral code if missing
+    const userRow = await sql`
+      SELECT referral_code FROM auth_users WHERE id = ${userId}
+    `;
+    let referralCode = userRow[0]?.referral_code;
+
+    if (!referralCode) {
+      referralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      await sql`
+        UPDATE auth_users 
+        SET referral_code = ${referralCode} 
+        WHERE id = ${userId}
+      `;
+    }
+
     // Count pending referrals for this user
     const stats = await sql`
       SELECT COUNT(*) as count 
@@ -22,7 +37,8 @@ export async function GET() {
     const pendingCount = parseInt(stats[0].count, 10);
 
     return NextResponse.json({
-      pendingCount
+      pendingCount,
+      referralCode,
     });
 
   } catch (error) {

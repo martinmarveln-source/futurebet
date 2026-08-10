@@ -704,8 +704,8 @@ export async function GET(req) {
         FROM matches_cache
         WHERE match_date >= (CURRENT_DATE - INTERVAL '7 days')
           AND match_date <= CURRENT_DATE
-          AND chance ~ '^[0-9]+$' AND CAST(chance AS numeric) >= 65
-          AND rating ~ '^[0-9]+$' AND CAST(rating AS numeric) >= 55
+          AND chance >= 65
+          AND rating >= 55
           AND ft_score IS NOT NULL
           AND ft_score != ''
       `;
