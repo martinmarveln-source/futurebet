@@ -943,6 +943,7 @@ export default function FutureBetDashboard() {
                       isPremium={isPremium}
                     />
                   </Suspense>
+                  )
                 ) : activeTab === "guide" ? (
                   <Suspense
                     fallback={
