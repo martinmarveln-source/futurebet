@@ -130,7 +130,7 @@ export default function useDashboard() {
     "ov25",
     "un25",
   ]);
-  const [chanceThreshold, setChanceThreshold] = useState(10);
+  const [chanceThreshold, setChanceThreshold] = useState(50);
   const [ratingThreshold, setRatingThreshold] = useState(10);
   const [kickoffFilter, setKickoffFilter] = useState("all");
   const [showFilters, setShowFilters] = useState(false);

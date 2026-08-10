@@ -1365,7 +1365,7 @@ function ConfidenceRing({ value, label, darkMode, isLocked }) {
                   darkMode ? "text-gray-400" : "text-gray-500"
                 )}
               >
-                Score
+                {label}
               </span>
             </>
           )}
