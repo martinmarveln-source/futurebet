@@ -1698,7 +1698,9 @@ export default function MatchCard({
   const pickText = safeStr(match?.pick) || safeStr(match?.options) || "";
   const marketText =
     match?.market || match?.marketLabel || match?.tipMarket || "";
-  const rawPredictedScore = match?.cScore || match?.predictedScore || "—";
+  const csChance = match?.modelCSPercent || match?.scorelineCSPercent;
+  const csChanceText = csChance ? ` (${Math.round(Number(String(csChance).replace(/%/g, '')))}%)` : "";
+  const rawPredictedScore = `${match?.cScore || match?.predictedScore || "—"}${csChanceText}`;
   const predictedScore = canSeePredictedScore
     ? rawPredictedScore
     : "🔒 Silver+";

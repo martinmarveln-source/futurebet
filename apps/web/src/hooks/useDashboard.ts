@@ -19,7 +19,7 @@ function getDbMarketName(pickStr) {
 
 function calculateHistWinRate(match, archiveData) {
   if (!archiveData.length || !match?.chance || !match?.rating || !match?.pick) {
-    return -1;
+    return { rate: -1, count: 0 };
   }
 
   const matchChance = Number(match.chance);

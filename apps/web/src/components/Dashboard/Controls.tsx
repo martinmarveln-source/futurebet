@@ -688,56 +688,61 @@ export default function Controls({
             <CircleHelp size={16} /> {showGuide ? "Hide Guide" : "Guide"}
           </button>
 
-          <select
-            aria-label="Chance Threshold"
-            value={chanceThreshold}
-            onChange={(e) => canUseThresholds && setChanceThreshold?.(Number(e.target.value))}
-            disabled={!canUseThresholds}
-            className={cn(
-              "min-w-[140px] px-4 py-3 rounded-xl border text-xs font-bold outline-none cursor-pointer transition-all",
-              darkMode
-                ? "bg-black/50 border-white/10 text-white focus:border-blue-500/50"
-                : "bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-400 focus:bg-white",
-              !canUseThresholds ? "opacity-50 cursor-not-allowed" : ""
-            )}
-            title={!canUseThresholds ? "Silver+ required" : "Minimum Chance"}
-          >
-            <option value="0">0+</option>
-            <option value="10">10%+</option>
-            <option value="15">15%+</option>
-            <option value="20">20%+</option>
-            <option value="25">25%+</option>
-            <option value="30">30%+</option>
-            <option value="35">35%+</option>
-            <option value="40">40%+</option>
-            <option value="45">45%+</option>
-            <option value="50">50%+</option>
-            <option value="55">55%+</option>
-            <option value="60">60%+</option>
-            <option value="65">65%+</option>
-            <option value="70">70%+</option>
-            <option value="75">75%+</option>
-            <option value="80">80%+</option>
-            <option value="85">85%+</option>
-            <option value="90">90%+</option>
-          </select>
+          <div className="flex items-center gap-2">
+            <span className={cn("text-[10px] font-bold uppercase tracking-widest", darkMode ? "text-gray-400" : "text-gray-500")}>Min Chance</span>
+            <select
+              aria-label="Chance Threshold"
+              value={chanceThreshold}
+              onChange={(e) => canUseThresholds && setChanceThreshold?.(Number(e.target.value))}
+              disabled={!canUseThresholds}
+              className={cn(
+                "min-w-[100px] px-3 py-2.5 rounded-xl border text-xs font-bold outline-none cursor-pointer transition-all",
+                darkMode
+                  ? "bg-black/50 border-white/10 text-white focus:border-blue-500/50"
+                  : "bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-400 focus:bg-white",
+                !canUseThresholds ? "opacity-50 cursor-not-allowed" : ""
+              )}
+              title={!canUseThresholds ? "Silver+ required" : "Minimum Chance"}
+            >
+              <option value="0">0+</option>
+              <option value="10">10%+</option>
+              <option value="15">15%+</option>
+              <option value="20">20%+</option>
+              <option value="25">25%+</option>
+              <option value="30">30%+</option>
+              <option value="35">35%+</option>
+              <option value="40">40%+</option>
+              <option value="45">45%+</option>
+              <option value="50">50%+</option>
+              <option value="55">55%+</option>
+              <option value="60">60%+</option>
+              <option value="65">65%+</option>
+              <option value="70">70%+</option>
+              <option value="75">75%+</option>
+              <option value="80">80%+</option>
+              <option value="85">85%+</option>
+              <option value="90">90%+</option>
+            </select>
+          </div>
 
-          <select
-            aria-label="Rating Threshold"
-            value={ratingThreshold}
-            onChange={(e) => canUseThresholds && setRatingThreshold?.(Number(e.target.value))}
-            disabled={!canUseThresholds}
-            className={cn(
-              "min-w-[140px] px-4 py-3 rounded-xl border text-xs font-bold outline-none cursor-pointer transition-all",
-              darkMode
-                ? "bg-black/50 border-white/10 text-white focus:border-amber-500/50"
-                : "bg-gray-50 border-gray-200 text-gray-900 focus:border-amber-400 focus:bg-white",
-              !canUseThresholds ? "opacity-50 cursor-not-allowed" : ""
-            )}
-            title={!canUseThresholds ? "Silver+ required" : "Minimum Rating"}
-          >
-            <option value="0">0+</option>
-            <option value="10">10%+</option>
+          <div className="flex items-center gap-2">
+            <span className={cn("text-[10px] font-bold uppercase tracking-widest", darkMode ? "text-gray-400" : "text-gray-500")}>Min Rating</span>
+            <select
+              aria-label="Rating Threshold"
+              value={ratingThreshold}
+              onChange={(e) => canUseThresholds && setRatingThreshold?.(Number(e.target.value))}
+              disabled={!canUseThresholds}
+              className={cn(
+                "min-w-[100px] px-3 py-2.5 rounded-xl border text-xs font-bold outline-none cursor-pointer transition-all",
+                darkMode
+                  ? "bg-black/50 border-white/10 text-white focus:border-amber-500/50"
+                  : "bg-gray-50 border-gray-200 text-gray-900 focus:border-amber-400 focus:bg-white",
+                !canUseThresholds ? "opacity-50 cursor-not-allowed" : ""
+              )}
+              title={!canUseThresholds ? "Silver+ required" : "Minimum Rating"}
+            >
+              <option value="0">0+</option>
+              <option value="10">10%+</option>
             <option value="15">15%+</option>
             <option value="20">20%+</option>
             <option value="25">25%+</option>
@@ -755,6 +760,7 @@ export default function Controls({
             <option value="85">85%+</option>
             <option value="90">90%+</option>
           </select>
+          </div>
 
           <select
             aria-label="Sort matches by"
