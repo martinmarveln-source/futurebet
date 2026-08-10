@@ -1503,36 +1503,8 @@ export function LiveSteamIndicator({ matchName, selection, darkMode }) {
 }
 
 /* =============================================================================
-  Main MatchCard Component
+  Shared Helper Functions
 ============================================================================= */
-export default function MatchCard({
-  match,
-  darkMode,
-  hasKickoffPassed,
-  convictionTier,
-  convictionStrength,
-}) {
-  const [showComparison, setShowComparison] = useState(false);
-  const [showDetails, setShowDetails] = useState(false);
-  const [showIntelligence, setShowIntelligence] = useState(false);
-  const [showGuide, setShowGuide] = useState(false);
-  const [showBetslipModal, setShowBetslipModal] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const cardRef = useRef(null);
-  const [isSharing, setIsSharing] = useState(false);
-
-  const { data: archiveData = [] } = useMlArchive();
-  const { data: user } = useUser();
-  const {
-    isAdmin,
-    isPremium,
-    isSilver,
-    loading: permissionsLoading,
-  } = useUserPermissions();
-
-  const { data: oddsHistory = [] } = useLiveOddsArchive();
-
 export function calculateHistWinRateForMatch(match: any, archiveData: any[]) {
   if (!archiveData.length || !match?.chance || !match?.rating) {
     return { winRate: null, sampleSize: 0, label: "—", totalWins: 0, rate: -1, count: 0 };
@@ -1633,6 +1605,38 @@ export function calculateHistWinRateForMatch(match: any, archiveData: any[]) {
     count: total
   };
 }
+
+/* =============================================================================
+  Main MatchCard Component
+============================================================================= */
+export default function MatchCard({
+  match,
+  darkMode,
+  hasKickoffPassed,
+  convictionTier,
+  convictionStrength,
+}) {
+  const [showComparison, setShowComparison] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const [showIntelligence, setShowIntelligence] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
+  const [showBetslipModal, setShowBetslipModal] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const cardRef = useRef(null);
+  const [isSharing, setIsSharing] = useState(false);
+
+  const { data: archiveData = [] } = useMlArchive();
+  const { data: user } = useUser();
+  const {
+    isAdmin,
+    isPremium,
+    isSilver,
+    loading: permissionsLoading,
+  } = useUserPermissions();
+
+  const { data: oddsHistory = [] } = useLiveOddsArchive();
+
 
   const mlStats = useMemo(() => calculateHistWinRateForMatch(match, archiveData), [archiveData, match?.chance, match?.rating, match?.pick]);
 
