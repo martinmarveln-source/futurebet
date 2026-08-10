@@ -113,7 +113,7 @@ export function ReferralCard({ darkMode = false, user = null }) {
                 "text-[10px] font-bold uppercase tracking-widest mb-0.5",
                 darkMode ? "text-gray-500" : "text-gray-400"
               )}>
-                Your Referral Code
+                {user ? "Your Referral Code" : "Log in to get your link"}
               </span>
               <span className={cn(
                 "font-mono font-bold tracking-wider",
@@ -122,28 +122,42 @@ export function ReferralCard({ darkMode = false, user = null }) {
                 {refCode}
               </span>
             </div>
-            <button
-              onClick={handleCopy}
-              className={cn(
-                "p-2 rounded-lg transition-colors flex items-center justify-center",
-                copied 
-                  ? "bg-emerald-500/20 text-emerald-500" 
-                  : darkMode 
-                    ? "bg-white/5 hover:bg-white/10 text-gray-300" 
-                    : "bg-white hover:bg-gray-50 text-gray-600 shadow-sm"
-              )}
-              title="Copy Link"
-            >
-              {copied ? <Check size={18} /> : <Copy size={18} />}
-            </button>
+            {user && (
+              <button
+                onClick={handleCopy}
+                className={cn(
+                  "p-2 rounded-lg transition-colors flex items-center justify-center",
+                  copied 
+                    ? "bg-emerald-500/20 text-emerald-500" 
+                    : darkMode 
+                      ? "bg-white/5 hover:bg-white/10 text-gray-300" 
+                      : "bg-white hover:bg-gray-50 text-gray-600 shadow-sm"
+                )}
+                title="Copy Link"
+              >
+                {copied ? <Check size={18} /> : <Copy size={18} />}
+              </button>
+            )}
           </div>
 
           <button
-            onClick={handleShare}
+            onClick={() => {
+              if (user) {
+                handleShare();
+              } else {
+                window.location.href = "/account/signin";
+              }
+            }}
             className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-all active:scale-[0.98] shadow-lg shadow-indigo-500/25"
           >
-            <Share2 size={18} />
-            Share Referral Link
+            {user ? (
+              <>
+                <Share2 size={18} />
+                Share Referral Link
+              </>
+            ) : (
+              "Sign In to Share"
+            )}
           </button>
         </div>
       </div>
