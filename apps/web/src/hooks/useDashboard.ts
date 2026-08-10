@@ -17,80 +17,7 @@ function getDbMarketName(pickStr) {
   return rawMarket;
 }
 
-function calculateHistWinRate(match, archiveData) {
-  if (!archiveData.length || !match?.chance || !match?.rating || !match?.pick) {
-    return { rate: -1, count: 0 };
-  }
-
-  const matchChance = Number(match.chance);
-  const matchRating = Number(match.rating);
-  const normalizedMatchChance = matchChance <= 1 && matchChance > 0 ? matchChance * 100 : matchChance;
-  const normalizedMatchRating = matchRating <= 1 && matchRating > 0 ? matchRating * 100 : matchRating;
-
-  const dbMarket = getDbMarketName(match.pick);
-
-  let matchedRows = archiveData.filter((row: any) => {
-    const chance = Number(row.chance || 0);
-    const rating = Number(row.rating || 0);
-    const market = String(row.market || "").toUpperCase();
-    const result = String(row.result || "").toUpperCase().trim();
-
-    const normalizedChance = chance <= 1 && chance > 0 ? chance * 100 : chance;
-    const normalizedRating = rating <= 1 && rating > 0 ? rating * 100 : rating;
-
-    const chanceDiff = Math.abs(normalizedChance - normalizedMatchChance);
-    const ratingDiff = Math.abs(normalizedRating - normalizedMatchRating);
-
-    return (
-      chanceDiff <= 5 &&
-      ratingDiff <= 5 &&
-      market === dbMarket &&
-      (result === "W" || result === "L")
-    );
-  });
-
-  if (matchedRows.length < 15) {
-    matchedRows = archiveData.filter((row: any) => {
-      const chance = Number(row.chance || 0);
-      const rating = Number(row.rating || 0);
-      const market = String(row.market || "").toUpperCase();
-      const result = String(row.result || "").toUpperCase().trim();
-
-      const normalizedChance = chance <= 1 && chance > 0 ? chance * 100 : chance;
-      const normalizedRating = rating <= 1 && rating > 0 ? rating * 100 : rating;
-
-      return (
-        normalizedChance >= normalizedMatchChance &&
-        normalizedRating >= normalizedMatchRating &&
-        market === dbMarket &&
-        (result === "W" || result === "L")
-      );
-    });
-  }
-
-  if (matchedRows.length < 10) {
-    matchedRows = archiveData.filter((row: any) => {
-      const chance = Number(row.chance || 0);
-      const rating = Number(row.rating || 0);
-      const result = String(row.result || "").toUpperCase().trim();
-
-      const normalizedChance = chance <= 1 && chance > 0 ? chance * 100 : chance;
-      const normalizedRating = rating <= 1 && rating > 0 ? rating * 100 : rating;
-
-      return (
-        normalizedChance >= normalizedMatchChance &&
-        normalizedRating >= normalizedMatchRating &&
-        (result === "W" || result === "L")
-      );
-    });
-  }
-
-  const total = matchedRows.length;
-  if (total === 0) return { rate: -1, count: 0 };
-
-  const wins = matchedRows.filter((r: any) => String(r.result || "").toUpperCase().trim() === "W").length;
-  return { rate: (wins / total) * 100, count: total };
-}
+import { calculateHistWinRateForMatch } from "@/components/Dashboard/MatchCard";
 
 export default function useDashboard() {
   const { data: sessionData, isPending: isSessionPending } = useSession();
@@ -314,7 +241,7 @@ export default function useDashboard() {
 
     // Pre-calculate histWinRates if sorting by it, to avoid O(N log N) database scans
     const matchesWithRates = filtered.map((m) => {
-      const histData = sortBy === "histWinRate" ? calculateHistWinRate(m, archiveData) : { rate: 0, count: 0 };
+      const histData = sortBy === "histWinRate" ? calculateHistWinRateForMatch(m, archiveData) : { rate: 0, count: 0 };
       return {
         match: m,
         rate: histData.rate,

@@ -1533,34 +1533,56 @@ export default function MatchCard({
 
   const { data: oddsHistory = [] } = useLiveOddsArchive();
 
-  const mlStats = useMemo(() => {
-    if (!archiveData.length || !match?.chance || !match?.rating) {
-      return { winRate: null, sampleSize: 0, label: "—", totalWins: 0 };
-    }
+export function calculateHistWinRateForMatch(match: any, archiveData: any[]) {
+  if (!archiveData.length || !match?.chance || !match?.rating) {
+    return { winRate: null, sampleSize: 0, label: "—", totalWins: 0, rate: -1, count: 0 };
+  }
 
-    const matchChance = Number(match.chance);
-    const matchRating = Number(match.rating);
-    const normalizedMatchChance = matchChance <= 1 && matchChance > 0 ? matchChance * 100 : matchChance;
-    const normalizedMatchRating = matchRating <= 1 && matchRating > 0 ? matchRating * 100 : matchRating;
+  const matchChance = Number(match.chance);
+  const matchRating = Number(match.rating);
+  const normalizedMatchChance = matchChance <= 1 && matchChance > 0 ? matchChance * 100 : matchChance;
+  const normalizedMatchRating = matchRating <= 1 && matchRating > 0 ? matchRating * 100 : matchRating;
 
-    // Use Primary AI Pick instead of raw ML Pick
-    const recommendedOpt = getRecommendedMarket(match);
-    const fallbackOpt = normalizePickDescriptor(match?.pick || match?.options || "");
-    const active = recommendedOpt || fallbackOpt;
+  // Use Primary AI Pick instead of raw ML Pick
+  const recommendedOpt = getRecommendedMarket(match);
+  const fallbackOpt = normalizePickDescriptor(match?.pick || match?.options || "");
+  const active = recommendedOpt || fallbackOpt;
 
-    let primaryMarket = match?.pick;
-    if (active) {
-      if (active.market === "1X2") primaryMarket = active.option;
-      else if (active.market === "BTTS") primaryMarket = active.option === "Yes" ? "GG" : "NG";
-      else if (active.market === "Over 2.5") primaryMarket = "OV2.5";
-      else if (active.market === "Under 2.5") primaryMarket = "UN2.5";
-      else primaryMarket = active.option || match?.pick;
-    }
+  let primaryMarket = match?.pick;
+  if (active) {
+    if (active.market === "1X2") primaryMarket = active.option;
+    else if (active.market === "BTTS") primaryMarket = active.option === "Yes" ? "GG" : "NG";
+    else if (active.market === "Over 2.5") primaryMarket = "OV2.5";
+    else if (active.market === "Under 2.5") primaryMarket = "UN2.5";
+    else primaryMarket = active.option || match?.pick;
+  }
 
-    const dbMarket = getDbMarketName(primaryMarket);
+  const dbMarket = getDbMarketName(primaryMarket);
 
-    // 1. First, search +/- 5 range of this match's chance and rating (for the same market)
-    let matchedRows = archiveData.filter((row: any) => {
+  // 1. First, search +/- 5 range of this match's chance and rating (for the same market)
+  let matchedRows = archiveData.filter((row: any) => {
+    const chance = Number(row.chance || 0);
+    const rating = Number(row.rating || 0);
+    const market = String(row.market || "").toUpperCase();
+    const result = String(row.result || "").toUpperCase().trim();
+
+    const normalizedChance = chance <= 1 && chance > 0 ? chance * 100 : chance;
+    const normalizedRating = rating <= 1 && rating > 0 ? rating * 100 : rating;
+
+    const chanceDiff = Math.abs(normalizedChance - normalizedMatchChance);
+    const ratingDiff = Math.abs(normalizedRating - normalizedMatchRating);
+
+    return (
+      chanceDiff <= 5 &&
+      ratingDiff <= 5 &&
+      market === dbMarket &&
+      (result === "W" || result === "L")
+    );
+  });
+
+  // 2. Fallback: "at least" this chance & rating (for same market)
+  if (matchedRows.length < 15) {
+    matchedRows = archiveData.filter((row: any) => {
       const chance = Number(row.chance || 0);
       const rating = Number(row.rating || 0);
       const market = String(row.market || "").toUpperCase();
@@ -1569,68 +1591,50 @@ export default function MatchCard({
       const normalizedChance = chance <= 1 && chance > 0 ? chance * 100 : chance;
       const normalizedRating = rating <= 1 && rating > 0 ? rating * 100 : rating;
 
-      const chanceDiff = Math.abs(normalizedChance - normalizedMatchChance);
-      const ratingDiff = Math.abs(normalizedRating - normalizedMatchRating);
-
       return (
-        chanceDiff <= 5 &&
-        ratingDiff <= 5 &&
+        normalizedChance >= normalizedMatchChance &&
+        normalizedRating >= normalizedMatchRating &&
         market === dbMarket &&
         (result === "W" || result === "L")
       );
     });
+  }
 
-    // 2. Fallback: "at least" this chance & rating (for same market)
-    if (matchedRows.length < 15) {
-      matchedRows = archiveData.filter((row: any) => {
-        const chance = Number(row.chance || 0);
-        const rating = Number(row.rating || 0);
-        const market = String(row.market || "").toUpperCase();
-        const result = String(row.result || "").toUpperCase().trim();
+  // 3. Fallback: "at least" this chance & rating (across ALL markets)
+  if (matchedRows.length < 10) {
+    matchedRows = archiveData.filter((row: any) => {
+      const chance = Number(row.chance || 0);
+      const rating = Number(row.rating || 0);
+      const result = String(row.result || "").toUpperCase().trim();
 
-        const normalizedChance = chance <= 1 && chance > 0 ? chance * 100 : chance;
-        const normalizedRating = rating <= 1 && rating > 0 ? rating * 100 : rating;
+      const normalizedChance = chance <= 1 && chance > 0 ? chance * 100 : chance;
+      const normalizedRating = rating <= 1 && rating > 0 ? rating * 100 : rating;
 
-        return (
-          normalizedChance >= normalizedMatchChance &&
-          normalizedRating >= normalizedMatchRating &&
-          market === dbMarket &&
-          (result === "W" || result === "L")
-        );
-      });
-    }
+      return (
+        normalizedChance >= normalizedMatchChance &&
+        normalizedRating >= normalizedMatchRating &&
+        (result === "W" || result === "L")
+      );
+    });
+  }
 
-    // 3. Fallback: "at least" this chance & rating (across ALL markets)
-    if (matchedRows.length < 10) {
-      matchedRows = archiveData.filter((row: any) => {
-        const chance = Number(row.chance || 0);
-        const rating = Number(row.rating || 0);
-        const result = String(row.result || "").toUpperCase().trim();
+  const total = matchedRows.length;
+  if (total === 0) return { winRate: null, sampleSize: 0, label: "—", totalWins: 0, rate: -1, count: 0 };
 
-        const normalizedChance = chance <= 1 && chance > 0 ? chance * 100 : chance;
-        const normalizedRating = rating <= 1 && rating > 0 ? rating * 100 : rating;
+  const wins = matchedRows.filter((r: any) => String(r.result || "").toUpperCase().trim() === "W").length;
+  const rate = (wins / total) * 100;
 
-        return (
-          normalizedChance >= normalizedMatchChance &&
-          normalizedRating >= normalizedMatchRating &&
-          (result === "W" || result === "L")
-        );
-      });
-    }
+  return {
+    winRate: rate,
+    sampleSize: total,
+    totalWins: wins,
+    label: `${rate.toFixed(1)}% (${wins}/${total})`,
+    rate,
+    count: total
+  };
+}
 
-    const total = matchedRows.length;
-    if (total === 0) return { winRate: null, sampleSize: 0, label: "—", totalWins: 0 };
-
-    const wins = matchedRows.filter((r: any) => String(r.result || "").toUpperCase().trim() === "W").length;
-    const rate = (wins / total) * 100;
-
-    return {
-      winRate: rate,
-      sampleSize: total,
-      totalWins: wins,
-      label: `${rate.toFixed(1)}% (${wins}/${total})`,
-    };
-  }, [archiveData, match?.chance, match?.rating, match?.pick]);
+  const mlStats = useMemo(() => calculateHistWinRateForMatch(match, archiveData), [archiveData, match?.chance, match?.rating, match?.pick]);
 
   const live1X2 = useMemo(() => {
     if (!oddsHistory.length || !match?.match) return null;
