@@ -24,6 +24,7 @@ export default function useUserPermissions() {
   const isPremium = permissions?.isPremium || false;
   const isSilver = permissions?.isSilver || false;
   const isSilverOnly = permissions?.isSilverOnly || false;
+  const isRestrictedTrial = permissions?.isRestrictedTrial || false;
   const hasFilterAccess = permissions?.hasFilterAccess || false;
   const canAccessAIInsights = permissions?.canAccessAIInsights || false;
 
@@ -47,6 +48,7 @@ export default function useUserPermissions() {
     isPremium,
     isSilver,
     isSilverOnly,
+    isRestrictedTrial,
     hasFilterAccess,
     canAccessAIInsights,
     role: permissions?.role || "guest",
@@ -63,6 +65,17 @@ export default function useUserPermissions() {
     // Future-proof: any new feature should check isAdmin first
     hasFeatureAccess: (featureName) => {
       if (isAdmin) return true; // Admin always gets access
+
+      // Block specific features for restricted trial users
+      if (isRestrictedTrial) {
+        if (
+          featureName === "performance-tracker" ||
+          featureName === "sandbox" ||
+          featureName === "compare"
+        ) {
+          return false;
+        }
+      }
 
       switch (featureName) {
         case "ai-insights":

@@ -136,6 +136,15 @@ export async function POST(request: Request) {
       ON CONFLICT (transaction_id) DO NOTHING
     `;
 
+    // Mark referral as upgraded if this user was referred
+    await sql`
+      UPDATE referrals
+      SET has_upgraded = true, upgraded_at = NOW()
+      WHERE referred_user_id = ${session.user.id} 
+        AND has_upgraded = false 
+        AND status = 'PENDING_REWARD'
+    `;
+
     return NextResponse.json({
       success: true,
       message: `Successfully upgraded to ${plan}`,

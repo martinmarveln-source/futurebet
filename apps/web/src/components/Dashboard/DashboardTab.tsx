@@ -147,7 +147,7 @@ export function DashboardTab({
 
       {/* Stage 4: Referral System */}
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 delay-500 fill-mode-both">
-        <ReferralCard darkMode={darkMode} />
+        <ReferralCard darkMode={darkMode} user={user} />
       </div>
 
       {/* Stage 5: Social Links */}

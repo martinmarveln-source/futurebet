@@ -20,7 +20,7 @@ export async function GET() {
     }
 
     const users = await sql`
-      SELECT user_role, subscription_status, subscription_expires_at 
+      SELECT user_role, subscription_status, subscription_expires_at, is_restricted_trial
       FROM auth_users 
       WHERE email = ${session.user.email}
     `;
@@ -50,9 +50,11 @@ export async function GET() {
       !user.subscription_expires_at ||
       new Date(user.subscription_expires_at) > new Date();
 
+    const isRestrictedTrial = user.is_restricted_trial === true && subValid;
+
     const isAdmin = role === "admin";
     const isPremium =
-      isAdmin || role === "premium" || (subStatus === "premium" && subValid);
+      isAdmin || role === "premium" || (subStatus === "premium" && subValid) || isRestrictedTrial;
     // Silver inherits all Premium and Admin rights downwards
     const isSilver =
       isPremium || role === "silver" || (subStatus === "silver" && subValid);
@@ -76,6 +78,7 @@ export async function GET() {
       isPremium,
       isSilver,
       isSilverOnly,
+      isRestrictedTrial,
       hasValidSubscription,
       hasFilterAccess,
       subscriptionExpiresAt: user.subscription_expires_at,

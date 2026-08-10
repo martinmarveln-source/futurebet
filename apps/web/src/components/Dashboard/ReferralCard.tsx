@@ -1,31 +1,53 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Gift, Copy, Share2, Check, ArrowRight } from "lucide-react";
+import { Gift, Copy, Share2, Check, ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { cn } from "@/utils/matchUtils";
-import { Card } from "@/components/ui/card"; // assuming this exists, if not I'll just use a div
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-export function ReferralCard({ darkMode = false }) {
+export function ReferralCard({ darkMode = false, user = null }) {
   const [copied, setCopied] = useState(false);
-  const [refCode, setRefCode] = useState("FB-2026-X8Y9");
+  const queryClient = useQueryClient();
 
-  // Generate a somewhat unique looking code based on local storage so it persists
-  useEffect(() => {
-    let code = localStorage.getItem("fb_ref_code");
-    if (!code) {
-      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-      const randomPart = Array.from({ length: 4 })
-        .map(() => chars.charAt(Math.floor(Math.random() * chars.length)))
-        .join("");
-      code = `FB-${new Date().getFullYear()}-${randomPart}`;
-      localStorage.setItem("fb_ref_code", code);
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ["referralStats"],
+    queryFn: async () => {
+      const res = await fetch("/api/referrals/stats");
+      if (!res.ok) throw new Error("Failed to fetch stats");
+      return res.json();
+    },
+    enabled: !!user,
+  });
+
+  const claimMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/referrals/claim", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to claim");
+      return data;
+    },
+    onSuccess: (data) => {
+      alert(`Success! You earned: ${data.rewardType.replace(/_/g, ' ')}`);
+      queryClient.invalidateQueries(["referralStats"]);
+      queryClient.invalidateQueries(["userPermissions"]);
+      // reload window to apply new token/permissions fully
+      window.location.reload();
+    },
+    onError: (err) => {
+      alert(err.message);
     }
-    setRefCode(code);
-  }, []);
+  });
 
+  const refCode = user?.referralCode || user?.referral_code || "Log in to view";
   const referralLink = `https://futurebet.com.ng/?ref=${refCode}`;
+  
+  const pendingCount = stats?.pendingCount || 0;
+  const target = 15;
+  const progress = Math.min(100, Math.round((pendingCount / target) * 100));
+  const canClaim = pendingCount >= target;
 
   const handleCopy = async () => {
+    if (!user) return;
     try {
       await navigator.clipboard.writeText(referralLink);
       setCopied(true);
@@ -36,6 +58,7 @@ export function ReferralCard({ darkMode = false }) {
   };
 
   const handleShare = async () => {
+    if (!user) return;
     if (navigator.share) {
       try {
         await navigator.share({
@@ -43,9 +66,7 @@ export function ReferralCard({ darkMode = false }) {
           text: "Join me on FutureBet and get algorithmic football predictions!",
           url: referralLink,
         });
-      } catch (e) {
-        // user aborted or failed
-      }
+      } catch (e) {}
     } else {
       handleCopy();
     }
@@ -54,19 +75,16 @@ export function ReferralCard({ darkMode = false }) {
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-[32px] border p-6 sm:p-8 shadow-xl transition-all",
+        "relative overflow-hidden rounded-[32px] border p-6 sm:p-8 shadow-xl transition-all flex flex-col gap-6",
         darkMode
           ? "bg-gradient-to-br from-indigo-950/50 via-gray-900 to-black border-indigo-500/20"
           : "bg-gradient-to-br from-indigo-50 via-white to-gray-50 border-indigo-200"
       )}
     >
-      {/* Background Glow */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-[80px] pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-40 h-40 bg-purple-500/10 rounded-full blur-[60px] pointer-events-none" />
 
       <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-        
-        {/* Left Content */}
         <div className="flex-1 text-center md:text-left space-y-3">
           <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-indigo-500/10 text-indigo-500 mb-2">
             <Gift className="h-6 w-6" />
@@ -81,11 +99,10 @@ export function ReferralCard({ darkMode = false }) {
             "text-sm max-w-md",
             darkMode ? "text-gray-400" : "text-gray-600"
           )}>
-            Share your unique referral link with friends. When they join and upgrade, you both unlock exclusive Premium perks and extended access!
+            Share your link. Once 15 friends sign up, you unlock a 7-Day Premium Trial! If 5 of them upgrade within 10 days, you earn 17 Days of FULL Premium.
           </p>
         </div>
 
-        {/* Right Content - Actions */}
         <div className="w-full md:w-auto shrink-0 flex flex-col gap-3">
           <div className={cn(
             "flex items-center justify-between px-4 py-3 rounded-xl border",
@@ -129,8 +146,46 @@ export function ReferralCard({ darkMode = false }) {
             Share Referral Link
           </button>
         </div>
-
       </div>
+
+      {/* Progress Section */}
+      {user && (
+        <div className="relative z-10 w-full pt-4 border-t border-gray-200 dark:border-white/10">
+          <div className="flex justify-between items-end mb-2">
+            <div>
+              <span className={cn("text-sm font-bold", darkMode ? "text-white" : "text-gray-900")}>Reward Progress</span>
+              <p className={cn("text-xs mt-0.5", darkMode ? "text-gray-400" : "text-gray-500")}>
+                {pendingCount} of {target} referrals complete
+              </p>
+            </div>
+            <span className={cn("font-bold", darkMode ? "text-indigo-400" : "text-indigo-600")}>
+              {progress}%
+            </span>
+          </div>
+          <div className={cn("h-3 w-full rounded-full overflow-hidden", darkMode ? "bg-white/10" : "bg-gray-200")}>
+            <div 
+              className="h-full bg-indigo-500 transition-all duration-1000 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={() => claimMutation.mutate()}
+              disabled={!canClaim || claimMutation.isPending}
+              className={cn(
+                "flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold transition-all",
+                canClaim
+                  ? "bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/25 active:scale-95"
+                  : "bg-gray-200 text-gray-400 cursor-not-allowed dark:bg-white/5 dark:text-gray-600"
+              )}
+            >
+              {claimMutation.isPending ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
+              {canClaim ? "Claim Reward" : "Reward Locked"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

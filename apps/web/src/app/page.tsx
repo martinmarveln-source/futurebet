@@ -868,16 +868,23 @@ export default function FutureBetDashboard() {
                     hasKickoffPassed={hasKickoffPassed}
                   />
                 ) : activeTab === "compare" ? (
-                  <Suspense
-                    fallback={
-                      <PremiumLazyFallback
-                        darkMode={darkMode}
-                        text="Loading comparison workspace…"
-                      />
-                    }
-                  >
-                    <TeamCompare darkMode={darkMode} />
-                  </Suspense>
+                  permissions.isRestrictedTrial ? (
+                    <PremiumLazyFallback
+                      darkMode={darkMode}
+                      text="Compare tool is not available on the Referral Trial. Upgrade to Full Premium to unlock!"
+                    />
+                  ) : (
+                    <Suspense
+                      fallback={
+                        <PremiumLazyFallback
+                          darkMode={darkMode}
+                          text="Loading comparison workspace…"
+                        />
+                      }
+                    >
+                      <TeamCompare darkMode={darkMode} />
+                    </Suspense>
+                  )
                 ) : activeTab === "betslip" ? (
                   <Suspense
                     fallback={
@@ -898,18 +905,31 @@ export default function FutureBetDashboard() {
                     setActiveTab={setActiveTab}
                   />
                 ) : activeTab === "performance-tracker" ? (
-                  <Suspense
-                    fallback={
-                      <PremiumLazyFallback
-                        darkMode={darkMode}
-                        text="Loading performance analytics…"
-                      />
-                    }
-                  >
-                    <PerformanceTracker darkMode={darkMode} />
-                  </Suspense>
+                  permissions.isRestrictedTrial ? (
+                    <PremiumLazyFallback
+                      darkMode={darkMode}
+                      text="Performance Analytics is not available on the Referral Trial. Upgrade to Full Premium to unlock!"
+                    />
+                  ) : (
+                    <Suspense
+                      fallback={
+                        <PremiumLazyFallback
+                          darkMode={darkMode}
+                          text="Loading performance analytics…"
+                        />
+                      }
+                    >
+                      <PerformanceTracker darkMode={darkMode} />
+                    </Suspense>
+                  )
                 ) : activeTab === "sandbox" ? (
-                  <Suspense
+                  permissions.isRestrictedTrial ? (
+                    <PremiumLazyFallback
+                      darkMode={darkMode}
+                      text="Sandbox Mode is not available on the Referral Trial. Upgrade to Full Premium to unlock!"
+                    />
+                  ) : (
+                    <Suspense
                     fallback={
                       <PremiumLazyFallback
                         darkMode={darkMode}

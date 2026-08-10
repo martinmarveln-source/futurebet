@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./global.css";
 import { Providers } from "./providers";
 import { InstallPrompt } from "@/components/InstallPrompt";
+import { ReferralTracker } from "@/components/ReferralTracker";
+import { Suspense } from "react";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -144,6 +146,9 @@ export default function RootLayout({
             </footer>
           </div>
           <InstallPrompt />
+          <Suspense fallback={null}>
+            <ReferralTracker />
+          </Suspense>
         </Providers>
       </body>
     </html>

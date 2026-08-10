@@ -129,6 +129,58 @@ export const auth = betterAuth({
       const derived = body.email.split('@')[0];
       body.name = derived && derived.length > 0 ? derived : 'User';
     }),
+    after: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== '/sign-up/email') return;
+      const body = ctx.body as { email?: unknown };
+      if (!body || typeof body.email !== 'string') return;
+      const email = body.email;
+
+      // Create a unique referral code for this user
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      const randomPart = Array.from({ length: 5 })
+        .map(() => chars.charAt(Math.floor(Math.random() * chars.length)))
+        .join('');
+      const referralCode = `FB-${new Date().getFullYear()}-${randomPart}`;
+      
+      // Get ref cookie if it exists
+      const cookies = ctx.request?.headers.get('cookie') || '';
+      const match = cookies.match(/fb_ref_code=([^;]+)/);
+      const referrerCode = match ? match[1] : null;
+
+      try {
+        if (referrerCode) {
+          // Find referrer user
+          const referrerRes = await pool.query('SELECT id FROM auth_users WHERE referral_code = $1', [referrerCode]);
+          if (referrerRes.rows.length > 0) {
+            const referrerId = referrerRes.rows[0].id;
+            
+            const newUserRes = await pool.query('SELECT id FROM auth_users WHERE email = $1', [email]);
+            if (newUserRes.rows.length > 0) {
+              const newUserId = newUserRes.rows[0].id;
+              
+              // Grant 7-day trial and set referral_code
+              const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+              await pool.query(
+                'UPDATE auth_users SET referral_code = $1, is_restricted_trial = true, subscription_expires_at = $2 WHERE id = $3', 
+                [referralCode, expiresAt, newUserId]
+              );
+              
+              // Record the referral
+              await pool.query(
+                'INSERT INTO referrals (referrer_id, referred_user_id, status) VALUES ($1, $2, $3)',
+                [referrerId, newUserId, 'PENDING_REWARD']
+              );
+              return;
+            }
+          }
+        }
+        
+        // If no valid referrer, just assign a referral code
+        await pool.query('UPDATE auth_users SET referral_code = $1 WHERE email = $2', [referralCode, email]);
+      } catch (err) {
+        console.error('Error in auth hooks.after setting up referrals:', err);
+      }
+    }),
   },
   advanced: {
     cookiePrefix: 'better-auth',
@@ -169,6 +221,8 @@ export const auth = betterAuth({
       first_name: { type: 'string', required: false },
       last_name: { type: 'string', required: false },
       username: { type: 'string', required: false },
+      referral_code: { type: 'string', required: false },
+      is_restricted_trial: { type: 'boolean', required: false },
     },
   },
   // Enable Authorization: Bearer <session-token> so mobile apps (which can't
