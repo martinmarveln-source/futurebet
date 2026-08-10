@@ -1448,15 +1448,11 @@ export default function PerformanceTracker({ darkMode }) {
                   ? (oddsNum * stakeNowNum).toFixed(0)
                   : null;
 
-              // 🔥 UPGRADE: Label Single vs Double vs Acca
+              // 🔥 UPGRADE: Label Single vs Multiple
               const betType =
                 t.total_matches === 1
-                  ? "SINGLE"
-                  : t.total_matches === 2
-                  ? "DOUBLE"
-                  : t.total_matches === 3
-                  ? "TREBLE"
-                  : `${t.total_matches}-FOLD ACCA`;
+                  ? "SINGLE BET"
+                  : "MULTIPLE BETTING SYSTEM";
 
               // CLV Math
               let totalClosingOdds = 1;
