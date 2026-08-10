@@ -76,9 +76,14 @@ export default function ArchivePage() {
        else if (p === 'X' || p.includes('DRAW')) { isMainPickHit = hg === ag; hasMainPickEvaluation = true; }
     }
 
+    const cScoreRaw = String(match.c_score || match.cScore || match.raw_data?.c_score || match.raw_data?.cScore || match.model_c_score || match.raw_data?.model_c_score || "").replace(/\s+/g, '').replace('-', ':');
+    const cleanScoreRaw = String(scoreRaw).replace(/\s+/g, '').replace('-', ':');
+    const isExactScoreHit = hasValidScore && cleanScoreRaw === cScoreRaw && cleanScoreRaw.length > 2;
+
     return {
       hasValidScore,
       scoreRaw,
+      isExactScoreHit,
       mainPick,
       chance: match.chance || match.model_chance || match.raw_data?.chance || match.raw_data?.model_chance || "-",
       matchName: match.match || match.match_label || match.raw_data?.match || `${match.home_team} vs ${match.away_team}`,
@@ -97,7 +102,10 @@ export default function ArchivePage() {
 
   // Pre-calculate statistics
   const { evaluatedMatches, totalValid, hits1X2, hitsBTTS, hitsOU25, totalMainPickValid, hitsMainPick } = useMemo(() => {
-    const rawMatches = data?.matches || [];
+    const rawMatches = (data?.matches || []).filter((m: any) => {
+      const rating = parseFloat(m.rating || m.raw_data?.rating || 0);
+      return rating >= 50;
+    });
     let validCount = 0;
     let h1X2 = 0;
     let hBTTS = 0;
@@ -178,7 +186,7 @@ export default function ArchivePage() {
           <input 
             type="date" 
             value={dateStr}
-            max={format(subDays(new Date(), 1), "yyyy-MM-dd")} 
+            max={format(new Date(), "yyyy-MM-dd")} 
             onChange={(e) => {
               if (e.target.value) setSelectedDate(new Date(e.target.value));
             }}
@@ -314,7 +322,11 @@ export default function ArchivePage() {
                               </div>
                             </td>
                             <td className="p-4 text-center whitespace-nowrap">
-                              <span className="inline-block px-3 py-1 bg-slate-800 text-white dark:bg-slate-700 font-mono font-bold text-sm rounded border border-slate-700 shadow-inner">
+                              <span className={`inline-block px-3 py-1 font-mono font-bold text-sm rounded border shadow-inner ${
+                                ev.isExactScoreHit
+                                  ? "bg-green-600 text-white border-green-700 dark:bg-green-500"
+                                  : "bg-slate-800 text-white dark:bg-slate-700 border-slate-700"
+                              }`}>
                                 {ev.hasValidScore ? ev.scoreRaw.replace(':', ' - ') : 'N/A'}
                               </span>
                             </td>
