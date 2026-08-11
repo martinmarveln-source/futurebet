@@ -117,7 +117,7 @@ export const auth = betterAuth({
     sendOnSignUp: true,
     sendVerificationEmail: async ({ user, url, token }, request) => {
       await resend.emails.send({
-        from: 'FutureBet <onboarding@resend.dev>',
+        from: 'FutureBet <noreply@futurebet.com.ng>',
         to: user.email,
         subject: 'Verify your email address - FutureBet',
         html: `<p>Hi ${user.name || 'there'},</p>
