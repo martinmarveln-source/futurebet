@@ -4198,29 +4198,28 @@ export default function TeamCompare({ darkMode = false }) {
                         darkMode ? "border-white/10" : "border-gray-200"
                       )}
                     >
-                      <th className="px-3 py-3 text-left font-semibold">
+                      <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">
                         Metric
                       </th>
-                      <th className="px-3 py-3 text-center font-semibold">
+                      <th className="px-4 py-4 text-center font-semibold">
                         <span
                           className={cn(
-                            "inline-flex rounded-full px-2.5 py-1",
+                            "inline-flex rounded-xl px-4 py-1.5 shadow-sm",
                             darkMode
-                              ? "bg-blue-500/10 text-blue-200"
-                              : "bg-blue-50 text-blue-700"
+                              ? "bg-blue-500/20 text-blue-200"
+                              : "bg-blue-100 text-blue-800"
                           )}
                         >
                           {teamA}
                         </span>
                       </th>
-                      <th className="w-12 px-3 py-3 text-center font-semibold"></th>
-                      <th className="px-3 py-3 text-center font-semibold">
+                      <th className="px-4 py-4 text-center font-semibold">
                         <span
                           className={cn(
-                            "inline-flex rounded-full px-2.5 py-1",
+                            "inline-flex rounded-xl px-4 py-1.5 shadow-sm",
                             darkMode
-                              ? "bg-purple-500/10 text-purple-200"
-                              : "bg-purple-50 text-purple-700"
+                              ? "bg-purple-500/20 text-purple-200"
+                              : "bg-purple-100 text-purple-800"
                           )}
                         >
                           {teamB}
@@ -4230,30 +4229,38 @@ export default function TeamCompare({ darkMode = false }) {
                   </thead>
                   <tbody>
                     {comparisonRows.map((row, idx) => {
-                      const toneClass =
-                        row.tone === "good"
-                          ? "text-emerald-500"
-                          : row.tone === "warn"
-                          ? "text-yellow-500"
-                          : row.tone === "bad"
-                          ? "text-rose-500"
-                          : "";
+                      const numA = Number(row.a);
+                      const numB = Number(row.b);
+                      const isComparable =
+                        !Number.isNaN(numA) &&
+                        !Number.isNaN(numB) &&
+                        !row.textOnly &&
+                        !row.isRecentMatches;
+
+                      let aWins = false;
+                      let bWins = false;
+
+                      if (isComparable && numA !== numB) {
+                        if (row.higherIsBetter) {
+                          aWins = numA > numB;
+                          bWins = numB > numA;
+                        } else {
+                          aWins = numA < numB;
+                          bWins = numB < numA;
+                        }
+                      }
 
                       const formatValue = (value) => {
                         if (row.textOnly) return value || "N/A";
-
                         const n = Number(value);
                         if (Number.isNaN(n)) return value || "—";
-
                         let formatted =
                           typeof row.decimals === "number"
                             ? n.toFixed(row.decimals)
                             : `${n}`;
-
                         if (row.signed) {
                           formatted = `${n > 0 ? "+" : ""}${formatted}`;
                         }
-
                         return `${formatted}${row.suffix || ""}`;
                       };
 
@@ -4261,19 +4268,14 @@ export default function TeamCompare({ darkMode = false }) {
                         <tr
                           key={row.label}
                           className={cn(
-                            "border-b last:border-b-0",
-                            darkMode ? "border-white/10" : "border-gray-100",
-                            idx % 2 === 0 &&
-                              (darkMode ? "bg-white/[0.02]" : "bg-gray-50/50")
+                            "group border-b transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.02]",
+                            darkMode ? "border-white/5" : "border-gray-100"
                           )}
                         >
-                          <td className="px-3 py-3">{row.label}</td>
-                          <td
-                            className={cn(
-                              "px-3 py-3 text-center font-semibold",
-                              toneClass
-                            )}
-                          >
+                          <td className="px-4 py-4 text-sm font-medium">
+                            {row.label}
+                          </td>
+                          <td className="px-4 py-4 text-center">
                             {row.isRecentMatches ? (
                               <RecentMatchesFormatter
                                 matchesString={row.a}
@@ -4281,24 +4283,26 @@ export default function TeamCompare({ darkMode = false }) {
                                 darkMode={darkMode}
                               />
                             ) : (
-                              formatValue(row.a)
+                              <span
+                                className={cn(
+                                  "transition-all duration-300",
+                                  aWins
+                                    ? cn(
+                                        "inline-flex min-w-[60px] items-center justify-center rounded-lg border px-3 py-1 font-bold shadow-sm",
+                                        darkMode
+                                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                                          : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                      )
+                                    : bWins
+                                    ? "text-sm font-medium opacity-40"
+                                    : "text-sm font-medium opacity-80"
+                                )}
+                              >
+                                {formatValue(row.a)}
+                              </span>
                             )}
                           </td>
-                          <td className="px-3 py-3 text-center align-middle">
-                            {row.textOnly || row.isRecentMatches ? null : (
-                              <CompareIndicator
-                                valueA={row.a}
-                                valueB={row.b}
-                                higherIsBetter={row.higherIsBetter}
-                              />
-                            )}
-                          </td>
-                          <td
-                            className={cn(
-                              "px-3 py-3 text-center font-semibold",
-                              toneClass
-                            )}
-                          >
+                          <td className="px-4 py-4 text-center">
                             {row.isRecentMatches ? (
                               <RecentMatchesFormatter
                                 matchesString={row.b}
@@ -4306,7 +4310,23 @@ export default function TeamCompare({ darkMode = false }) {
                                 darkMode={darkMode}
                               />
                             ) : (
-                              formatValue(row.b)
+                              <span
+                                className={cn(
+                                  "transition-all duration-300",
+                                  bWins
+                                    ? cn(
+                                        "inline-flex min-w-[60px] items-center justify-center rounded-lg border px-3 py-1 font-bold shadow-sm",
+                                        darkMode
+                                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                                          : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                      )
+                                    : aWins
+                                    ? "text-sm font-medium opacity-40"
+                                    : "text-sm font-medium opacity-80"
+                                )}
+                              >
+                                {formatValue(row.b)}
+                              </span>
                             )}
                           </td>
                         </tr>
