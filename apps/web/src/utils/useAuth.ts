@@ -1,4 +1,4 @@
-import { signIn, signUp, signOut } from "@/lib/auth-client";
+import { signIn, signUp, signOut, sendVerificationEmail } from "@/lib/auth-client";
 
 export default function useAuth() {
   return {
@@ -31,6 +31,15 @@ export default function useAuth() {
         }
       });
       if (error) throw new Error(error.message || "EmailCreateAccount");
+      
+      // Force send the verification email immediately after successful signup
+      await sendVerificationEmail({
+        email: credentials.email,
+        callbackUrl: credentials.callbackUrl || "/",
+      }).catch((err) => {
+        console.error("Failed to trigger verification email:", err);
+      });
+
       return data;
     },
     signOut: async (options?: any) => {
