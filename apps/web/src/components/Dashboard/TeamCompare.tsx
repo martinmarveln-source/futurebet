@@ -24,6 +24,10 @@ import {
   Percent,
   Flame,
   Plus,
+  FileDown,
+  Settings,
+  Play,
+  RefreshCw,
 } from "lucide-react";
 import UpgradeButton from "./UpgradeButton";
 const cn = (...classes) => classes.filter(Boolean).join(" ");
@@ -730,6 +734,89 @@ function buildStats(matchData, teamName, teamTable, fullTable) {
   };
 }
 
+// Monte Carlo Match Simulator Engine
+function runMonteCarloSimulation(statsA, statsB, iterations = 10000) {
+  if (!statsA || !statsB) return null;
+  
+  let teamAWins = 0;
+  let teamBWins = 0;
+  let draws = 0;
+  const scoreCounts = {};
+
+  const avgExpGoalsA = statsA.avgExpectedGoals || 1.5;
+  const avgExpGoalsB = statsB.avgExpectedGoals || 1.5;
+  
+  const defRatingA = (statsA.defenseScore || 50) / 50;
+  const defRatingB = (statsB.defenseScore || 50) / 50;
+  
+  const lambdaA = Math.max(0.2, avgExpGoalsA * (2 - defRatingB));
+  const lambdaB = Math.max(0.2, avgExpGoalsB * (2 - defRatingA));
+
+  const poissonRandomNumber = (lambda) => {
+    let L = Math.exp(-lambda);
+    let k = 0;
+    let p = 1;
+    do {
+      k++;
+      p *= Math.random();
+    } while (p > L);
+    return k - 1;
+  };
+
+  for (let i = 0; i < iterations; i++) {
+    const goalsA = poissonRandomNumber(lambdaA);
+    const goalsB = poissonRandomNumber(lambdaB);
+
+    if (goalsA > goalsB) teamAWins++;
+    else if (goalsB > goalsA) teamBWins++;
+    else draws++;
+
+    const scoreStr = `${goalsA}-${goalsB}`;
+    scoreCounts[scoreStr] = (scoreCounts[scoreStr] || 0) + 1;
+  }
+
+  let mostCommonScore = "";
+  let highestCount = 0;
+  Object.keys(scoreCounts).forEach((score) => {
+    if (scoreCounts[score] > highestCount) {
+      highestCount = scoreCounts[score];
+      mostCommonScore = score;
+    }
+  });
+
+  return {
+    teamAWinProb: Math.round((teamAWins / iterations) * 100),
+    teamBWinProb: Math.round((teamBWins / iterations) * 100),
+    drawProb: Math.round((draws / iterations) * 100),
+    mostCommonScore,
+    mostCommonScoreProb: Math.round((highestCount / iterations) * 100),
+    iterations,
+  };
+}
+
+// Auto-Tune logic to calculate the optimal weights based on matchup discrepancies
+function calculateOptimalWeights(statsA, statsB) {
+  if (!statsA || !statsB) return { formVsClass: 50, attackVsDefense: 50 };
+
+  // Calculate variances
+  const momentumDiff = Math.abs(statsA.momentumScore - statsB.momentumScore);
+  const classDiff = Math.abs(statsA.marketTrustScore - statsB.marketTrustScore);
+  
+  const attackDiff = Math.abs(statsA.attackScore - statsB.attackScore);
+  const defenseDiff = Math.abs(statsA.defenseScore - statsB.defenseScore);
+
+  // Normalize into 20-80 scale (50 is balanced)
+  const totalFormClass = momentumDiff + classDiff || 1;
+  let formVsClass = Math.round((momentumDiff / totalFormClass) * 100);
+  formVsClass = clamp(formVsClass, 20, 80);
+
+  const totalAttDef = attackDiff + defenseDiff || 1;
+  let attackVsDefense = Math.round((attackDiff / totalAttDef) * 100);
+  attackVsDefense = clamp(attackVsDefense, 20, 80);
+
+  return { formVsClass, attackVsDefense };
+}
+
 function buildMatchupInsight({
   statsA,
   statsB,
@@ -739,10 +826,33 @@ function buildMatchupInsight({
   leagueA,
   countryB,
   leagueB,
+  customWeights = { formVsClass: 50, attackVsDefense: 50 },
 }) {
   if (!statsA || !statsB) return null;
 
-  const overallDiff = statsA.overallScore - statsB.overallScore;
+  let oScoreA = statsA.overallScore;
+  let oScoreB = statsB.overallScore;
+
+  // Apply Custom Weights for Premium Feature
+  const formFactor = (customWeights.formVsClass - 50) / 50;
+  if (formFactor > 0) {
+    oScoreA += statsA.momentumScore * formFactor * 0.25;
+    oScoreB += statsB.momentumScore * formFactor * 0.25;
+  } else {
+    oScoreA += statsA.marketTrustScore * Math.abs(formFactor) * 0.25;
+    oScoreB += statsB.marketTrustScore * Math.abs(formFactor) * 0.25;
+  }
+
+  const attDefFactor = (customWeights.attackVsDefense - 50) / 50;
+  if (attDefFactor > 0) {
+     oScoreA += statsA.attackScore * attDefFactor * 0.25;
+     oScoreB += statsB.attackScore * attDefFactor * 0.25;
+  } else {
+     oScoreA += statsA.defenseScore * Math.abs(attDefFactor) * 0.25;
+     oScoreB += statsB.defenseScore * Math.abs(attDefFactor) * 0.25;
+  }
+
+  const overallDiff = oScoreA - oScoreB;
   const controlDiff = statsA.controlScore - statsB.controlScore;
   const attackDiff = statsA.attackScore - statsB.attackScore;
   const defenseDiff = statsA.defenseScore - statsB.defenseScore;
@@ -2153,6 +2263,14 @@ export default function TeamCompare({ darkMode = false }) {
   const [teamB, setTeamB] = useState("");
   const [showGuide, setShowGuide] = useState(false);
 
+  // Premium Features State
+  const [customWeights, setCustomWeights] = useState({
+    formVsClass: 50,
+    attackVsDefense: 50,
+  });
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [simulationResults, setSimulationResults] = useState(null);
+
   const {
     data: matchesData = [],
     isLoading: matchesLoading,
@@ -2313,6 +2431,13 @@ export default function TeamCompare({ darkMode = false }) {
     [matchDataB, teamB, teamTableB, safeTableB]
   );
 
+  // Auto-fill weights when the matchup changes
+  useEffect(() => {
+    if (statsA && statsB) {
+      setCustomWeights(calculateOptimalWeights(statsA, statsB));
+    }
+  }, [statsA, statsB]);
+
   const insight = useMemo(
     () =>
       buildMatchupInsight({
@@ -2324,8 +2449,9 @@ export default function TeamCompare({ darkMode = false }) {
         leagueA,
         countryB,
         leagueB,
+        customWeights,
       }),
-    [statsA, statsB, teamA, teamB, countryA, leagueA, countryB, leagueB]
+    [statsA, statsB, teamA, teamB, countryA, leagueA, countryB, leagueB, customWeights]
   );
 
   const leagueWindowA = useMemo(
@@ -4266,6 +4392,222 @@ export default function TeamCompare({ darkMode = false }) {
                     </span>
                     .
                   </p>
+                </div>
+              </div>
+            </div>
+
+            {/* VIP PREMIUM CONTROLS */}
+            <div
+              className={cn(
+                "mt-6 rounded-3xl border p-6 sm:p-8",
+                darkMode
+                  ? "border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-amber-500/[0.02]"
+                  : "border-amber-200 bg-amber-50/50"
+              )}
+            >
+              <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20 text-amber-500">
+                    <Settings size={20} />
+                  </div>
+                  <div>
+                    <h3 className="flex items-center gap-2 font-extrabold">
+                      VIP Algorithm Controls{" "}
+                      <Crown size={14} className="text-amber-500" />
+                    </h3>
+                    <p
+                      className={cn(
+                        "text-xs",
+                        darkMode ? "text-gray-400" : "text-gray-500"
+                      )}
+                    >
+                      Adjust the AI DNA logic dynamically
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (statsA && statsB) {
+                        setCustomWeights(calculateOptimalWeights(statsA, statsB));
+                      }
+                    }}
+                    className={cn(
+                      "flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold transition-all hover:opacity-80 active:scale-95",
+                      darkMode
+                        ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
+                        : "border-amber-200 bg-amber-50 text-amber-700"
+                    )}
+                  >
+                    <Sparkles size={14} />
+                    Auto-Tune
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsSimulating(true);
+                      setTimeout(() => {
+                        setSimulationResults(
+                          runMonteCarloSimulation(statsA, statsB, 10000)
+                        );
+                        setIsSimulating(false);
+                      }, 600);
+                    }}
+                    disabled={isSimulating}
+                    className="flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-sm font-bold text-white transition-all hover:bg-amber-600 active:scale-95 disabled:opacity-70"
+                  >
+                    {isSimulating ? (
+                      <RefreshCw size={16} className="animate-spin" />
+                    ) : (
+                      <Play size={16} />
+                    )}
+                    {isSimulating ? "Simulating..." : "Run Match Sim"}
+                  </button>
+                  <button
+                    onClick={() => window.print()}
+                    className={cn(
+                      "flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-bold transition-all hover:opacity-80 active:scale-95",
+                      darkMode
+                        ? "border-white/10 bg-white/5 text-white"
+                        : "border-gray-200 bg-white text-gray-900"
+                    )}
+                  >
+                    <FileDown size={16} />
+                    Export PDF
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                {/* Weight Sliders */}
+                <div className="space-y-6">
+                  <div>
+                    <div className="mb-2 flex justify-between text-xs font-bold">
+                      <span
+                        className={
+                          customWeights.formVsClass < 50 ? "text-amber-500" : ""
+                        }
+                      >
+                        Historical Class
+                      </span>
+                      <span
+                        className={
+                          customWeights.formVsClass > 50 ? "text-amber-500" : ""
+                        }
+                      >
+                        Recent Form
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={customWeights.formVsClass}
+                      onChange={(e) =>
+                        setCustomWeights((prev) => ({
+                          ...prev,
+                          formVsClass: Number(e.target.value),
+                        }))
+                      }
+                      className="w-full accent-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <div className="mb-2 flex justify-between text-xs font-bold">
+                      <span
+                        className={
+                          customWeights.attackVsDefense < 50
+                            ? "text-amber-500"
+                            : ""
+                        }
+                      >
+                        Defensive Stability
+                      </span>
+                      <span
+                        className={
+                          customWeights.attackVsDefense > 50
+                            ? "text-amber-500"
+                            : ""
+                        }
+                      >
+                        Attacking Threat
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={customWeights.attackVsDefense}
+                      onChange={(e) =>
+                        setCustomWeights((prev) => ({
+                          ...prev,
+                          attackVsDefense: Number(e.target.value),
+                        }))
+                      }
+                      className="w-full accent-amber-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Simulator Results */}
+                <div
+                  className={cn(
+                    "flex flex-col justify-center rounded-2xl border p-4",
+                    darkMode
+                      ? "border-amber-500/20 bg-black/20"
+                      : "border-amber-200 bg-white"
+                  )}
+                >
+                  {simulationResults ? (
+                    <div className="animate-in fade-in zoom-in space-y-4 duration-300">
+                      <div className="flex items-center justify-between">
+                        <div
+                          className={cn(
+                            "text-xs font-bold uppercase tracking-wider",
+                            darkMode ? "text-gray-400" : "text-gray-500"
+                          )}
+                        >
+                          10,000 Match Simulations
+                        </div>
+                        <div className="flex gap-1">
+                          <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500"></div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                        <div className="rounded-lg border border-green-500/20 bg-green-500/10 p-2 font-bold text-green-600">
+                          <div className="mb-1 text-xs opacity-70 truncate max-w-full px-1">{teamA}</div>
+                          {simulationResults.teamAWinProb}%
+                        </div>
+                        <div className="rounded-lg border border-gray-500/20 bg-gray-500/10 p-2 font-bold">
+                          <div className="mb-1 text-xs opacity-70">Draw</div>
+                          {simulationResults.drawProb}%
+                        </div>
+                        <div className="rounded-lg border border-blue-500/20 bg-blue-500/10 p-2 font-bold text-blue-600">
+                          <div className="mb-1 text-xs opacity-70 truncate max-w-full px-1">{teamB}</div>
+                          {simulationResults.teamBWinProb}%
+                        </div>
+                      </div>
+
+                      <div className="mt-2 flex items-center justify-between border-t border-gray-200/20 pt-2 text-sm">
+                        <span className="opacity-70">Most common score:</span>
+                        <span className="font-bold text-amber-500">
+                          {simulationResults.mostCommonScore} (
+                          {simulationResults.mostCommonScoreProb}%)
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex h-full flex-col items-center justify-center text-center opacity-60">
+                      <Swords size={24} className="mb-2 text-amber-500" />
+                      <div className="text-sm font-bold">
+                        Monte Carlo Engine Ready
+                      </div>
+                      <div className="mt-1 text-xs">
+                        Run 10,000 simulations based on current DNA weights
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
