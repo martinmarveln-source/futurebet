@@ -6,6 +6,7 @@ import { User, Camera, Save, Eye, EyeOff, Mail } from "lucide-react";
 import useUser from "@/utils/useUser";
 import useUpload from "@/utils/useUpload";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { authClient } from "@/lib/auth-client";
 
 export default function ProfilePage() {
   const { data: user, loading: userLoading } = useUser();
@@ -73,14 +74,14 @@ export default function ProfilePage() {
 
   const sendVerificationMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch("/api/user/send-verification", {
-        method: "POST",
+      const { data, error } = await authClient.sendVerificationEmail({
+        email: user?.email,
+        callbackURL: "/account/profile",
       });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to send verification email");
+      if (error) {
+        throw new Error(error.message || "Failed to send verification email");
       }
-      return response.json();
+      return data;
     },
     onSuccess: () => {
       setSuccessMessage("Verification email sent! Check your inbox.");
