@@ -113,12 +113,8 @@ export const auth = betterAuth({
   database: pool,
   trustedOrigins,
   socialProviders,
-  emailAndPassword: {
-    enabled: true,
-    requireEmailVerification: true,
-    password: {
-      verify: verifyCompatiblePassword,
-    },
+  emailVerification: {
+    sendOnSignUp: true,
     sendVerificationEmail: async ({ user, url, token }, request) => {
       await resend.emails.send({
         from: 'FutureBet <onboarding@resend.dev>',
@@ -129,6 +125,13 @@ export const auth = betterAuth({
                <p><a href="${url}">Verify my email</a></p>
                <p>If you didn't request this, you can ignore this email.</p>`,
       });
+    },
+  },
+  emailAndPassword: {
+    enabled: true,
+    requireEmailVerification: true,
+    password: {
+      verify: verifyCompatiblePassword,
     },
   },
   hooks: {
