@@ -20,7 +20,7 @@ import { argon2Verify } from 'argon2-wasm-edge';
 import { betterAuth } from 'better-auth';
 import { createAuthMiddleware, APIError } from 'better-auth/api';
 import { verifyPassword } from 'better-auth/crypto';
-import { bearer } from 'better-auth/plugins';
+import { bearer, emailVerification } from 'better-auth/plugins';
 import ws from 'ws';
 import crypto from 'crypto';
 
@@ -113,31 +113,6 @@ export const auth = betterAuth({
   database: pool,
   trustedOrigins,
   socialProviders,
-  emailVerification: {
-    sendOnSignUp: true,
-    sendVerificationEmail: async ({ user, url, token }, request) => {
-      try {
-        console.log(`[AUTH] Attempting to send verification email to ${user.email} from noreply@futurebet.com.ng...`);
-        const { data, error } = await resend.emails.send({
-          from: 'FutureBet <noreply@futurebet.com.ng>',
-          to: user.email,
-          subject: 'Verify your email address - FutureBet',
-          html: `<p>Hi ${user.name || 'there'},</p>
-                 <p>Thanks for signing up for FutureBet! Please verify your email by clicking the link below:</p>
-                 <p><a href="${url}">Verify my email</a></p>
-                 <p>If you didn't request this, you can ignore this email.</p>`,
-        });
-
-        if (error) {
-          console.error('[AUTH] Resend API Error:', error);
-        } else {
-          console.log('[AUTH] Resend API Success:', data);
-        }
-      } catch (err) {
-        console.error('[AUTH] Unhandled error during sendVerificationEmail:', err);
-      }
-    },
-  },
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,
@@ -299,7 +274,34 @@ export const auth = betterAuth({
   // Enable Authorization: Bearer <session-token> so mobile apps (which can't
   // carry cookies through a WebView) authenticate API calls with the token
   // returned from /api/auth/token.
-  plugins: [bearer()],
+  plugins: [
+    bearer(),
+    emailVerification({
+      sendOnSignUp: true,
+      sendVerificationEmail: async ({ user, url, token }, request) => {
+        try {
+          console.log(`[AUTH] Attempting to send verification email to ${user.email} from noreply@futurebet.com.ng...`);
+          const { data, error } = await resend.emails.send({
+            from: 'FutureBet <noreply@futurebet.com.ng>',
+            to: user.email,
+            subject: 'Verify your email address - FutureBet',
+            html: `<p>Hi ${user.name || 'there'},</p>
+                   <p>Thanks for signing up for FutureBet! Please verify your email by clicking the link below:</p>
+                   <p><a href="${url}">Verify my email</a></p>
+                   <p>If you didn't request this, you can ignore this email.</p>`,
+          });
+
+          if (error) {
+            console.error('[AUTH] Resend API Error:', error);
+          } else {
+            console.log('[AUTH] Resend API Success:', data);
+          }
+        } catch (err) {
+          console.error('[AUTH] Unhandled error during sendVerificationEmail:', err);
+        }
+      },
+    })
+  ],
 });
 
 export type Session = typeof auth.$Infer.Session;
