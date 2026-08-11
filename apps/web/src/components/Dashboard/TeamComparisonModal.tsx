@@ -3773,7 +3773,7 @@ export default function TeamComparisonModal({
               >
                 <SectionHeader
                   title="Head-to-Head"
-                  subtitle="Recent meetings (parsed from sheet)"
+                  subtitle="Historical Matchups"
                   darkMode={darkMode}
                   right={
                     <Pill darkMode={darkMode} tone="neutral">
