@@ -116,15 +116,26 @@ export const auth = betterAuth({
   emailVerification: {
     sendOnSignUp: true,
     sendVerificationEmail: async ({ user, url, token }, request) => {
-      await resend.emails.send({
-        from: 'FutureBet <noreply@futurebet.com.ng>',
-        to: user.email,
-        subject: 'Verify your email address - FutureBet',
-        html: `<p>Hi ${user.name || 'there'},</p>
-               <p>Thanks for signing up for FutureBet! Please verify your email by clicking the link below:</p>
-               <p><a href="${url}">Verify my email</a></p>
-               <p>If you didn't request this, you can ignore this email.</p>`,
-      });
+      try {
+        console.log(`[AUTH] Attempting to send verification email to ${user.email} from noreply@futurebet.com.ng...`);
+        const { data, error } = await resend.emails.send({
+          from: 'FutureBet <noreply@futurebet.com.ng>',
+          to: user.email,
+          subject: 'Verify your email address - FutureBet',
+          html: `<p>Hi ${user.name || 'there'},</p>
+                 <p>Thanks for signing up for FutureBet! Please verify your email by clicking the link below:</p>
+                 <p><a href="${url}">Verify my email</a></p>
+                 <p>If you didn't request this, you can ignore this email.</p>`,
+        });
+
+        if (error) {
+          console.error('[AUTH] Resend API Error:', error);
+        } else {
+          console.log('[AUTH] Resend API Success:', data);
+        }
+      } catch (err) {
+        console.error('[AUTH] Unhandled error during sendVerificationEmail:', err);
+      }
     },
   },
   emailAndPassword: {
