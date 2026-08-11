@@ -230,6 +230,8 @@ export default function FutureBetDashboard() {
     setChanceThreshold,
     ratingThreshold,
     setRatingThreshold,
+    csThreshold,
+    setCsThreshold,
     onlyAlignedPredictions,
     setOnlyAlignedPredictions,
     kickoffFilter,
@@ -389,6 +391,8 @@ export default function FutureBetDashboard() {
       setOnlyAlignedPredictions,
       kickoffFilter,
       setKickoffFilter,
+      csThreshold,
+      setCsThreshold,
     }),
     [
       dateRange,
@@ -405,6 +409,8 @@ export default function FutureBetDashboard() {
       setOnlyAlignedPredictions,
       kickoffFilter,
       setKickoffFilter,
+      csThreshold,
+      setCsThreshold,
     ]
   );
 

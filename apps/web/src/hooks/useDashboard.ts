@@ -59,6 +59,7 @@ export default function useDashboard() {
   ]);
   const [chanceThreshold, setChanceThreshold] = useState(50);
   const [ratingThreshold, setRatingThreshold] = useState(10);
+  const [csThreshold, setCsThreshold] = useState(0);
   const [kickoffFilter, setKickoffFilter] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -137,12 +138,12 @@ export default function useDashboard() {
 
   useEffect(() => {
     if (
-      !hasFilterAccess &&
-      !["home", "draw", "away", "date", "ng", "un25"].includes(sortBy)
+      !canAccessAdvancedFilters &&
+      !["homeWin", "draw", "awayWin", "date", "ng", "un25"].includes(sortBy)
     ) {
-      setSortBy("home");
+      setSortBy("homeWin");
     }
-  }, [hasFilterAccess, sortBy]);
+  }, [canAccessAdvancedFilters, sortBy]);
 
   const handleSaveSettings = useCallback(
     (telegramSettings) => {
@@ -192,13 +193,15 @@ export default function useDashboard() {
       if (kickoffFilter === "passed" && !isPassed) return false;
       if (kickoffFilter === "upcoming" && isPassed) return false;
 
-      // Handle both decimal (0.75) and percentage (75) formats for chance and rating
+      // Handle both decimal (0.75) and percentage (75) formats for chance, rating, and CS
       const chancePercent =
         match.chance > 1 ? match.chance : match.chance * 100;
       const ratingPercent =
         match.rating > 1 ? match.rating : match.rating * 100;
+      const csPercent =
+        match.modelCSPercent > 1 ? match.modelCSPercent : (match.modelCSPercent || 0) * 100;
 
-      if (chancePercent < chanceThreshold || ratingPercent < ratingThreshold)
+      if (chancePercent < chanceThreshold || ratingPercent < ratingThreshold || csPercent < csThreshold)
         return false;
 
       // Filter by flag alignment - only show matches where model and stats agree
@@ -253,7 +256,7 @@ export default function useDashboard() {
       let aValue, bValue;
 
       switch (sortBy) {
-        case "home":
+        case "homeWin":
           aValue = a.match.homeWin || 0;
           bValue = b.match.homeWin || 0;
           break;
@@ -261,7 +264,7 @@ export default function useDashboard() {
           aValue = a.match.draw || 0;
           bValue = b.match.draw || 0;
           break;
-        case "away":
+        case "awayWin":
           aValue = a.match.awayWin || 0;
           bValue = b.match.awayWin || 0;
           break;
@@ -269,6 +272,8 @@ export default function useDashboard() {
           aValue = new Date(a.match.date || "1900-01-01");
           bValue = new Date(b.match.date || "1900-01-01");
           return aValue - bValue; // Ascending order for dates
+        case "league":
+          return (a.match.fullLeague || "").localeCompare(b.match.fullLeague || "");
         case "ng":
           aValue = a.match.ng || 0;
           bValue = b.match.ng || 0;
@@ -277,15 +282,15 @@ export default function useDashboard() {
           aValue = a.match.un25 || 0;
           bValue = b.match.un25 || 0;
           break;
-        case "btts":
+        case "gg":
           aValue = a.match.gg || 0;
           bValue = b.match.gg || 0;
           break;
-        case "o25":
+        case "ov25":
           aValue = a.match.ov25 || 0;
           bValue = b.match.ov25 || 0;
           break;
-        case "modelCS":
+        case "cs":
           aValue = a.match.modelCSPercent || 0;
           bValue = b.match.modelCSPercent || 0;
           break;
@@ -324,6 +329,7 @@ export default function useDashboard() {
     selectedMarkets,
     chanceThreshold,
     ratingThreshold,
+    csThreshold,
     onlyAlignedPredictions,
     kickoffFilter,
     hasKickoffPassed,
@@ -363,6 +369,8 @@ export default function useDashboard() {
     setChanceThreshold,
     ratingThreshold,
     setRatingThreshold,
+    csThreshold,
+    setCsThreshold,
     onlyAlignedPredictions,
     setOnlyAlignedPredictions,
     kickoffFilter,

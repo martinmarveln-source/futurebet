@@ -2230,20 +2230,21 @@ export default function TeamCompare({ darkMode = false }) {
 
     const teamMatches = safeMatchesData.filter((m) => {
       const sameLeague =
-        String(m?.country || "").trim() === countryA &&
-        String(m?.league || "").trim() === leagueA;
+        String(m?.country || "").trim().toLowerCase() === String(countryA || "").trim().toLowerCase() &&
+        String(m?.league || "").trim().toLowerCase() === String(leagueA || "").trim().toLowerCase();
       if (!sameLeague) return false;
-      return parseTeamsFromMatch(m?.match).includes(teamA);
+      const parsed = parseTeamsFromMatch(m?.match);
+      return normalizeTeamName(parsed[0]) === normalizeTeamName(teamA) || normalizeTeamName(parsed[1]) === normalizeTeamName(teamA);
     });
 
     if (!teamMatches.length) return null;
 
     return {
       home: teamMatches.filter(
-        (m) => parseTeamsFromMatch(m?.match)[0] === teamA
+        (m) => normalizeTeamName(parseTeamsFromMatch(m?.match)[0]) === normalizeTeamName(teamA)
       ),
       away: teamMatches.filter(
-        (m) => parseTeamsFromMatch(m?.match)[1] === teamA
+        (m) => normalizeTeamName(parseTeamsFromMatch(m?.match)[1]) === normalizeTeamName(teamA)
       ),
       all: teamMatches,
     };
@@ -2254,20 +2255,21 @@ export default function TeamCompare({ darkMode = false }) {
 
     const teamMatches = safeMatchesData.filter((m) => {
       const sameLeague =
-        String(m?.country || "").trim() === countryB &&
-        String(m?.league || "").trim() === leagueB;
+        String(m?.country || "").trim().toLowerCase() === String(countryB || "").trim().toLowerCase() &&
+        String(m?.league || "").trim().toLowerCase() === String(leagueB || "").trim().toLowerCase();
       if (!sameLeague) return false;
-      return parseTeamsFromMatch(m?.match).includes(teamB);
+      const parsed = parseTeamsFromMatch(m?.match);
+      return normalizeTeamName(parsed[0]) === normalizeTeamName(teamB) || normalizeTeamName(parsed[1]) === normalizeTeamName(teamB);
     });
 
     if (!teamMatches.length) return null;
 
     return {
       home: teamMatches.filter(
-        (m) => parseTeamsFromMatch(m?.match)[0] === teamB
+        (m) => normalizeTeamName(parseTeamsFromMatch(m?.match)[0]) === normalizeTeamName(teamB)
       ),
       away: teamMatches.filter(
-        (m) => parseTeamsFromMatch(m?.match)[1] === teamB
+        (m) => normalizeTeamName(parseTeamsFromMatch(m?.match)[1]) === normalizeTeamName(teamB)
       ),
       all: teamMatches,
     };

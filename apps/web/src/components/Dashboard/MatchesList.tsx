@@ -351,6 +351,9 @@ export default function MatchesList({
       case "cs":
         list.sort(byCSDesc);
         break;
+      case "histWinRate":
+        // Already correctly sorted in useDashboard.ts
+        break;
       case "date":
       default:
         list.sort(byDateAsc);

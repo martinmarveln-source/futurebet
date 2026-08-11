@@ -28,7 +28,10 @@ export const metadata: Metadata = {
     "value betting",
     "soccer predictions",
     "betting analytics",
-    "football algorithm"
+    "football algorithm",
+    "predictive football analytics",
+    "value betting software",
+    "AI betting algorithm"
   ],
   openGraph: {
     title: "Futurebet | AI Football Predictions",
@@ -38,10 +41,10 @@ export const metadata: Metadata = {
     siteName: "Futurebet",
     images: [
       {
-        url: "/favicon.png",
-        width: 512,
-        height: 512,
-        alt: "Futurebet Logo",
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Futurebet AI Predictive Analytics",
       },
     ],
     locale: "en_NG",
@@ -52,7 +55,7 @@ export const metadata: Metadata = {
     title: "Futurebet | AI Football Predictions",
     description:
       "Futurebet provides highly accurate AI football predictions and VIP betting tips.",
-    images: ["/favicon.png"],
+    images: ["/og-image.jpg"],
   },
   icons: {
     icon: "/favicon.png",
