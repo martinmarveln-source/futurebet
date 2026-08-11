@@ -105,6 +105,9 @@ async function verifyCompatiblePassword({
     password,
   });
 }
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const auth = betterAuth({
   database: pool,
@@ -112,9 +115,20 @@ export const auth = betterAuth({
   socialProviders,
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: false,
+    requireEmailVerification: true,
     password: {
       verify: verifyCompatiblePassword,
+    },
+    sendVerificationEmail: async ({ user, url, token }, request) => {
+      await resend.emails.send({
+        from: 'FutureBet <onboarding@resend.dev>',
+        to: user.email,
+        subject: 'Verify your email address - FutureBet',
+        html: `<p>Hi ${user.name || 'there'},</p>
+               <p>Thanks for signing up for FutureBet! Please verify your email by clicking the link below:</p>
+               <p><a href="${url}">Verify my email</a></p>
+               <p>If you didn't request this, you can ignore this email.</p>`,
+      });
     },
   },
   hooks: {

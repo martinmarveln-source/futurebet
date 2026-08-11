@@ -54,6 +54,7 @@ function MainComponent() {
 
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   // Memoized error map (prevents recreation on re-render)
   const errorMessages = useMemo(
@@ -93,8 +94,10 @@ function MainComponent() {
         await signUpWithCredentials({
           ...form,
           callbackUrl: "/",
-          redirect: true,
+          redirect: false,
         });
+        setSuccess(true);
+        setLoading(false);
       } catch (err) {
         setError(
           errorMessages[err.message] ||
@@ -122,8 +125,29 @@ function MainComponent() {
           p-10
         "
       >
-        {/* Header */}
-        <div className="mb-10 text-center">
+        {success ? (
+          <div className="text-center">
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-600">
+              <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-4">Check your email</h1>
+            <p className="text-gray-600 mb-8">
+              We've sent a verification link to <span className="font-semibold text-gray-900">{form.email}</span>. 
+              Please verify your email address to activate your account.
+            </p>
+            <a
+              href="/account/signin"
+              className="inline-block rounded-xl bg-blue-600 px-6 py-3 font-medium text-white shadow-lg transition hover:bg-blue-700"
+            >
+              Go to Sign In
+            </a>
+          </div>
+        ) : (
+          <>
+            {/* Header */}
+            <div className="mb-10 text-center">
           <h1 className="text-4xl font-semibold tracking-tight text-gray-900">
             FutureBet
           </h1>
@@ -207,6 +231,8 @@ function MainComponent() {
             </a>
           </p>
         </form>
+        </>
+        )}
       </div>
     </div>
   );

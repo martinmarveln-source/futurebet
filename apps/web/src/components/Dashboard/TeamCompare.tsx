@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   BookOpen,
   Brain,
+  Info,
   Gauge,
   Activity,
   Swords,
@@ -2262,6 +2263,7 @@ export default function TeamCompare({ darkMode = false }) {
   const [leagueB, setLeagueB] = useState("");
   const [teamB, setTeamB] = useState("");
   const [showGuide, setShowGuide] = useState(false);
+  const [showAlgorithmGuide, setShowAlgorithmGuide] = useState(false);
 
   // Premium Features State
   const [customWeights, setCustomWeights] = useState({
@@ -4448,6 +4450,19 @@ export default function TeamCompare({ darkMode = false }) {
 
                 <div className="flex gap-2">
                   <button
+                    type="button"
+                    onClick={() => setShowAlgorithmGuide((prev) => !prev)}
+                    className={cn(
+                      "flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold transition-all hover:opacity-80 active:scale-95",
+                      darkMode
+                        ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
+                        : "border-amber-200 bg-amber-50 text-amber-700"
+                    )}
+                  >
+                    <Info size={14} />
+                    {showAlgorithmGuide ? "Hide Guide" : "Guide"}
+                  </button>
+                  <button
                     onClick={() => {
                       if (statsA && statsB) {
                         setCustomWeights(calculateOptimalWeights(statsA, statsB));
@@ -4497,6 +4512,29 @@ export default function TeamCompare({ darkMode = false }) {
                   </button>
                 </div>
               </div>
+
+              {/* USAGE GUIDE SECTION */}
+              {showAlgorithmGuide && (
+                <div className={cn(
+                  "mb-8 rounded-2xl border p-5 text-sm",
+                  darkMode ? "border-amber-500/20 bg-amber-500/5 text-gray-300" : "border-amber-200 bg-white text-gray-700"
+                )}>
+                  <h4 className="mb-3 font-bold text-amber-600 dark:text-amber-500 flex items-center gap-2">
+                    <BookOpen size={16} /> How to use the VIP Algorithm
+                  </h4>
+                  <ul className="space-y-3">
+                    <li>
+                      <strong className={darkMode ? "text-white" : "text-gray-900"}>1. Custom DNA Sliders:</strong> Use the sliders below to manually shift the AI's focus. Want to predict a match based purely on recent momentum rather than historical class? Shift the <span className="font-semibold text-amber-500">Form vs Class</span> slider.
+                    </li>
+                    <li>
+                      <strong className={darkMode ? "text-white" : "text-gray-900"}>2. Auto-Tune:</strong> Clicking the <span className="font-semibold text-amber-500"><Sparkles size={12} className="inline mb-0.5" /> Auto-Tune</span> button will automatically analyze the statistical variance between the two teams and assign mathematically optimal weights to the sliders. Use this to find the most distinct differences quickly.
+                    </li>
+                    <li>
+                      <strong className={darkMode ? "text-white" : "text-gray-900"}>3. Monte Carlo Simulator:</strong> Once you are satisfied with the DNA weights, click <span className="font-semibold text-amber-500"><Play size={12} className="inline mb-0.5" /> Run Match Sim</span>. This engine plays out 10,000 virtual matches based entirely on your custom slider configuration to calculate exact win probabilities and expected goals.
+                    </li>
+                  </ul>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 {/* Weight Sliders */}
