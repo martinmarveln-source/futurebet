@@ -61,6 +61,8 @@ function MainComponent() {
       AccessDenied: "You don't have permission to sign in.",
       Configuration: "Sign-in isn't working right now. Please try again later.",
       Verification: "Your sign-in link has expired.",
+      "EMAIL_NOT_VERIFIED": "Please verify your email before signing in.",
+      "Email not verified": "Please verify your email before signing in.",
     }),
     [],
   );
@@ -91,6 +93,7 @@ function MainComponent() {
       } catch (err) {
         setError(
           errorMessages[err.message] ||
+            err.message ||
             "Something went wrong. Please try again.",
         );
         setLoading(false);
