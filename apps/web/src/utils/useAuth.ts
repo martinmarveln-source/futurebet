@@ -1,4 +1,4 @@
-import { signIn, signUp, signOut, sendVerificationEmail } from "@/lib/auth-client";
+import { signIn, signUp, signOut, authClient } from "@/lib/auth-client";
 
 export default function useAuth() {
   return {
@@ -33,7 +33,7 @@ export default function useAuth() {
       if (error) throw new Error(error.message || "EmailCreateAccount");
       
       // Force send the verification email immediately after successful signup
-      await sendVerificationEmail({
+      await authClient.sendVerificationEmail({
         email: credentials.email,
         callbackUrl: credentials.callbackUrl || "/",
       }).catch((err) => {
