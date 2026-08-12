@@ -161,6 +161,35 @@ function deriveMasterOdds(match, market, option) {
   const mkt = String(market).trim();
   const opt = String(option).trim();
 
+  // Try direct odds from sheet first!
+  let directOdds = null;
+  if (mkt === "1X2") {
+    if (opt === "Home") directOdds = match.homeOdds ?? match.home_odds;
+    if (opt === "Draw") directOdds = match.drawOdds ?? match.draw_odds;
+    if (opt === "Away") directOdds = match.awayOdds ?? match.away_odds;
+  } else if (mkt === "BTTS") {
+    if (opt === "Yes") directOdds = match.bttsYesOdds ?? match.btts_yes_odds;
+    if (opt === "No") directOdds = match.bttsNoOdds ?? match.btts_no_odds;
+  } else if (mkt === "Over 2.5" || mkt === "O/U 2.5") {
+    if (opt === "Yes" || opt === "Over 2.5") directOdds = match.o25Odds ?? match.o25_odds;
+    if (opt === "No" || opt === "Under 2.5") directOdds = match.u25Odds ?? match.u25_odds;
+  } else if (mkt === "Over 1.5") {
+    if (opt === "Yes") directOdds = match.o15Odds ?? match.o15_odds;
+    if (opt === "No") directOdds = match.u15Odds ?? match.u15_odds;
+  } else if (mkt === "Over 3.5") {
+    if (opt === "Yes") directOdds = match.o35Odds ?? match.o35_odds;
+    if (opt === "No") directOdds = match.u35Odds ?? match.u35_odds;
+  } else if (mkt === "Over 4.5") {
+    if (opt === "Yes") directOdds = match.o45Odds ?? match.o45_odds;
+    if (opt === "No") directOdds = match.u45Odds ?? match.u45_odds;
+  }
+
+  const dOdds = Number(directOdds);
+  if (Number.isFinite(dOdds) && dOdds > 0) {
+    return Number(dOdds.toFixed(2));
+  }
+
+  // Fallback to converting sheet probabilities to exact odds
   const home = toProbPercent(match.homeWin ?? match.home ?? match.hWin);
   const draw = toProbPercent(match.draw ?? match.hDraw);
   const away = toProbPercent(match.awayWin ?? match.away ?? match.aWin);
@@ -190,64 +219,12 @@ function deriveMasterOdds(match, market, option) {
   } else if (mkt === "Over 1.5") {
     const direct = toProbPercent(match.ov15 ?? match.over15 ?? match.o15);
     if (direct > 0) prob = opt === "Yes" ? direct : 100 - direct;
-    else {
-      const lam = inferLambdaSafely(match, ov25);
-      const p = poissonOverK(lam, 1) * 100;
-      prob = opt === "Yes" ? p : 100 - p;
-    }
   } else if (mkt === "Over 3.5") {
     const direct = toProbPercent(match.ov35 ?? match.over35 ?? match.o35);
     if (direct > 0) prob = opt === "Yes" ? direct : 100 - direct;
-    else {
-      const lam = inferLambdaSafely(match, ov25);
-      const p = poissonOverK(lam, 3) * 100;
-      prob = opt === "Yes" ? p : 100 - p;
-    }
   } else if (mkt === "Over 4.5") {
     const direct = toProbPercent(match.ov45 ?? match.over45 ?? match.o45);
     if (direct > 0) prob = opt === "Yes" ? direct : 100 - direct;
-    else {
-      const lam = inferLambdaSafely(match, ov25);
-      const p = poissonOverK(lam, 4) * 100;
-      prob = opt === "Yes" ? p : 100 - p;
-    }
-  } else if (mkt === "Correct Score") {
-    const key = opt.replace("-", ":");
-    const direct = toProbPercent(match[key]);
-    if (direct > 0) prob = direct;
-    else {
-      const parsed = parseScore(opt);
-      const h = Number(match.hgs),
-        a = Number(match.ags);
-      if (parsed && h > 0 && a > 0) {
-        prob = poissonPMF(parsed[0], h) * poissonPMF(parsed[1], a) * 100;
-      }
-    }
-  }
-
-  if (!prob || prob <= 0) {
-    const P = calculatePoissonMarketProbs(match);
-    if (mkt === "1X2" && opt === "Home") prob = P.home * 100;
-    if (mkt === "1X2" && opt === "Draw") prob = P.draw * 100;
-    if (mkt === "1X2" && opt === "Away") prob = P.away * 100;
-    if (mkt === "Double Chance" && opt === "Home or Draw")
-      prob = (P.home + P.draw) * 100;
-    if (mkt === "Double Chance" && opt === "Home or Away")
-      prob = (P.home + P.away) * 100;
-    if (mkt === "Double Chance" && opt === "Draw or Away")
-      prob = (P.draw + P.away) * 100;
-    if (mkt === "BTTS" && opt === "Yes") prob = P.btts * 100;
-    if (mkt === "BTTS" && opt === "No") prob = (1 - P.btts) * 100;
-    if (
-      (mkt === "Over 2.5" || mkt === "O/U 2.5") &&
-      (opt === "Yes" || opt === "Over 2.5")
-    )
-      prob = P.o25 * 100;
-    if (
-      (mkt === "Over 2.5" || mkt === "O/U 2.5") &&
-      (opt === "No" || opt === "Under 2.5")
-    )
-      prob = (1 - P.o25) * 100;
   }
 
   if (prob && prob > 0) return probToOdds(prob);
@@ -433,12 +410,14 @@ const useBetslipStore = create(
       },
 
       addMatch: (match = {}) => {
+        const incoming = ensureMatchShape(match);
+        if (!incoming.match || incoming.odds === null || incoming.odds === undefined) {
+          console.warn("Blocked match from entering betslip due to missing/invalid odds:", match.match);
+          return false;
+        }
+
         let added = false;
         set((state) => {
-          // 1. Ensure the incoming match has the correct shape
-          const incoming = ensureMatchShape(match);
-          if (!incoming.match) return state;
-
           // 2. Define the unique identifier for this match
           const matchKey = normalizeCompare(incoming.match);
 

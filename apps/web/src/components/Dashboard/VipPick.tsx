@@ -1091,19 +1091,27 @@ export default function VipPick({ darkMode = false }) {
         return;
       }
 
+      if (!p.odds) {
+        showNotice(
+          "⚠️ Exact odds are currently unavailable for this selection. This match cannot be added to the betslip.",
+          "error"
+        );
+        return;
+      }
+
       const ok = addMatch({
         ...p,
         match: p.match,
         fullLeague: p.fullLeague || p.league || "",
         selectedMarket: p.market || "VIP",
         selectedOption: p.pickLabel || "VIP Pick",
-        odds: deriveVipOdds(p),
+        odds: p.odds,
       });
 
       if (!ok) {
         showNotice(
-          `Could not add match. Max ${maxMatches || 20} matches allowed.`,
-          "error",
+          `Could not add match. It may already be in your betslip or the slip is full.`,
+          "error"
         );
         return;
       }

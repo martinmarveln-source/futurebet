@@ -167,6 +167,7 @@ function shapeResult(
         predictedScore: p.predictedScore,
         confidence: p.confidence,
         vipScore: p.vipScore,
+        odds: p.odds, // 🔥 include exact odds in compact payload
         routeLinks: p.routeLinks, // 🔥 Routed links available in compact mode
       }))
     : rawPicks.slice(0, safeLimit);
@@ -474,12 +475,26 @@ function derivePick({
     clamp(top.p * 100 + edge * 12 + (agreement / possibleAgreement) * 4, 0, 97)
   );
 
+  let exactOdds = null;
+  if (top.m === "1X2") {
+    if (top.s === "Home" && home > 0) exactOdds = Number((100 / home).toFixed(2));
+    if (top.s === "Draw" && draw > 0) exactOdds = Number((100 / draw).toFixed(2));
+    if (top.s === "Away" && away > 0) exactOdds = Number((100 / away).toFixed(2));
+  } else if (top.m === "BTTS") {
+    if (top.s === "Yes" && gg > 0) exactOdds = Number((100 / gg).toFixed(2));
+    if (top.s === "No" && gg > 0) exactOdds = Number((100 / (100 - gg)).toFixed(2));
+  } else if (top.m === "O/U 2.5") {
+    if (top.s === "Over 2.5" && ov25 > 0) exactOdds = Number((100 / ov25).toFixed(2));
+    if (top.s === "Under 2.5" && ov25 > 0) exactOdds = Number((100 / (100 - ov25)).toFixed(2));
+  }
+
   return {
     market: top.m,
     selection: top.s,
     pickLabel: top.l,
     predictedScore: predicted,
     confidence,
+    odds: exactOdds,
   };
 }
 

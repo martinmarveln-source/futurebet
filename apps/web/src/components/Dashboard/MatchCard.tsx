@@ -1921,17 +1921,27 @@ export default function MatchCard({
         typeof store?.computeOddsForSelection === "function"
           ? store.computeOddsForSelection(match, market, option)
           : null;
+
+      if (computedOdds === null || computedOdds === undefined) {
+        alert("⚠️ Exact odds are currently unavailable for this selection. This match cannot be added to the betslip.");
+        return;
+      }
+
       const payload = {
         ...match,
         match: match?.match || match?.match_name || match?.matchName,
         league: match?.fullLeague || match?.league || "",
         selectedMarket: market,
         selectedOption: option,
-        odds: computedOdds ?? match?.odds ?? null,
+        odds: computedOdds,
       };
       try {
-        store.addMatch?.(payload);
-        setShowBetslipModal(false);
+        const added = store.addMatch?.(payload);
+        if (added) {
+          setShowBetslipModal(false);
+        } else {
+          alert("Could not add match. It may already be in your betslip.");
+        }
       } catch (e) {
         alert("Could not add match to BetSlip.");
       }

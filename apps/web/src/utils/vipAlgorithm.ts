@@ -198,10 +198,24 @@ export function computeDerivedPickFromStats({
   // 4. Stricter VIP Threshold (0.60 instead of 0.56)
   if (!top || top.p < 0.60) return null;
 
+  let exactOdds = null;
+  if (top.market === "1X2") {
+    if (top.selection === "Home" && homeSheetPct > 0) exactOdds = Number((100 / homeSheetPct).toFixed(2));
+    if (top.selection === "Draw" && drawSheetPct > 0) exactOdds = Number((100 / drawSheetPct).toFixed(2));
+    if (top.selection === "Away" && awaySheetPct > 0) exactOdds = Number((100 / awaySheetPct).toFixed(2));
+  } else if (top.market === "BTTS") {
+    if (top.selection === "Yes" && ggSheetPct > 0) exactOdds = Number((100 / ggSheetPct).toFixed(2));
+    if (top.selection === "No" && ggSheetPct > 0) exactOdds = Number((100 / (100 - ggSheetPct)).toFixed(2));
+  } else if (top.market === "O/U 2.5") {
+    if (top.selection === "Over 2.5" && ov25SheetPct > 0) exactOdds = Number((100 / ov25SheetPct).toFixed(2));
+    if (top.selection === "Under 2.5" && ov25SheetPct > 0) exactOdds = Number((100 / (100 - ov25SheetPct)).toFixed(2));
+  }
+
   return {
     ...top,
     predictedScore,
     confidence: Math.round(top.p * 100),
+    odds: exactOdds,
     model: {
       lambdaH,
       lambdaA,
