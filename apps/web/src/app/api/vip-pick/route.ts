@@ -383,15 +383,22 @@ function derivePick({
     ? blendProbability(probs.away, sheet1X2.away)
     : probs.away;
 
-  const markets = [
-    { m: "O/U 2.5", s: "Over 2.5", l: "Over 2.5", p: pOver },
-    { m: "O/U 2.5", s: "Under 2.5", l: "Under 2.5", p: pUnder },
-    { m: "BTTS", s: "Yes", l: "BTTS — Yes", p: pBttsYes },
-    { m: "BTTS", s: "No", l: "BTTS — No", p: pBttsNo },
-    { m: "1X2", s: "Home", l: "1X2 — Home", p: pHome },
-    { m: "1X2", s: "Draw", l: "1X2 — Draw", p: pDraw },
-    { m: "1X2", s: "Away", l: "1X2 — Away", p: pAway },
-  ].sort((a, b) => b.p - a.p);
+  const markets = [];
+  if (sheetOU !== null) {
+    markets.push({ m: "O/U 2.5", s: "Over 2.5", l: "Over 2.5", p: pOver });
+    markets.push({ m: "O/U 2.5", s: "Under 2.5", l: "Under 2.5", p: pUnder });
+  }
+  if (sheetBTTS !== null) {
+    markets.push({ m: "BTTS", s: "Yes", l: "BTTS — Yes", p: pBttsYes });
+    markets.push({ m: "BTTS", s: "No", l: "BTTS — No", p: pBttsNo });
+  }
+  if (sheet1X2.available) {
+    markets.push({ m: "1X2", s: "Home", l: "1X2 — Home", p: pHome });
+    markets.push({ m: "1X2", s: "Draw", l: "1X2 — Draw", p: pDraw });
+    markets.push({ m: "1X2", s: "Away", l: "1X2 — Away", p: pAway });
+  }
+  
+  markets.sort((a, b) => b.p - a.p);
 
   const top = markets[0];
   const second = markets[1];

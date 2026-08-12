@@ -166,44 +166,30 @@ export function computeDerivedPickFromStats({
   const pDraw = blend(probs.draw, drawSheetPct, 0); // No H2H boost for draws in this logic
   const pAway = blend(probs.away, awaySheetPct, h2hAwayBoost);
 
-  const candidates = [
-    {
-      market: "O/U 2.5",
-      selection: "Over 2.5",
-      pickLabel: "Over 2.5",
-      p: pOver,
-    },
-    {
-      market: "O/U 2.5",
-      selection: "Under 2.5",
-      pickLabel: "Under 2.5",
-      p: 1 - pOver,
-    },
-    { market: "BTTS", selection: "Yes", pickLabel: "BTTS — Yes", p: pBtts },
-    { market: "BTTS", selection: "No", pickLabel: "BTTS — No", p: 1 - pBtts },
-  ];
+  const candidates = [];
 
-  if (pHome >= pAway && pHome >= pDraw) {
-    candidates.push({
-      market: "1X2",
-      selection: "Home",
-      pickLabel: "1X2 — Home",
-      p: pHome,
-    });
-  } else if (pAway >= pHome && pAway >= pDraw) {
-    candidates.push({
-      market: "1X2",
-      selection: "Away",
-      pickLabel: "1X2 — Away",
-      p: pAway,
-    });
-  } else {
-    candidates.push({
-      market: "1X2",
-      selection: "Draw",
-      pickLabel: "1X2 — Draw",
-      p: pDraw,
-    });
+  if (Number.isFinite(ov25SheetPct) && ov25SheetPct > 0) {
+    candidates.push({ market: "O/U 2.5", selection: "Over 2.5", pickLabel: "Over 2.5", p: pOver });
+    candidates.push({ market: "O/U 2.5", selection: "Under 2.5", pickLabel: "Under 2.5", p: 1 - pOver });
+  }
+
+  if (Number.isFinite(ggSheetPct) && ggSheetPct > 0) {
+    candidates.push({ market: "BTTS", selection: "Yes", pickLabel: "BTTS — Yes", p: pBtts });
+    candidates.push({ market: "BTTS", selection: "No", pickLabel: "BTTS — No", p: 1 - pBtts });
+  }
+
+  const has1X2 = (Number.isFinite(homeSheetPct) && homeSheetPct > 0) || 
+                 (Number.isFinite(awaySheetPct) && awaySheetPct > 0) || 
+                 (Number.isFinite(drawSheetPct) && drawSheetPct > 0);
+
+  if (has1X2) {
+    if (pHome >= pAway && pHome >= pDraw) {
+      candidates.push({ market: "1X2", selection: "Home", pickLabel: "1X2 — Home", p: pHome });
+    } else if (pAway >= pHome && pAway >= pDraw) {
+      candidates.push({ market: "1X2", selection: "Away", pickLabel: "1X2 — Away", p: pAway });
+    } else {
+      candidates.push({ market: "1X2", selection: "Draw", pickLabel: "1X2 — Draw", p: pDraw });
+    }
   }
 
   candidates.sort((a, b) => b.p - a.p);
