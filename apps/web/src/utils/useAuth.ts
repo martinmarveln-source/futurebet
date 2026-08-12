@@ -32,14 +32,6 @@ export default function useAuth() {
       });
       if (error) throw new Error(error.message || "EmailCreateAccount");
       
-      // Force send the verification email immediately after successful signup
-      await authClient.sendVerificationEmail({
-        email: credentials.email,
-        callbackUrl: credentials.callbackUrl || "/",
-      }).catch((err) => {
-        console.error("Failed to trigger verification email:", err);
-      });
-
       return data;
     },
     signOut: async (options?: any) => {

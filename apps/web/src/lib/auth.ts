@@ -119,6 +119,9 @@ export const auth = betterAuth({
     password: {
       verify: verifyCompatiblePassword,
     },
+  },
+  emailVerification: {
+    sendOnSignUp: true,
     sendVerificationEmail: async ({ user, url, token }, request) => {
       try {
         console.log(`[AUTH] Attempting to send verification email to ${user.email} from noreply@futurebet.com.ng...`);
