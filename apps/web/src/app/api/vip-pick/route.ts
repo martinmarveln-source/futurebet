@@ -1,5 +1,6 @@
 
 import { auth } from "@/auth";
+import sql from "@/app/api/utils/sql";
 
 export const revalidate = 28800; // 8 hours
 export const dynamic = "force-dynamic";
@@ -556,6 +557,88 @@ function validateHeaders(headers) {
 }
 
 async function buildPicksData() {
+  // 1. Try fetching from the PostgreSQL database cache first
+  try {
+    const todayStr = todayWAT().toISOString().split("T")[0];
+    const rows = await sql`
+      SELECT raw_data FROM matches_cache
+      WHERE match_date = ${todayStr}
+    `;
+
+    if (rows && rows.length > 0) {
+      const picks = [];
+
+      for (let i = 0; i < rows.length; i++) {
+        const match = rows[i].raw_data;
+        if (!match) continue;
+
+        const chance = num(match.chance);
+        const rating = num(match.rating);
+        const baseScore = chance * 0.55 + rating * 0.45;
+
+        if (chance < 64 || rating < 58 || baseScore < 64) continue;
+
+        const derived = derivePick({
+          hgs: num(match.hgs),
+          hgc: num(match.hgc),
+          ags: num(match.ags),
+          agc: num(match.agc),
+          homeForm: match.hForm,
+          awayForm: match.aForm,
+          league: `${match.country} ${match.league}`,
+          ov25: num(match.ov25),
+          gg: num(match.gg),
+          home: num(match.home),
+          draw: num(match.draw),
+          away: num(match.away),
+        });
+
+        if (!derived) continue;
+
+        const vipScore = Math.round(
+          derived.confidence * 0.52 + rating * 0.28 + chance * 0.2
+        );
+
+        const routeLinks = generateBookieRoutes(match.match, derived.market);
+
+        picks.push({
+          id: `vip-db-${i}`,
+          match: match.match,
+          date: match.date,
+          time: match.time,
+          league: `${match.country} • ${match.league}`,
+          ...derived,
+          confidence: derived.confidence,
+          rating,
+          vipScore,
+          routeLinks,
+        });
+      }
+
+      if (picks.length > 0) {
+        picks.sort((a, b) => {
+          if (b.vipScore !== a.vipScore) return b.vipScore - a.vipScore;
+          if (b.confidence !== a.confidence) return b.confidence - a.confidence;
+          return b.rating - a.rating;
+        });
+
+        return {
+          meta: {
+            total: Math.min(picks.length, MAX_OUTPUT_PICKS),
+            source: "database",
+            autoExpire: "midnight",
+            stale: false,
+            generatedAt: new Date().toISOString(),
+          },
+          picks: picks.slice(0, MAX_OUTPUT_PICKS),
+        };
+      }
+    }
+  } catch (err) {
+    console.error("Failed to build VIP picks from DB, falling back to Sheets:", err);
+  }
+
+  // 2. Fallback to Google Sheets directly
   const SHEET_ID = "1vMva92Yesm1YiJeC8_1mBqb2KtTv31ByaCuJK2B9qeY";
   const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Picks`;
 
@@ -631,7 +714,6 @@ async function buildPicksData() {
       derived.confidence * 0.52 + rating * 0.28 + chance * 0.2
     );
 
-    // 🔥 UPGRADE: Inject the Bookmaker Routes directly into the data payload
     const routeLinks = generateBookieRoutes(row[col.homeAway], derived.market);
 
     picks.push({
@@ -644,7 +726,7 @@ async function buildPicksData() {
       confidence: derived.confidence,
       rating,
       vipScore,
-      routeLinks, // <--- Routed links available to frontend BetSlip
+      routeLinks,
     });
   }
 
