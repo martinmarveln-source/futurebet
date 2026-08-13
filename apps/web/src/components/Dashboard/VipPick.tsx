@@ -615,6 +615,10 @@ const VipPickCard = React.memo(function VipPickCard({
                 Fair {p.fairOdds ? p.fairOdds.toFixed(2) : "—"}
               </Pill>
 
+              <Pill darkMode={darkMode} tone={p.odds ? "green" : "gray"}>
+                Odds {p.odds ? p.odds.toFixed(2) : "—"}
+              </Pill>
+
               <Pill darkMode={darkMode} tone="purple">
                 {p.market || "VIP"}
               </Pill>
@@ -1232,6 +1236,7 @@ export default function VipPick({ darkMode = false }) {
         kickoffPassed,
         alreadyAdded,
         fairOdds,
+        odds: p.odds,
         valueLabel,
         compareDisabled,
         hasFormData,
