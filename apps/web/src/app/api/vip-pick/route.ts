@@ -168,7 +168,8 @@ function shapeResult(
         predictedScore: p.predictedScore,
         confidence: p.confidence,
         vipScore: p.vipScore,
-        odds: p.odds, // 🔥 include exact odds in compact payload
+        fairOdds: p.fairOdds, // model-derived probability odds
+        odds: p.odds,         // real bookmaker decimal odds
         routeLinks: p.routeLinks, // 🔥 Routed links available in compact mode
       }))
     : rawPicks.slice(0, safeLimit);
@@ -350,6 +351,14 @@ function derivePick({
   home,
   draw,
   away,
+  // Real bookmaker odds from the sheet/DB odds columns
+  homeOdds = 0,
+  drawOdds = 0,
+  awayOdds = 0,
+  o25Odds = 0,
+  u25Odds = 0,
+  bttsYesOdds = 0,
+  bttsNoOdds = 0,
 }) {
   const { lambdaH: baseH, lambdaA: baseA } = deriveLambdas({
     hgs,
@@ -408,6 +417,45 @@ function derivePick({
 
   if (!top) return null;
 
+  // ── Require real bookmaker odds for the top selection ──────────────────────
+  // Filter out picks that don't have a real market price. We iterate through
+  // markets in probability order and pick the first one with real odds.
+  function realOddsForEntry(entry) {
+    const { m, s } = entry;
+    if (m === "1X2") {
+      if (s === "Home") return homeOdds > 1 ? homeOdds : 0;
+      if (s === "Draw") return drawOdds > 1 ? drawOdds : 0;
+      if (s === "Away") return awayOdds > 1 ? awayOdds : 0;
+    } else if (m === "O/U 2.5") {
+      if (s === "Over 2.5") return o25Odds > 1 ? o25Odds : 0;
+      if (s === "Under 2.5") return u25Odds > 1 ? u25Odds : 0;
+    } else if (m === "BTTS") {
+      if (s === "Yes") return bttsYesOdds > 1 ? bttsYesOdds : 0;
+      if (s === "No") return bttsNoOdds > 1 ? bttsNoOdds : 0;
+    }
+    return 0;
+  }
+
+  // Walk through markets by prob order until we find one with real odds
+  let winnerEntry = null;
+  let realOddsValue = 0;
+  for (const entry of markets) {
+    const o = realOddsForEntry(entry);
+    if (o > 0) {
+      winnerEntry = entry;
+      realOddsValue = o;
+      break;
+    }
+  }
+
+  // If no market has real odds, discard this pick entirely
+  if (!winnerEntry || realOddsValue <= 0) return null;
+
+  // Use the best entry that has real odds
+  const chosen = winnerEntry;
+  const chosenSecond = markets.find((e) => e !== chosen);
+  const chosenEdge = chosenSecond ? chosen.p - chosenSecond.p : chosen.p;
+
   const model1X2Top = topKey({
     Home: probs.home,
     Draw: probs.draw,
@@ -428,74 +476,65 @@ function derivePick({
   let agreement = 0;
   let possibleAgreement = 1;
 
-  if (top.m === "1X2") {
-    if (top.s === model1X2Top) agreement++;
+  if (chosen.m === "1X2") {
+    if (chosen.s === model1X2Top) agreement++;
     if (sheet1X2Top) {
       possibleAgreement++;
-      if (top.s === sheet1X2Top) agreement++;
+      if (chosen.s === sheet1X2Top) agreement++;
     }
-  } else if (top.m === "O/U 2.5") {
-    if (top.s === modelOUTop) agreement++;
+  } else if (chosen.m === "O/U 2.5") {
+    if (chosen.s === modelOUTop) agreement++;
     if (sheetOUTop) {
       possibleAgreement++;
-      if (top.s === sheetOUTop) agreement++;
+      if (chosen.s === sheetOUTop) agreement++;
     }
-  } else if (top.m === "BTTS") {
-    if (top.s === modelBTTSTop) agreement++;
+  } else if (chosen.m === "BTTS") {
+    if (chosen.s === modelBTTSTop) agreement++;
     if (sheetBTTSTop) {
       possibleAgreement++;
-      if (top.s === sheetBTTSTop) agreement++;
+      if (chosen.s === sheetBTTSTop) agreement++;
     }
   }
 
   const totalLambda = lambdaH + lambdaA;
   let minProb = 0.6;
-  let minEdge = top.m === "1X2" ? 0.05 : 0.04;
+  let minEdge = chosen.m === "1X2" ? 0.05 : 0.04;
 
   if (agreement === possibleAgreement) minProb = 0.57;
   else if (agreement === 0 && possibleAgreement > 1) minProb = 0.64;
 
-  if (top.m === "1X2") minProb += 0.02;
-  if (top.s === "Draw") {
+  if (chosen.m === "1X2") minProb += 0.02;
+  if (chosen.s === "Draw") {
     minProb += 0.03;
     minEdge = 0.07;
   }
 
   if (
-    (top.s === "Over 2.5" && totalLambda < 2.35) ||
-    (top.s === "Under 2.5" && totalLambda > 2.95) ||
-    (top.m === "BTTS" && top.s === "Yes" && totalLambda < 2.25) ||
-    (top.m === "BTTS" && top.s === "No" && totalLambda > 3.05)
+    (chosen.s === "Over 2.5" && totalLambda < 2.35) ||
+    (chosen.s === "Under 2.5" && totalLambda > 2.95) ||
+    (chosen.m === "BTTS" && chosen.s === "Yes" && totalLambda < 2.25) ||
+    (chosen.m === "BTTS" && chosen.s === "No" && totalLambda > 3.05)
   ) {
     minProb += 0.03;
   }
 
-  if (top.p < minProb || edge < minEdge) return null;
+  if (chosen.p < minProb || chosenEdge < minEdge) return null;
 
   const confidence = Math.round(
-    clamp(top.p * 100 + edge * 12 + (agreement / possibleAgreement) * 4, 0, 97)
+    clamp(chosen.p * 100 + chosenEdge * 12 + (agreement / possibleAgreement) * 4, 0, 97)
   );
 
-  let exactOdds = null;
-  if (top.m === "1X2") {
-    if (top.s === "Home" && home > 0) exactOdds = Number((100 / home).toFixed(2));
-    if (top.s === "Draw" && draw > 0) exactOdds = Number((100 / draw).toFixed(2));
-    if (top.s === "Away" && away > 0) exactOdds = Number((100 / away).toFixed(2));
-  } else if (top.m === "BTTS") {
-    if (top.s === "Yes" && gg > 0) exactOdds = Number((100 / gg).toFixed(2));
-    if (top.s === "No" && gg > 0) exactOdds = Number((100 / (100 - gg)).toFixed(2));
-  } else if (top.m === "O/U 2.5") {
-    if (top.s === "Over 2.5" && ov25 > 0) exactOdds = Number((100 / ov25).toFixed(2));
-    if (top.s === "Under 2.5" && ov25 > 0) exactOdds = Number((100 / (100 - ov25)).toFixed(2));
-  }
+  // Fair (model-derived) odds from the top probability
+  const fairOdds = Number((1 / chosen.p).toFixed(2));
 
   return {
-    market: top.m,
-    selection: top.s,
-    pickLabel: top.l,
+    market: chosen.m,
+    selection: chosen.s,
+    pickLabel: chosen.l,
     predictedScore: predicted,
     confidence,
-    odds: exactOdds,
+    fairOdds,          // model-computed probability → decimal odds
+    odds: Number(realOddsValue.toFixed(2)), // real bookmaker decimal odds
   };
 }
 
@@ -578,6 +617,9 @@ async function buildPicksData() {
 
         if (chance < 64 || rating < 58 || baseScore < 64) continue;
 
+        // Raw data keys mirror the COL map in sync-matches/route.ts.
+        // The sheet stores decimal odds in Home_Odds / Draw_Odds / Away_Odds
+        // etc. (indices 82-94). raw_data serialises all keys as-is.
         const derived = derivePick({
           hgs: num(match.hgs),
           hgc: num(match.hgc),
@@ -591,6 +633,14 @@ async function buildPicksData() {
           home: num(match.home),
           draw: num(match.draw),
           away: num(match.away),
+          // Real bookmaker decimal odds
+          homeOdds: num(match.homeOdds ?? match["Home_Odds"]),
+          drawOdds: num(match.drawOdds ?? match["Draw_Odds"]),
+          awayOdds: num(match.awayOdds ?? match["Away_Odds"]),
+          o25Odds: num(match.o25Odds ?? match["O2.5_odds"]),
+          u25Odds: num(match.u25Odds ?? match["U2.5_odds"]),
+          bttsYesOdds: 0, // not present in current sheet; future-proofed
+          bttsNoOdds: 0,
         });
 
         if (!derived) continue;
@@ -675,6 +725,12 @@ async function buildPicksData() {
     home: headers["HOME"],
     draw: headers["DRAW"],
     away: headers["AWAY"],
+    // Real bookmaker decimal odds columns (confirmed indices 82-90)
+    homeOdds: 82,
+    drawOdds: 83,
+    awayOdds: 84,
+    o25Odds: 89,
+    u25Odds: 90,
   };
 
   const today = todayWAT();
@@ -706,6 +762,14 @@ async function buildPicksData() {
       home: num(row[col.home]),
       draw: num(row[col.draw]),
       away: num(row[col.away]),
+      // Real bookmaker decimal odds
+      homeOdds: num(row[col.homeOdds]),
+      drawOdds: num(row[col.drawOdds]),
+      awayOdds: num(row[col.awayOdds]),
+      o25Odds: num(row[col.o25Odds]),
+      u25Odds: num(row[col.u25Odds]),
+      bttsYesOdds: 0,
+      bttsNoOdds: 0,
     });
 
     if (!derived) continue;

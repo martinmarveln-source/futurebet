@@ -1108,7 +1108,9 @@ export default function VipPick({ darkMode = false }) {
         match: p.match,
         fullLeague: p.fullLeague || p.league || "",
         selectedMarket: p.market || "VIP",
-        selectedOption: p.pickLabel || "VIP Pick",
+        // Use p.selection ("Home" / "Draw" / "Away" / "Over 2.5" / "Yes" etc.)
+        // so deriveMasterOdds in the betslip store can look up the correct odds column.
+        selectedOption: p.selection || p.pickLabel || "VIP Pick",
         odds: p.odds,
       });
 
@@ -1156,7 +1158,6 @@ export default function VipPick({ darkMode = false }) {
       const rating = pct(p?.rating);
       const vipScore =
         pct(p?.vipScore) || Math.round(chance * 0.55 + rating * 0.45);
-      const fairOdds = oddsFromProbPercent(chance);
       const valueLabel = valueTag(vipScore);
       const matchLabel = String(p?.match || "").trim();
 
@@ -1205,6 +1206,11 @@ export default function VipPick({ darkMode = false }) {
           : Boolean(p?.marketSignal),
       );
 
+      const fairOdds =
+        // Prefer the server-computed fairOdds (probability → decimal) if available
+        (Number(p?.fairOdds) > 1 ? Number(p.fairOdds) : null) ??
+        oddsFromProbPercent(chance);
+
       return {
         id: p.id || `vip-${idx}`,
         raw: p,
@@ -1221,6 +1227,7 @@ export default function VipPick({ darkMode = false }) {
         date: p.date,
         time: p.time,
         market: p.market,
+        selection: p.selection,
         pickLabel: p.pickLabel,
         predictedScore: p.predictedScore,
         chance,
