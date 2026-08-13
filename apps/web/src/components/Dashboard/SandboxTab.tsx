@@ -50,7 +50,14 @@ export function useMlArchive() {
         throw new Error("Failed to fetch archive data");
       }
 
-      return response.json();
+      const data = await response.json();
+      if (data && data.code === "PREMIUM_REQUIRED") {
+        const err: any = new Error(data.error || "PREMIUM_REQUIRED");
+        err.code = "PREMIUM_REQUIRED";
+        throw err;
+      }
+
+      return data;
     },
     staleTime: 0,
     gcTime: 0,

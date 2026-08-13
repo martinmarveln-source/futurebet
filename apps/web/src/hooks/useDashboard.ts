@@ -91,7 +91,11 @@ export default function useDashboard() {
         return [];
       }
       if (!response.ok) throw new Error("Failed to fetch archive data");
-      return response.json();
+      const res = await response.json();
+      if (res && res.code === "PREMIUM_REQUIRED") {
+        return [];
+      }
+      return res;
     },
     staleTime: 1000 * 60 * 30, // 30 min cache
     gcTime: 1000 * 60 * 60, // 1 hour gc

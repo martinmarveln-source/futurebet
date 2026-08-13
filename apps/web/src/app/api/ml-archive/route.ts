@@ -38,14 +38,14 @@ export async function GET(request: Request) {
 
       if (!isAdmin && !isPremium) {
         return NextResponse.json(
-          { error: "Premium or Silver access required" },
-          { status: 403 }
+          { error: "Premium or Silver access required", code: "PREMIUM_REQUIRED" },
+          { status: 200 }
         );
       }
     } else {
       return NextResponse.json(
-        { error: "Premium access required" },
-        { status: 403 }
+        { error: "Premium access required", code: "PREMIUM_REQUIRED" },
+        { status: 200 }
       );
     }
 
