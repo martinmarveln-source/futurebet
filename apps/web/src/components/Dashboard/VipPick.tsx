@@ -580,6 +580,7 @@ const VipPickCard = React.memo(function VipPickCard({
   disabled,
   kickoffPassed,
   alreadyAdded,
+  noRealOdds,
   msRating,
   maxMatches,
   compareDisabled,
@@ -690,17 +691,20 @@ const VipPickCard = React.memo(function VipPickCard({
                 onClick={() => onAdd(p.raw)}
                 disabled={disabled}
                 title={
-                  kickoffPassed
-                    ? "Kickoff time passed"
-                    : alreadyAdded
-                      ? "Already in BetSlip"
-                      : `Add to Betslip (max ${maxMatches || 20})`
+                  noRealOdds
+                    ? "No real odds available — cannot add to betslip"
+                    : kickoffPassed
+                      ? "Kickoff time passed"
+                      : alreadyAdded
+                        ? "Already in BetSlip"
+                        : `Add to Betslip (max ${maxMatches || 20})`
                 }
                 className={cn(
-                  kickoffPassed &&
+                  (kickoffPassed || noRealOdds) &&
                     "pointer-events-none grayscale blur-[1.1px] opacity-55",
                   alreadyAdded &&
                     !kickoffPassed &&
+                    !noRealOdds &&
                     "bg-emerald-600 hover:from-emerald-600 hover:to-emerald-600",
                 )}
               >
@@ -708,6 +712,11 @@ const VipPickCard = React.memo(function VipPickCard({
                   <>
                     <Lock size={16} />
                     Locked
+                  </>
+                ) : noRealOdds ? (
+                  <>
+                    <Lock size={16} />
+                    No Odds
                   </>
                 ) : alreadyAdded ? (
                   <>
@@ -1933,7 +1942,8 @@ export default function VipPick({ darkMode = false }) {
       ) : (
         <div className="space-y-4">
           {picksVM.map((p) => {
-            const disabled = p.kickoffPassed || p.alreadyAdded || betslipFull;
+            const noRealOdds = !p.odds || Number(p.odds) < 1.35;
+            const disabled = noRealOdds || p.kickoffPassed || p.alreadyAdded || betslipFull;
 
             return (
               <VipPickCard
@@ -1947,6 +1957,7 @@ export default function VipPick({ darkMode = false }) {
                 disabled={disabled}
                 kickoffPassed={p.kickoffPassed}
                 alreadyAdded={p.alreadyAdded}
+                noRealOdds={!p.odds || Number(p.odds) < 1.35}
                 msRating={p.msRating}
                 maxMatches={maxMatches}
                 compareDisabled={p.compareDisabled}
