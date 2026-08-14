@@ -187,87 +187,80 @@ function computeMarketSignal({ market, selection, vals }) {
    CORE BUILD FUNCTION
 ========================= */
 async function buildPicksData(minChance, minRating, minRecents) {
-  const SHEET_ID = "1vMva92Yesm1YiJeC8_1mBqb2KtTv31ByaCuJK2B9qeY";
-  const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Picks`;
+  // Query matches_cache for data synced by the cron job
+  const { rows: dbRows } = await sql`
+    SELECT raw_data FROM matches_cache
+  `;
 
-  // Internal fetch still bypasses Next.js cache so the server gets fresh data,
-  // but the user only hits our RAM cache.
-  const res = await fetch(CSV_URL, { cache: "no-store" });
-  if (!res.ok) throw new Error("Failed to fetch Google Sheet");
-
-  const text = await res.text();
-  const table = parseCSV(text);
-  if (!table.length || table.length < 2)
+  if (!dbRows || dbRows.length === 0) {
     return { meta: { total: 0 }, picks: [] };
+  }
 
-  const headerRow = table[0];
-  const headerMap = {};
-  headerRow.forEach((h, i) => {
-    headerMap[normalizeHeader(h)] = i;
-  });
+  const table = dbRows.map(r => r.raw_data);
 
+  // Map to the keys used in sync-matches raw_data
   const col = {
-    date: headerMap["DATE"],
-    homeAway: headerMap["HOME/AWAY"],
-    time: headerMap["TIME"],
-    country: headerMap["COUNTRY"],
-    league: headerMap["LEAGUE"],
-    table: headerMap["TABLE"],
-    chance: headerMap["CHANCE"],
-    rating: headerMap["RATING"],
-    hRecent: headerMap["H-RECENT"],
-    aRecent: headerMap["A-RECENT"],
-    hForm: headerMap["H-FORM"],
-    aForm: headerMap["A-FORM"],
-    hGrp: headerMap["H GRP"],
-    aGrp: headerMap["A GRP"],
-    hgs: headerMap["H GS"],
-    hgc: headerMap["HG C"],
-    ags: headerMap["A GS"],
-    agc: headerMap["A GC"],
-    ov25: headerMap["OV 2.5"],
-    gg: headerMap["GG"],
-    home: headerMap["HOME"],
-    draw: headerMap["DRAW"],
-    away: headerMap["AWAY"],
-    hBtts: headerMap["H BTTS"],
-    aBtts: headerMap["A BTTS"],
-    hOv2: headerMap["H OV 2"],
-    aOv2: headerMap["A OV 2"],
-    hWin: headerMap["H.WIN"],
-    hDraw: headerMap["H.DRAW"],
-    hLost: headerMap["H.LOST"],
-    aWin: headerMap["A.WIN"],
-    aDraw: headerMap["A.DRAW"],
-    aLost: headerMap["A.LOST"],
-    hppg: headerMap["HPPG"],
-    appg: headerMap["APPG"],
-    hcs: headerMap["H-CS"],
-    acs: headerMap["A-CS"],
-    hfts: headerMap["HFTS"],
-    afts: headerMap["AFTS"],
-    hgsOver15: headerMap["HGS_OVER_1.5"],
-    hgcOver15: headerMap["HGC_OVER_1.5"],
-    agsOver15: headerMap["AGS_OVER_1.5"],
-    agcOver15: headerMap["AGC_OVER_1.5"],
-    h2hH: headerMap["H2H_H"],
-    h2hD: headerMap["H2H_D"],
-    h2hA: headerMap["H2H_A"],
-    h2hOv: headerMap["H2H_OV"],
-    h2hUn: headerMap["H2H_UN"],
-    h2hGg: headerMap["H2H_GG"],
-    h2hNg: headerMap["H2H_NG"],
-    h2hGp: headerMap["H2H_GP"],
-    h2hRecent: headerMap["H2H-RECENT"],
-    flag: headerMap["FLAG"],
+    date: "date",
+    homeAway: "match",
+    time: "time",
+    country: "country",
+    league: "league",
+    table: "table",
+    chance: "chance",
+    rating: "rating",
+    hRecent: "hRecent",
+    aRecent: "aRecent",
+    hForm: "hForm",
+    aForm: "aForm",
+    hGrp: "hGrp",
+    aGrp: "aGrp",
+    hgs: "hgs",
+    hgc: "hgc",
+    ags: "ags",
+    agc: "agc",
+    ov25: "ov25",
+    gg: "gg",
+    home: "homeWin",
+    draw: "draw",
+    away: "awayWin",
+    hBtts: "hBtts",
+    aBtts: "aBtts",
+    hOv2: "hOv2",
+    aOv2: "aOv2",
+    hWin: "hWin",
+    hDraw: "hDraw",
+    hLost: "hLost",
+    aWin: "aWin",
+    aDraw: "aDraw",
+    aLost: "aLost",
+    hppg: "hppg",
+    appg: "appg",
+    hcs: "hcs",
+    acs: "acs",
+    hfts: "hfts",
+    afts: "afts",
+    hgsOver15: "hgsOver15",
+    hgcOver15: "hgcOver15",
+    agsOver15: "agsOver15",
+    agcOver15: "agcOver15",
+    h2hH: "h2hH",
+    h2hD: "h2hD",
+    h2hA: "h2hA",
+    h2hOv: "h2hOV",
+    h2hUn: "h2hUN",
+    h2hGg: "h2hGG",
+    h2hNg: "h2hNG",
+    h2hGp: "h2hGP",
+    h2hRecent: "h2hRecent",
+    flag: "flag",
   };
 
-  const val = (r, index) => (index === undefined ? "" : r[index] ?? "");
+  const val = (r, key) => (key === undefined ? "" : r[key] ?? "");
   const picks = [];
 
-  for (let i = 1; i < table.length; i++) {
+  for (let i = 0; i < table.length; i++) {
     const r = table[i];
-    if (!r || r.length < 10) continue;
+    if (!r) continue;
 
     const dateStr = val(r, col.date);
     const d = parseSheetDateToThisYear(dateStr);

@@ -883,70 +883,29 @@ async function fetchMatchesFromSheet(includeAll = false) {
           source: "database",
         },
       };
+    } else {
+      return {
+        matches: [],
+        summary: {
+          total: 0,
+          valid: 0,
+          message: "No matches found in database.",
+          source: "database",
+        },
+      };
     }
-  } catch (dbErr) {
-    console.warn("DB fetch failed, falling back to live sheet:", dbErr);
-  }
-
-  // Fallback: fetch live from Google Sheets
-  const sheetsUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${SHEET_NAME}`;
-
-  const response = await fetch(sheetsUrl, {
-    next: { revalidate: 3600 },
-  });
-
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch Google Sheets data. Status: ${response.status}`,
-    );
-  }
-
-  const csvText = await response.text();
-  const rows = parseCsv(csvText);
-
-  if (!rows.length) {
+  } catch (dbErr: any) {
+    console.error("DB fetch failed:", dbErr.message);
     return {
       matches: [],
       summary: {
         total: 0,
         valid: 0,
-        message: "No data found in sheet",
+        message: "Failed to fetch matches from database.",
+        source: "database",
       },
     };
   }
-
-  const dataRows = rows.slice(1);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const matches = [];
-
-  for (const row of dataRows) {
-    if (!row[COLUMNS.date] || !row[COLUMNS.match]) continue;
-
-    const parsedDate = parseDate(row[COLUMNS.date]);
-
-    if (!includeAll) {
-      if (!parsedDate || parsedDate < today) continue;
-    }
-
-    matches.push(mapSheetRowToMatch(row));
-  }
-
-  const summary = {
-    total: dataRows.length,
-    valid: matches.length,
-    message:
-      matches.length > 0
-        ? `Fetched ${dataRows.length} rows, ${matches.length} valid matches after parsing & filters.`
-        : "⚠️ No upcoming matches found.",
-    source: "live",
-  };
-
-  return {
-    matches: sortMatchesByDateAsc(matches),
-    summary,
-  };
 }
 
 

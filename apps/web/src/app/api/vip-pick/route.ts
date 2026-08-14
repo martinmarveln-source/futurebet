@@ -690,131 +690,19 @@ async function buildPicksData() {
         };
       }
     }
-  } catch (err) {
-    console.error("Failed to build VIP picks from DB, falling back to Sheets:", err);
+  } catch (err: any) {
+    console.error("Failed to build VIP picks from DB:", err.message);
   }
-
-  // 2. Fallback to Google Sheets directly
-  const SHEET_ID = "1vMva92Yesm1YiJeC8_1mBqb2KtTv31ByaCuJK2B9qeY";
-  const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Picks`;
-
-  const text = await fetchSheetCSV(CSV_URL);
-  const table = parseCSV(text);
-
-  if (!Array.isArray(table) || table.length < 2 || !Array.isArray(table[0])) {
-    throw new Error("INVALID_CSV_TABLE");
-  }
-
-  const headers = {};
-  table[0].forEach((h, i) => {
-    headers[normalizeHeader(h)] = i;
-  });
-
-  validateHeaders(headers);
-
-  const col = {
-    date: headers["DATE"],
-    homeAway: headers["HOME/AWAY"],
-    time: headers["TIME"],
-    country: headers["COUNTRY"],
-    league: headers["LEAGUE"],
-    chance: headers["CHANCE"],
-    rating: headers["RATING"],
-    hgs: headers["H GS"],
-    hgc: headers["HG C"],
-    ags: headers["A GS"],
-    agc: headers["A GC"],
-    hForm: headers["H-FORM"],
-    aForm: headers["A-FORM"],
-    ov25: headers["OV 2.5"],
-    gg: headers["GG"],
-    home: headers["HOME"],
-    draw: headers["DRAW"],
-    away: headers["AWAY"],
-    // Real bookmaker decimal odds columns (confirmed indices 82-90)
-    homeOdds: 82,
-    drawOdds: 83,
-    awayOdds: 84,
-    o25Odds: 89,
-    u25Odds: 90,
-  };
-
-  const today = todayWAT();
-  const picks = [];
-
-  for (let i = 1; i < table.length; i++) {
-    const row = table[i];
-    if (!row || !row.length) continue;
-
-    const d = parseSheetDate(row[col.date]);
-    if (!sameDay(d, today)) continue;
-
-    const chance = num(row[col.chance]);
-    const rating = num(row[col.rating]);
-    const baseScore = chance * 0.55 + rating * 0.45;
-
-    if (chance < 64 || rating < 58 || baseScore < 64) continue;
-
-    const derived = derivePick({
-      hgs: num(row[col.hgs]),
-      hgc: num(row[col.hgc]),
-      ags: num(row[col.ags]),
-      agc: num(row[col.agc]),
-      homeForm: row[col.hForm],
-      awayForm: row[col.aForm],
-      league: `${row[col.country]} ${row[col.league]}`,
-      ov25: num(row[col.ov25]),
-      gg: num(row[col.gg]),
-      home: num(row[col.home]),
-      draw: num(row[col.draw]),
-      away: num(row[col.away]),
-      // Real bookmaker decimal odds
-      homeOdds: num(row[col.homeOdds]),
-      drawOdds: num(row[col.drawOdds]),
-      awayOdds: num(row[col.awayOdds]),
-      o25Odds: num(row[col.o25Odds]),
-      u25Odds: num(row[col.u25Odds]),
-      bttsYesOdds: 0,
-      bttsNoOdds: 0,
-    });
-
-    if (!derived) continue;
-
-    const vipScore = Math.round(
-      derived.confidence * 0.52 + rating * 0.28 + chance * 0.2
-    );
-
-    const routeLinks = generateBookieRoutes(row[col.homeAway], derived.market);
-
-    picks.push({
-      id: `vip-${i}`,
-      match: row[col.homeAway],
-      date: row[col.date],
-      time: row[col.time],
-      league: `${row[col.country]} • ${row[col.league]}`,
-      ...derived,
-      confidence: derived.confidence,
-      rating,
-      vipScore,
-      routeLinks,
-    });
-  }
-
-  picks.sort((a, b) => {
-    if (b.vipScore !== a.vipScore) return b.vipScore - a.vipScore;
-    if (b.confidence !== a.confidence) return b.confidence - a.confidence;
-    return b.rating - a.rating;
-  });
 
   return {
     meta: {
-      total: Math.min(picks.length, MAX_OUTPUT_PICKS),
-      source: "google-sheets",
+      total: 0,
+      source: "database",
       autoExpire: "midnight",
       stale: false,
       generatedAt: new Date().toISOString(),
     },
-    picks: picks.slice(0, MAX_OUTPUT_PICKS),
+    picks: [],
   };
 }
 
