@@ -18,7 +18,7 @@
     },
     {
       "path": "/api/cron/sync-live-odds",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 */4 * * *"
     }
   ]
 }
