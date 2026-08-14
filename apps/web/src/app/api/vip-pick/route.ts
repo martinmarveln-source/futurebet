@@ -12,7 +12,7 @@ let CACHE = null;
 let CACHE_TIME = 0;
 let INFLIGHT = null;
 
-const CACHE_TTL = 1000 * 60 * 60 * 8; // 8 hours
+const CACHE_TTL = 1000 * 60 * 60 * 4; // 4 hours (reduced from 8h to limit stale window)
 const STALE_CACHE_TTL = 1000 * 60 * 60 * 24; // 24 hours stale fallback
 const FETCH_TIMEOUT = 7000;
 const FETCH_RETRIES = 2;
@@ -618,8 +618,9 @@ async function buildPicksData() {
         if (chance < 64 || rating < 58 || baseScore < 64) continue;
 
         // Raw data keys mirror the COL map in sync-matches/route.ts.
-        // The sheet stores decimal odds in Home_Odds / Draw_Odds / Away_Odds
-        // etc. (indices 82-94). raw_data serialises all keys as-is.
+        // Keys: homeWin (col 5), draw (col 6), awayWin (col 7)
+        // Odds: homeOdds (col 82), drawOdds (col 83), awayOdds (col 84)
+        //        o25Odds (col 89), u25Odds (col 90)
         const derived = derivePick({
           hgs: num(match.hgs),
           hgc: num(match.hgc),
@@ -630,16 +631,17 @@ async function buildPicksData() {
           league: `${match.country} ${match.league}`,
           ov25: num(match.ov25),
           gg: num(match.gg),
-          home: num(match.home),
+          // Probability % signals: homeWin/awayWin are the correct keys
+          home: num(match.homeWin ?? match.home),
           draw: num(match.draw),
-          away: num(match.away),
-          // Real bookmaker decimal odds
-          homeOdds: num(match.homeOdds ?? match["Home_Odds"]),
-          drawOdds: num(match.drawOdds ?? match["Draw_Odds"]),
-          awayOdds: num(match.awayOdds ?? match["Away_Odds"]),
-          o25Odds: num(match.o25Odds ?? match["O2.5_odds"]),
-          u25Odds: num(match.u25Odds ?? match["U2.5_odds"]),
-          bttsYesOdds: 0, // not present in current sheet; future-proofed
+          away: num(match.awayWin ?? match.away),
+          // Real bookmaker decimal odds from cols 82-90
+          homeOdds: num(match.homeOdds),
+          drawOdds: num(match.drawOdds),
+          awayOdds: num(match.awayOdds),
+          o25Odds: num(match.o25Odds),
+          u25Odds: num(match.u25Odds),
+          bttsYesOdds: 0,
           bttsNoOdds: 0,
         });
 
@@ -649,11 +651,13 @@ async function buildPicksData() {
           derived.confidence * 0.52 + rating * 0.28 + chance * 0.2
         );
 
-        const routeLinks = generateBookieRoutes(match.match, derived.market);
+        // match label: COL.match key is 'match', matchLabel key is 'matchLabel'
+        const matchName = match.matchLabel || match.match || "";
+        const routeLinks = generateBookieRoutes(matchName, derived.market);
 
         picks.push({
           id: `vip-db-${i}`,
-          match: match.match,
+          match: matchName,
           date: match.date,
           time: match.time,
           league: `${match.country} • ${match.league}`,
@@ -852,6 +856,15 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   // Ensure only premium/admin users can ask for full premium data
   const premium = isPremiumOrAdmin ? (url.searchParams.get("premium") === "1") : false;
+
+  // Allow admin/premium users to force cache invalidation
+  const bust = isPremiumOrAdmin && url.searchParams.get("bust") === "1";
+  if (bust) {
+    CACHE = null;
+    CACHE_TIME = 0;
+    INFLIGHT = null;
+    console.log("[vip-pick] Cache manually busted by", session.user.email);
+  }
   
   const compact =
     url.searchParams.get("lite") === "1" ||
