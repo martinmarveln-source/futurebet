@@ -436,20 +436,22 @@ function derivePick({
     return 0;
   }
 
-  // Walk through markets by prob order until we find one with real odds
+  // Walk through markets by prob order until we find one with real odds >= 1.35
+  const MIN_REAL_ODDS = 1.35;
   let winnerEntry = null;
   let realOddsValue = 0;
   for (const entry of markets) {
     const o = realOddsForEntry(entry);
-    if (o > 0) {
+    if (o >= MIN_REAL_ODDS) {
       winnerEntry = entry;
       realOddsValue = o;
       break;
     }
   }
 
-  // If no market has real odds, discard this pick entirely
-  if (!winnerEntry || realOddsValue <= 0) return null;
+  // If no market has real odds meeting the minimum, discard this pick entirely
+  if (!winnerEntry || realOddsValue < MIN_REAL_ODDS) return null;
+
 
   // Use the best entry that has real odds
   const chosen = winnerEntry;
