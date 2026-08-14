@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import sql from "../../utils/sql";
 import webpush from "web-push";
+import { getOddsForPick } from "../../utils/oddsMath";
 
 // Configure web-push with VAPID keys from environment variables
 const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
@@ -71,6 +72,10 @@ export async function GET(request: Request) {
     const nowWATMinutes = nowUTC.getUTCHours() * 60 + nowUTC.getUTCMinutes() + 60;
 
     const matches = rawMatches.filter((m) => {
+      // Must have valid odds to trigger a push alert
+      const odds = getOddsForPick(m.raw_data, m.guide);
+      if (odds <= 1.01) return false;
+
       if (!m.match_time) return true;
       const parts = String(m.match_time).split(":");
       const kickoffWATMinutes = parseInt(parts[0] ?? "0", 10) * 60 + parseInt(parts[1] ?? "0", 10);
@@ -85,7 +90,8 @@ export async function GET(request: Request) {
     // 2. Format the push payload (pick the top upcoming match)
     const bestMatch = matches[0];
     const pickLabel = bestMatch.guide;
-    const bodyText = `${bestMatch.home_team} vs ${bestMatch.away_team}\nPick: ${pickLabel} (${bestMatch.chance}% Confidence)\nUpcoming top picks: ${matches.length}`;
+    const bestOdds = getOddsForPick(bestMatch.raw_data, pickLabel);
+    const bodyText = `${bestMatch.home_team} vs ${bestMatch.away_team}\nPick: ${pickLabel} (${bestOdds.toFixed(2)} Odds | ${bestMatch.chance}% Conf)\nUpcoming top picks: ${matches.length}`;
     
     const payload = JSON.stringify({
       title: "🔥 High-Value Picks Detected!",

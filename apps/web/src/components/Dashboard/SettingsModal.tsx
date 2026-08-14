@@ -122,6 +122,7 @@ export default function SettingsModal({
   const [alertSendTime, setAlertSendTime] = useState("08:00");
   const [alertMinChance, setAlertMinChance] = useState(60);
   const [alertMinRating, setAlertMinRating] = useState(50);
+  const [alertMinOdds, setAlertMinOdds] = useState(1.0);
   const [alertMinHistRate, setAlertMinHistRate] = useState(0);
   const [alertMarkets, setAlertMarkets] = useState(["homeWin", "draw", "awayWin"]);
   const [alertPickType, setAlertPickType] = useState("all");
@@ -143,6 +144,7 @@ export default function SettingsModal({
     setAlertSendTime(preferences.alert_send_time ?? "08:00");
     setAlertMinChance(Number(preferences.alert_min_chance ?? 60));
     setAlertMinRating(Number(preferences.alert_min_rating ?? 50));
+    setAlertMinOdds(Number(preferences.alert_min_odds ?? 1.0));
     setAlertMinHistRate(Number(preferences.alert_min_hist_rate ?? 0));
     setAlertMarkets(preferences.alert_markets ?? ["homeWin", "draw", "awayWin"]);
     setAlertPickType(preferences.alert_pick_type ?? "all");
@@ -206,6 +208,7 @@ export default function SettingsModal({
       alert_send_time: alertSendTime,
       alert_min_chance: alertMinChance,
       alert_min_rating: alertMinRating,
+      alert_min_odds: alertMinOdds,
       alert_min_hist_rate: alertMinHistRate,
       alert_markets: alertMarkets,
       alert_pick_type: alertPickType,
@@ -532,6 +535,26 @@ export default function SettingsModal({
                   >
                     {[0, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90].map((val) => (
                       <option key={val} value={val}>{val}+%</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Min Odds Dropdown */}
+                <div className="space-y-1.5 flex items-center justify-between">
+                  <label className="flex items-center gap-1.5 text-xs font-bold">
+                    Min Odds
+                  </label>
+                  <select
+                    value={alertMinOdds}
+                    onChange={(e) => { setAlertMinOdds(Number(e.target.value)); setTouched(true); }}
+                    className={cn(
+                      "text-xs font-extrabold px-3 py-1.5 rounded-lg border outline-none cursor-pointer",
+                      darkMode ? "bg-gray-800 border-gray-700 text-blue-400" : "bg-white border-gray-200 text-blue-600"
+                    )}
+                  >
+                    <option value={1.0}>Any (1.00+)</option>
+                    {[1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.5, 3.0].map((val) => (
+                      <option key={val} value={val}>{val.toFixed(2)}+</option>
                     ))}
                   </select>
                 </div>

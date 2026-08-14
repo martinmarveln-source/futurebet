@@ -22,6 +22,7 @@ async function ensureSchema() {
       ADD COLUMN IF NOT EXISTS alert_send_time      TEXT     DEFAULT '08:00',
       ADD COLUMN IF NOT EXISTS alert_min_chance     NUMERIC  DEFAULT 60,
       ADD COLUMN IF NOT EXISTS alert_min_rating     NUMERIC  DEFAULT 50,
+      ADD COLUMN IF NOT EXISTS alert_min_odds       NUMERIC  DEFAULT 1.0,
       ADD COLUMN IF NOT EXISTS alert_min_hist_rate  NUMERIC  DEFAULT 0,
       ADD COLUMN IF NOT EXISTS alert_markets        TEXT[]   DEFAULT ARRAY['homeWin','draw','awayWin'],
       ADD COLUMN IF NOT EXISTS alert_pick_type      TEXT     DEFAULT 'all',
@@ -59,6 +60,7 @@ export async function GET(request: Request) {
           alert_send_time: "08:00",
           alert_min_chance: 60,
           alert_min_rating: 50,
+          alert_min_odds: 1.0,
           alert_min_hist_rate: 0,
           alert_markets: ["homeWin", "draw", "awayWin"],
           alert_pick_type: "all",
@@ -116,14 +118,20 @@ export async function POST(request) {
     const alert_send_time = body.alert_send_time !== undefined
       ? String(body.alert_send_time).trim()
       : (existing.alert_send_time || "08:00");
-    const alert_min_chance = body.alert_min_chance !== undefined
-      ? Math.min(100, Math.max(0, Number(body.alert_min_chance)))
+    const alert_min_chance = body.alert_min_chance !== undefined 
+      ? Math.min(100, Math.max(0, Number(body.alert_min_chance))) 
       : (existing.alert_min_chance ?? 60);
-    const alert_min_rating = body.alert_min_rating !== undefined
-      ? Math.min(100, Math.max(0, Number(body.alert_min_rating)))
+
+    const alert_min_rating = body.alert_min_rating !== undefined 
+      ? Math.min(100, Math.max(0, Number(body.alert_min_rating))) 
       : (existing.alert_min_rating ?? 50);
-    const alert_min_hist_rate = body.alert_min_hist_rate !== undefined
-      ? Math.min(100, Math.max(0, Number(body.alert_min_hist_rate)))
+
+    const alert_min_odds = body.alert_min_odds !== undefined
+      ? Math.max(1.0, Number(body.alert_min_odds))
+      : (existing.alert_min_odds ?? 1.0);
+
+    const alert_min_hist_rate = body.alert_min_hist_rate !== undefined 
+      ? Math.min(100, Math.max(0, Number(body.alert_min_hist_rate))) 
       : (existing.alert_min_hist_rate ?? 0);
     const alert_markets = body.alert_markets !== undefined
       ? (Array.isArray(body.alert_markets) ? body.alert_markets : ["homeWin", "draw", "awayWin"])
@@ -149,6 +157,7 @@ export async function POST(request) {
           alert_send_time           = ${alert_send_time},
           alert_min_chance          = ${alert_min_chance},
           alert_min_rating          = ${alert_min_rating},
+          alert_min_odds            = ${alert_min_odds},
           alert_min_hist_rate       = ${alert_min_hist_rate},
           alert_markets             = ${alert_markets},
           alert_pick_type           = ${alert_pick_type},
@@ -171,6 +180,7 @@ export async function POST(request) {
           alert_send_time,
           alert_min_chance,
           alert_min_rating,
+          alert_min_odds,
           alert_min_hist_rate,
           alert_markets,
           alert_pick_type,
@@ -187,6 +197,7 @@ export async function POST(request) {
           ${alert_send_time},
           ${alert_min_chance},
           ${alert_min_rating},
+          ${alert_min_odds},
           ${alert_min_hist_rate},
           ${alert_markets},
           ${alert_pick_type},

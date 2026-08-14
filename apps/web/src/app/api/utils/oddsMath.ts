@@ -82,3 +82,45 @@ export function deriveOverUnder(o25Odds: number, u25Odds: number) {
     u45Odds: Number(((1 / (1 - trueO45)) / targetMargin).toFixed(2)),
   };
 }
+
+export function getOddsForPick(rawData: any, pickStr: string): number {
+  if (!rawData || !pickStr) return 0;
+  const p = String(pickStr).toUpperCase().trim();
+  let odds = 0;
+
+  if (p === "HOME WIN" || p === "1" || p === "HOME") {
+    odds = Number(rawData.homeOdds) || Number(rawData.home_odds) || Number(rawData.hWin) || 0;
+  } else if (p === "AWAY WIN" || p === "2" || p === "AWAY") {
+    odds = Number(rawData.awayOdds) || Number(rawData.away_odds) || Number(rawData.aWin) || 0;
+  } else if (p === "DRAW" || p === "X") {
+    odds = Number(rawData.drawOdds) || Number(rawData.draw_odds) || Number(rawData.hDraw) || 0;
+  } else if (p.includes("1X") || p.includes("HOME OR DRAW") || p === "H1X") {
+    odds = Number(rawData.dc1X) || 0;
+  } else if (p.includes("12") || p.includes("HOME OR AWAY") || p === "H12") {
+    odds = Number(rawData.dc12) || 0;
+  } else if (p.includes("X2") || p.includes("DRAW OR AWAY") || p === "HX2") {
+    odds = Number(rawData.dcX2) || 0;
+  } else if (p === "OVER 1.5" || p === "OV1.5" || p === "OV 1.5") {
+    odds = Number(rawData.o15Odds) || Number(rawData.o15_odds) || 0;
+  } else if (p === "UNDER 1.5" || p === "UN1.5" || p === "UN 1.5") {
+    odds = Number(rawData.u15Odds) || Number(rawData.u15_odds) || 0;
+  } else if (p === "OVER 2.5" || p === "OV.2.5" || p === "OV2.5" || p === "OV 2.5") {
+    odds = Number(rawData.o25Odds) || Number(rawData.o25_odds) || Number(rawData.ov25) || 0;
+  } else if (p === "UNDER 2.5" || p === "UN2.5" || p === "UN 2.5") {
+    odds = Number(rawData.u25Odds) || Number(rawData.u25_odds) || Number(rawData.un25) || 0;
+  } else if (p === "OVER 3.5" || p === "OV3.5" || p === "OV 3.5") {
+    odds = Number(rawData.o35Odds) || Number(rawData.o35_odds) || 0;
+  } else if (p === "UNDER 3.5" || p === "UN3.5" || p === "UN 3.5") {
+    odds = Number(rawData.u35Odds) || Number(rawData.u35_odds) || 0;
+  } else if (p === "OVER 4.5" || p === "OV4.5" || p === "OV 4.5") {
+    odds = Number(rawData.o45Odds) || Number(rawData.o45_odds) || 0;
+  } else if (p === "UNDER 4.5" || p === "UN4.5" || p === "UN 4.5") {
+    odds = Number(rawData.u45Odds) || Number(rawData.u45_odds) || 0;
+  } else if (p === "GG" || p === "BTTS - YES" || p === "BTTS YES" || p.includes("YES") || p.includes("GG")) {
+    odds = Number(rawData.bttsYesOdds) || Number(rawData.btts_yes_odds) || 0;
+  } else if (p === "NG" || p === "BTTS - NO" || p === "BTTS NO" || p.includes("NO") || p.includes("NG")) {
+    odds = Number(rawData.bttsNoOdds) || Number(rawData.btts_no_odds) || 0;
+  }
+
+  return Number.isFinite(odds) && odds > 1 ? Number(odds.toFixed(2)) : 0;
+}

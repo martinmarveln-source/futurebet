@@ -1,6 +1,6 @@
-// @ts-nocheck
 import { NextResponse } from "next/server";
 import sql from "../../utils/sql";
+import { getOddsForPick } from "../../utils/oddsMath";
 
 // ── Auto-migrate new alert columns if they don't exist ──────────────────────
 async function ensureAlertColumns() {
@@ -10,6 +10,7 @@ async function ensureAlertColumns() {
       ADD COLUMN IF NOT EXISTS alert_send_time      TEXT     DEFAULT '08:00',
       ADD COLUMN IF NOT EXISTS alert_min_chance     NUMERIC  DEFAULT 60,
       ADD COLUMN IF NOT EXISTS alert_min_rating     NUMERIC  DEFAULT 50,
+      ADD COLUMN IF NOT EXISTS alert_min_odds       NUMERIC  DEFAULT 1.0,
       ADD COLUMN IF NOT EXISTS alert_min_hist_rate  NUMERIC  DEFAULT 0,
       ADD COLUMN IF NOT EXISTS alert_markets        TEXT[]   DEFAULT ARRAY['homeWin','draw','awayWin'],
       ADD COLUMN IF NOT EXISTS alert_pick_type      TEXT     DEFAULT 'all',
@@ -59,7 +60,10 @@ function formatMatchAlert(match: any, index: number, total: number): string {
   if (league) lines.push(`🏆 ${league}`);
   if (match.match_time) lines.push(`🕐 Kickoff: ${match.match_time}`);
   lines.push("");
-  lines.push(`🎯 *Pick: ${pickLabel}*`);
+  const odds = getOddsForPick(match.raw_data, pickLabel);
+  const oddsLabel = odds > 1 ? ` | 💰 Odds: ${odds.toFixed(2)}` : "";
+
+  lines.push(`🎯 *Pick: ${pickLabel}*${oddsLabel}`);
   lines.push(`📊 Confidence: ${chance}% | ⭐ Rating: ${rating}%`);
   if (score) lines.push(`📉 Score Tip: ${score}${scorePercent ? ` (${fmtPct(scorePercent)}%)` : ""}`);
   lines.push("");
@@ -142,6 +146,7 @@ export async function GET(request: Request) {
         up.alert_send_time,
         up.alert_min_chance,
         up.alert_min_rating,
+        up.alert_min_odds,
         up.alert_min_hist_rate,
         up.alert_markets,
         up.alert_pick_type,
@@ -177,6 +182,7 @@ export async function GET(request: Request) {
 
       const minChance = Number(user.alert_min_chance ?? 60);
       const minRating = Number(user.alert_min_rating ?? 50);
+      const minOdds = Number(user.alert_min_odds ?? 1.0);
       const minHistRate = Number(user.alert_min_hist_rate ?? 0);
       const markets = (user.alert_markets as string[]) ?? [];
       const pickType = user.alert_pick_type ?? "all";
@@ -211,6 +217,11 @@ export async function GET(request: Request) {
         if (ratingP < minRating) return false;
         if (pickType === "aligned_only" && m.flag !== "✅") return false;
         if (!matchesMarket(m.guide, markets)) return false;
+
+        // ── Odds guards: skip if missing or below threshold ─────────
+        const odds = getOddsForPick(m.raw_data, m.guide);
+        if (odds <= 1.01) return false; // Missing odds completely
+        if (odds < minOdds) return false; // Below user's threshold
 
         // ── Kickoff time guard: skip matches that have already started ──────
         // match_time is stored as "HH:MM" in WAT
