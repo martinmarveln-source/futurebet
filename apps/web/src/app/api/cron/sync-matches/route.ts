@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import sql from "../../utils/sql";
 import Papa from "papaparse";
+import { deriveDoubleChance, deriveOverUnder } from "../../utils/oddsMath";
 
 const SHEET_ID = "1vMva92Yesm1YiJeC8_1mBqb2KtTv31ByaCuJK2B9qeY";
 const SHEET_NAME = "Picks";
@@ -166,6 +167,27 @@ export async function GET(request: Request) {
 
           const rawData: Record<string, string> = {};
           Object.entries(COL).forEach(([k, i]) => { rawData[k] = row[i] || ""; });
+
+          // Derive Double Chance
+          const hOdds = Number(rawData.homeOdds) || Number(rawData.hWin) || 0;
+          const dOdds = Number(rawData.drawOdds) || Number(rawData.hDraw) || 0;
+          const aOdds = Number(rawData.awayOdds) || Number(rawData.aWin) || 0;
+          const dc = deriveDoubleChance(hOdds, dOdds, aOdds);
+          if (dc.dc1X) rawData.dc1X = String(dc.dc1X);
+          if (dc.dc12) rawData.dc12 = String(dc.dc12);
+          if (dc.dcX2) rawData.dcX2 = String(dc.dcX2);
+
+          // Derive Over/Under where missing
+          const o25Odds = Number(rawData.o25Odds) || 0;
+          const u25Odds = Number(rawData.u25Odds) || 0;
+          const ou = deriveOverUnder(o25Odds, u25Odds);
+          
+          if (!rawData.o15Odds && ou.o15Odds) rawData.o15Odds = String(ou.o15Odds);
+          if (!rawData.u15Odds && ou.u15Odds) rawData.u15Odds = String(ou.u15Odds);
+          if (!rawData.o35Odds && ou.o35Odds) rawData.o35Odds = String(ou.o35Odds);
+          if (!rawData.u35Odds && ou.u35Odds) rawData.u35Odds = String(ou.u35Odds);
+          if (!rawData.o45Odds && ou.o45Odds) rawData.o45Odds = String(ou.o45Odds);
+          if (!rawData.u45Odds && ou.u45Odds) rawData.u45Odds = String(ou.u45Odds);
 
           try {
             await sql`

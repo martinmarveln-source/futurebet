@@ -181,6 +181,14 @@ function getDbMarketName(pickStr) {
 
 // Derive Double Chance Odds from 1X2
 function getDoubleChanceOdds(match) {
+  if (match?.dc1X && match?.dc12 && match?.dcX2) {
+    return {
+      h1x: Number(match.dc1X).toFixed(2),
+      h12: Number(match.dc12).toFixed(2),
+      hx2: Number(match.dcX2).toFixed(2),
+    };
+  }
+
   const h = Number(match?.homeOdds);
   const d = Number(match?.drawOdds);
   const a = Number(match?.awayOdds);

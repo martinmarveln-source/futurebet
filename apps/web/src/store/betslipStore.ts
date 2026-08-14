@@ -167,6 +167,10 @@ function deriveMasterOdds(match, market, option) {
     if (opt === "Home") directOdds = match.homeOdds ?? match.home_odds;
     if (opt === "Draw") directOdds = match.drawOdds ?? match.draw_odds;
     if (opt === "Away") directOdds = match.awayOdds ?? match.away_odds;
+  } else if (mkt === "Double Chance") {
+    if (opt === "Home or Draw") directOdds = match.dc1X;
+    if (opt === "Home or Away") directOdds = match.dc12;
+    if (opt === "Draw or Away") directOdds = match.dcX2;
   } else if (mkt === "BTTS") {
     if (opt === "Yes") directOdds = match.bttsYesOdds ?? match.btts_yes_odds;
     if (opt === "No") directOdds = match.bttsNoOdds ?? match.btts_no_odds;
