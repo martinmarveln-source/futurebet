@@ -2539,7 +2539,8 @@ export default function MatchCard({
                       />
                     )}
 
-                    {/* === 3. NEW 1X2 MARKET GRID (Placed beneath the edge) === */}
+                    {/* === 3. NEW 1X2 MARKET GRID — only shown when real odds exist === */}
+                    {(odds1X2.home > 0 || odds1X2.draw > 0 || odds1X2.away > 0) && (
                     <div
                       className={cn(
                         "mt-6 pt-5 border-t",
@@ -2690,6 +2691,7 @@ export default function MatchCard({
                         </div>
                       </div>
                     </div>
+                    )} {/* end odds1X2 guard */}
 
                     {/* === 4. LIVE STEAM & HISTORICAL STATS === */}
                     {canSeeAdvancedData && activeSelection && (
