@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import sql from "../../../utils/sql";
+import sql from "../../utils/sql";
 
 const SHEET_ID = "1vMva92Yesm1YiJeC8_1mBqb2KtTv31ByaCuJK2B9qeY";
 const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Odds2`;
