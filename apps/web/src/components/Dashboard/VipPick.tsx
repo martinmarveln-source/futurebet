@@ -1056,14 +1056,19 @@ export default function VipPick({ darkMode = false }) {
     });
 
   useEffect(() => {
-    if (data && isPro) {
+    // Only save to localStorage when we have actual picks — never cache an empty
+    // response, as that would cause the stale fallback to show 0 picks next load.
+    if (data && isPro && Array.isArray(data.picks) && data.picks.length > 0) {
       saveVipData(data);
       setSavedData(data);
     }
   }, [data, isPro]);
 
-  const effectiveData = data || savedData;
-  const usingSavedFallback = !data && !!savedData;
+  // Use fresh API data as authoritative whenever it has been received (even if
+  // picks is empty — the API intentionally returned 0 qualifying picks).
+  // Only fall back to savedData when data is null (still loading or fetch error).
+  const effectiveData = data !== null && data !== undefined ? data : savedData;
+  const usingSavedFallback = (data === null || data === undefined) && !!savedData;
   const meta = effectiveData?.meta || {};
   const generatedAt = meta.generatedAt;
   const isStale = Boolean(meta.stale);
