@@ -15,7 +15,7 @@ function makeQueryClient() {
     
     // Don't toast for common 401s or premium gate rejections handled by the UI
     const lowerMsg = msg.toLowerCase();
-    if (lowerMsg.includes('unauthorized') || lowerMsg.includes('not logged in') || lowerMsg.includes('premium_required')) return;
+    if (lowerMsg.includes('unauthorized') || lowerMsg.includes('not logged in') || lowerMsg.includes('premium_required') || lowerMsg.includes('compare_access_denied')) return;
     
     toast.error(msg, {
       description: 'Please try again or contact support if the issue persists.',
