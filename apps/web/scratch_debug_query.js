@@ -1,39 +1,27 @@
 const { neon } = require('@neondatabase/serverless');
-require('dotenv').config({ path: '../../.env' });
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 const sql = neon(process.env.DATABASE_URL);
 
 async function testQuery() {
   try {
     const today = new Date().toISOString().split('T')[0];
-    const minChance = 65;
-    const minRating = 55;
 
-    console.log("Running query for date:", today);
     const dbPicks = await sql`
       SELECT 
-        v.id, v.match_id, v.match_date, v.chance_percent, v.rating_percent,
-        m.ft_score as current_ft_score 
+        v.id as vip_id, 
+        v.match_id as vip_match_id, 
+        m.id as cache_id,
+        m.home_team,
+        v.payload->>'match' as payload_match,
+        v.payload->>'ftScore' as payload_score,
+        m.ft_score as cache_score
       FROM vip_picks v 
       LEFT JOIN matches_cache m ON v.match_id = m.id::VARCHAR
       WHERE v.match_date = ${today}
     `;
-    console.log("All picks for today:");
     console.table(dbPicks);
-
-    const filtered = await sql`
-      SELECT 
-        v.id, v.match_id, v.chance_percent, v.rating_percent,
-        m.ft_score as current_ft_score 
-      FROM vip_picks v 
-      LEFT JOIN matches_cache m ON v.match_id = m.id::VARCHAR
-      WHERE v.match_date = ${today}
-      AND REPLACE(v.chance_percent, '%', '')::NUMERIC >= ${minChance}
-      AND v.rating_percent >= ${minRating}
-      ORDER BY v.vip_score DESC
-    `;
-    console.log("Filtered picks for today:");
-    console.table(filtered);
   } catch (err) {
     console.error("SQL Error:", err);
   }

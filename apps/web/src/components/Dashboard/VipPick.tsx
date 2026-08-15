@@ -571,8 +571,11 @@ function formatUpdatedAt(v) {
 ===================================================================================== */
 
 function checkIfPickWon(ftScore, market, selection) {
-  if (!ftScore || !ftScore.includes("-")) return null;
-  const [h, a] = ftScore.split("-").map(Number);
+  if (!ftScore) return null;
+  // Normalize ':' to '-' since some sources use '2:1' and others use '2-1'
+  const normalizedScore = String(ftScore).replace(':', '-');
+  if (!normalizedScore.includes("-")) return null;
+  const [h, a] = normalizedScore.split("-").map(Number);
   if (isNaN(h) || isNaN(a)) return null;
 
   if (market === "1X2") {
