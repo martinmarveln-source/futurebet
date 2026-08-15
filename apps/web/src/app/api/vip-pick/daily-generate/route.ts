@@ -200,7 +200,7 @@ function computeMarketSignal({ market, selection, vals }) {
 ========================= */
 async function buildPicksData(minChance, minRating, minRecents) {
   // Query matches_cache for data synced by the cron job
-  const { rows: dbRows } = await sql`
+  const dbRows = await sql`
     SELECT raw_data FROM matches_cache
   `;
 

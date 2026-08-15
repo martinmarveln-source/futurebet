@@ -258,11 +258,48 @@ export default function BetSlip({ darkMode = false }) {
       return alert("Complete all selections before sharing!");
 
     const lines = ["🔥 *MY FUTUREBET SYSTEM* 🔥", ""];
-    matches.forEach((m, i) => {
-      lines.push(`${i + 1}️⃣ ${m.match}`);
+    
+    const numToEmoji = (n: number) => {
+      const emojis = ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
+      return String(n).split('').map(d => emojis[parseInt(d, 10)]).join('');
+    };
+
+    matches.forEach((m: any, i: number) => {
+      lines.push(`${numToEmoji(i + 1)} ${m.match}`);
+      
+      const countryStr = m.country || "Intl";
+      const leagueStr = m.fullLeague || m.league || "League";
+      lines.push(`🌍 ${countryStr} - ${leagueStr}`);
+
+      let dateStr = String(m.dateRaw || m.date || m.dateISO || "").trim();
+      if (dateStr && dateStr.length > 10) dateStr = dateStr.slice(0, 10);
+      const timeStr = String(m.time || "").trim();
+      
+      if (dateStr && timeStr) {
+        lines.push(`📅 ${dateStr} - ${timeStr}`);
+      } else if (dateStr) {
+        lines.push(`📅 ${dateStr}`);
+      }
+
       lines.push(`🎯 ${m.selectedMarket}: ${m.selectedOption}`);
-      if (Number(m.odds) > 0)
-        lines.push(`📊 Odds: ${Number(m.odds).toFixed(2)}`);
+      
+      if (Number(m.odds) > 0) {
+        let chanceNum = Number(m.chance) || Number(m.confidence) || 0;
+        let chanceStr = "";
+        if (chanceNum > 0) {
+          chanceStr = `Chance: ${Math.round(chanceNum)}% | `;
+        }
+        
+        let evStr = "";
+        if (chanceNum > 0) {
+          const ev = ((chanceNum / 100) * Number(m.odds)) - 1;
+          const evPct = (ev * 100).toFixed(1);
+          const sign = ev >= 0 ? '+' : '';
+          evStr = ` | EV: ${sign}${evPct}%`;
+        }
+
+        lines.push(`📊 ${chanceStr}Odds: ${Number(m.odds).toFixed(2)}${evStr}`);
+      }
       lines.push("");
     });
 
