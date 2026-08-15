@@ -75,7 +75,7 @@ export default function useDashboard() {
   } = useQuery({
     queryKey: ["matches"],
     queryFn: async () => {
-      const response = await fetch("/api/matches");
+      const response = await fetch("/api/matches?all=true");
       if (!response.ok) throw new Error("Failed to fetch matches");
       return response.json();
     },

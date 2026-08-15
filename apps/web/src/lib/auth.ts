@@ -219,35 +219,30 @@ export const auth = betterAuth({
       const referrerCode = match ? match[1] : null;
 
       try {
-        if (referrerCode) {
-          // Find referrer user
-          const referrerRes = await pool.query('SELECT id FROM auth_users WHERE referral_code = $1', [referrerCode]);
-          if (referrerRes.rows.length > 0) {
-            const referrerId = referrerRes.rows[0].id;
-            
-            const newUserRes = await pool.query('SELECT id FROM auth_users WHERE email = $1', [email]);
-            if (newUserRes.rows.length > 0) {
-              const newUserId = newUserRes.rows[0].id;
-              
-              // Grant 7-day trial and set referral_code
-              const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-              await pool.query(
-                'UPDATE auth_users SET referral_code = $1, is_restricted_trial = true, subscription_expires_at = $2 WHERE id = $3', 
-                [referralCode, expiresAt, newUserId]
-              );
-              
+        const newUserRes = await pool.query('SELECT id FROM auth_users WHERE email = $1', [email]);
+        if (newUserRes.rows.length > 0) {
+          const newUserId = newUserRes.rows[0].id;
+
+          // Always grant 7-day trial and set referral_code
+          const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+          await pool.query(
+            'UPDATE auth_users SET referral_code = $1, is_restricted_trial = true, subscription_expires_at = $2 WHERE id = $3', 
+            [referralCode, expiresAt, newUserId]
+          );
+
+          if (referrerCode) {
+            // Find referrer user
+            const referrerRes = await pool.query('SELECT id FROM auth_users WHERE referral_code = $1', [referrerCode]);
+            if (referrerRes.rows.length > 0) {
+              const referrerId = referrerRes.rows[0].id;
               // Record the referral
               await pool.query(
                 'INSERT INTO referrals (referrer_id, referred_user_id, status) VALUES ($1, $2, $3)',
                 [referrerId, newUserId, 'PENDING_REWARD']
               );
-              return;
             }
           }
         }
-        
-        // If no valid referrer, just assign a referral code
-        await pool.query('UPDATE auth_users SET referral_code = $1 WHERE email = $2', [referralCode, email]);
       } catch (err) {
         console.error('Error in auth hooks.after setting up referrals:', err);
       }

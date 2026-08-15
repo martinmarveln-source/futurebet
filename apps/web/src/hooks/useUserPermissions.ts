@@ -66,15 +66,12 @@ export default function useUserPermissions() {
     hasFeatureAccess: (featureName) => {
       if (isAdmin) return true; // Admin always gets access
 
-      // Block specific features for restricted trial users
+      // For trial users, grant access to everything EXCEPT vip-pick
       if (isRestrictedTrial) {
-        if (
-          featureName === "performance-tracker" ||
-          featureName === "sandbox" ||
-          featureName === "compare"
-        ) {
+        if (featureName === "vip-pick") {
           return false;
         }
+        return true;
       }
 
       switch (featureName) {

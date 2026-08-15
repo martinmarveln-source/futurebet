@@ -100,19 +100,31 @@ function num(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
-function parseSheetDateToThisYear(dateStr) {
+function parseDateStr(dateStr) {
   if (!dateStr) return null;
-  const [dStr, monStr] = String(dateStr).trim().split("-");
+  const raw = String(dateStr).trim();
+
+  // ISO format: YYYY-MM-DD (stored in matches_cache)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const d = new Date(`${raw}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return null;
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  // Legacy sheet format: DD-Mon (e.g. "15-Aug")
+  const [dStr, monStr] = raw.split("-");
   const day = Number(dStr);
   const monKey = String(monStr || "").trim();
-
   if (!Number.isFinite(day) || !(monKey in monthMap)) return null;
-
   const year = new Date().getFullYear();
   const d = new Date(year, monthMap[monKey], day);
   d.setHours(0, 0, 0, 0);
   return d;
 }
+
+// Keep alias for backward compat
+const parseSheetDateToThisYear = parseDateStr;
 
 function isToday(d) {
   if (!d) return false;
@@ -447,7 +459,11 @@ export async function GET(req: Request) {
       const role = u?.user_role || "free";
       const sub = u?.subscription_status || "free";
       const valid = !u?.subscription_expires_at || new Date(u.subscription_expires_at) > new Date();
-      const isPremiumOrAdmin = role === "admin" || role === "premium" || (sub === "premium" && valid);
+      const isPremiumOrAdmin =
+        role === "admin" ||
+        role === "pro" ||
+        role === "premium" ||
+        (valid && (sub === "premium" || sub === "pro"));
 
       if (!isPremiumOrAdmin) {
         return Response.json({ error: "Forbidden: Requires premium access" }, { status: 403 });

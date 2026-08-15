@@ -950,8 +950,8 @@ const VipPickCard = React.memo(function VipPickCard({
 export default function VipPick({ darkMode = false }) {
   const hasKickoffPassed = hasKickoffPassedLocal;
 
-  const { isAdmin, isPremium } = useUserPermissions();
-  const isPro = Boolean(isAdmin || isPremium);
+  const { isAdmin, isPremium, hasFeatureAccess } = useUserPermissions();
+  const isPro = Boolean(isAdmin || isPremium) && hasFeatureAccess("vip-pick");
 
   const addMatch = useBetslipStore((s) => s.addMatch);
   const isMatchInBetslip = useBetslipStore((s) => s.isMatchInBetslip);
