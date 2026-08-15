@@ -48,7 +48,7 @@ export async function GET(req: Request) {
       FROM vip_picks v 
       LEFT JOIN matches_cache m ON v.match_id = m.id::VARCHAR
       WHERE v.match_date = ${today}
-      AND v.chance_percent::NUMERIC >= ${minChance}
+      AND REPLACE(v.chance_percent, '%', '')::NUMERIC >= ${minChance}
       AND v.rating_percent >= ${minRating}
       ORDER BY v.vip_score DESC
     `;
