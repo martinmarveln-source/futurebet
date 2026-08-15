@@ -293,5 +293,4 @@ export function checkIfPickWon(ftScore: string | null | undefined, market: strin
 
   return null;
 }
- 
- 
+
