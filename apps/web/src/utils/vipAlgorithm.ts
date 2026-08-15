@@ -259,3 +259,39 @@ export function computeDerivedPickFromStats({
     },
   };
 }
+
+export function checkIfPickWon(ftScore: string | null | undefined, market: string, selection: string): boolean | null {
+  if (!ftScore) return null;
+  // Normalize ':' to '-' since some sources use '2:1' and others use '2-1'
+  const normalizedScore = String(ftScore).replace(':', '-');
+  if (!normalizedScore.includes("-")) return null;
+  const [h, a] = normalizedScore.split("-").map(Number);
+  if (isNaN(h) || isNaN(a)) return null;
+
+  if (market === "1X2") {
+    if (selection === "Home") return h > a;
+    if (selection === "Away") return a > h;
+    if (selection === "Draw") return h === a;
+  }
+  if (market === "O/U 2.5" || market === "Over/Under") {
+    if (selection === "Over 2.5" || selection === "Over") return h + a > 2;
+    if (selection === "Under 2.5" || selection === "Under") return h + a < 3;
+  }
+  if (market === "O/U 1.5") {
+    if (selection === "Over 1.5") return h + a > 1;
+    if (selection === "Under 1.5") return h + a < 2;
+  }
+  if (market === "BTTS") {
+    if (selection === "Yes") return h > 0 && a > 0;
+    if (selection === "No") return h === 0 || a === 0;
+  }
+  if (market === "Double Chance") {
+    if (selection === "1X" || selection === "Home or Draw") return h >= a;
+    if (selection === "12" || selection === "Home or Away") return h !== a;
+    if (selection === "X2" || selection === "Draw or Away" || selection === "Away or Draw") return a >= h;
+  }
+
+  return null;
+}
+ 
+ 

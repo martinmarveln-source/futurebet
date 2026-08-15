@@ -25,6 +25,7 @@ import {
   Target,
 } from "lucide-react";
 import { getRatingColor, getRatingBand } from "@/utils/ratings";
+import { checkIfPickWon } from "@/utils/vipAlgorithm";
 import useUserPermissions from "@/hooks/useUserPermissions";
 import useUser from "@/utils/useUser";
 import { useQuery } from "@tanstack/react-query";
@@ -2224,6 +2225,12 @@ export default function MatchCard({
   }, [aiCardKey]);
 
   const dcOdds = getDoubleChanceOdds(match);
+  
+  const rawFtScore = match?.ft_score || match?.raw_data?.ftScore || match?.ftScore;
+  const globalFtScore = rawFtScore && rawFtScore !== "#N/A" ? rawFtScore : null;
+  const actualMarket = recommended ? recommended.market : (marketText || "");
+  const actualSelection = recommended ? recommended.selection : (pickText || "");
+  const wonStatus = checkIfPickWon(globalFtScore, actualMarket, actualSelection);
 
   return (
     <>
@@ -2406,22 +2413,69 @@ export default function MatchCard({
 
               <div
                 className={cn(
-                  "mt-3 rounded-[24px] border p-4 sm:p-5 transition-all shadow-sm",
-                  darkMode
-                    ? "border-white/10 bg-gradient-to-b from-white/[0.05] to-transparent"
-                    : "border-gray-200 bg-white"
+                  "mt-3 rounded-[24px] border p-4 sm:p-5 transition-all shadow-sm relative overflow-hidden",
+                  wonStatus === true
+                    ? darkMode
+                      ? "border-emerald-500/30 bg-emerald-500/10"
+                      : "border-emerald-200 bg-emerald-50"
+                    : wonStatus === false
+                      ? darkMode
+                        ? "border-rose-500/30 bg-rose-500/10"
+                        : "border-rose-200 bg-rose-50"
+                      : darkMode
+                        ? "border-white/10 bg-gradient-to-b from-white/[0.05] to-transparent"
+                        : "border-gray-200 bg-white"
                 )}
               >
-                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-5">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-5 relative z-10">
                   <div className="min-w-0 w-full">
-                    {/* === 1. RESTORED PRIMARY PICK === */}
-                    <div
-                      className={cn(
-                        "text-[11px] font-extrabold opacity-80 uppercase tracking-widest",
-                        darkMode ? "text-blue-400" : "text-blue-600"
-                      )}
-                    >
-                      Primary AI Pick
+                    <div className="flex items-center justify-between gap-3">
+                      <div
+                        className={cn(
+                          "text-[11px] font-extrabold opacity-80 uppercase tracking-widest",
+                          darkMode ? "text-blue-400" : "text-blue-600"
+                        )}
+                      >
+                        Primary AI Pick
+                      </div>
+                      
+                      {kickoffPassed && wonStatus === true ? (
+                        <div
+                          className={cn(
+                            "px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest flex items-center gap-1",
+                            darkMode
+                              ? "bg-emerald-500/20 text-emerald-400"
+                              : "bg-emerald-100 text-emerald-700"
+                          )}
+                        >
+                          <Check size={10} strokeWidth={3} />
+                          Won {globalFtScore ? `(${globalFtScore})` : ""}
+                        </div>
+                      ) : kickoffPassed && wonStatus === false ? (
+                        <div
+                          className={cn(
+                            "px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest flex items-center gap-1",
+                            darkMode
+                              ? "bg-rose-500/20 text-rose-400"
+                              : "bg-rose-100 text-rose-700"
+                          )}
+                        >
+                          <X size={10} strokeWidth={3} />
+                          Lost {globalFtScore ? `(${globalFtScore})` : ""}
+                        </div>
+                      ) : kickoffPassed && wonStatus === null ? (
+                        <div
+                          className={cn(
+                            "px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest flex items-center gap-1",
+                            darkMode
+                              ? "bg-rose-500/20 text-rose-400"
+                              : "bg-rose-100 text-rose-700"
+                          )}
+                        >
+                          <Lock size={10} strokeWidth={3} />
+                          Locked
+                        </div>
+                      ) : null}
                     </div>
                     <div className="mt-1 text-base sm:text-lg font-black truncate flex items-center flex-wrap gap-2">
                       <span
