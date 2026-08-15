@@ -434,16 +434,22 @@ async function buildPicksData(minChance, minRating, minRecents) {
       cScore: predictedScore,
     });
     // 5. Populate correct real odds based on the selection
+    // STRICT RULE: Only matches with real bookmaker odds can be VIP picks.
     if (pick.market === "1X2") {
-      if (pick.selection === "Home") pick.odds = pick.rawOdds.home || derivedOdds;
-      else if (pick.selection === "Draw") pick.odds = pick.rawOdds.draw || derivedOdds;
-      else if (pick.selection === "Away") pick.odds = pick.rawOdds.away || derivedOdds;
+      if (pick.selection === "Home") pick.odds = pick.rawOdds.home;
+      else if (pick.selection === "Draw") pick.odds = pick.rawOdds.draw;
+      else if (pick.selection === "Away") pick.odds = pick.rawOdds.away;
     } else if (pick.market === "O/U 2.5") {
-      if (pick.selection === "Over 2.5") pick.odds = pick.rawOdds.over25 || derivedOdds;
-      else if (pick.selection === "Under 2.5") pick.odds = pick.rawOdds.under25 || derivedOdds;
-    } else {
-      pick.odds = derivedOdds;
+      if (pick.selection === "Over 2.5") pick.odds = pick.rawOdds.over25;
+      else if (pick.selection === "Under 2.5") pick.odds = pick.rawOdds.under25;
+    } else if (pick.market === "BTTS") {
+      if (pick.selection === "Yes") pick.odds = num(val(r, col.bttsYesOdds));
+      // If we don't have bookmaker odds for BTTS No, we can't show it.
+      else pick.odds = null; 
     }
+
+    // Skip this match entirely if there are no real bookmaker odds
+    if (!pick.odds || pick.odds < 1.01) continue;
 
     picks.push(pick);
   }
