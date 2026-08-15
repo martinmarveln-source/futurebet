@@ -271,6 +271,7 @@ async function buildPicksData(minChance, minRating, minRecents) {
     o25Odds: "o25Odds",
     u25Odds: "u25Odds",
     bttsYesOdds: "bttsYesOdds", // Just in case, the standard is usually "ggOdds" or similar, but we'll use fallback logic below
+    ftScore: "ftScore",
   };
 
   const val = (r, key) => (key === undefined ? "" : r[key] ?? "");
@@ -311,6 +312,18 @@ async function buildPicksData(minChance, minRating, minRecents) {
     const ags = num(val(r, col.ags));
     const agc = num(val(r, col.agc));
 
+    const rawOdds = {
+      home: num(val(r, col.homeOdds)),
+      draw: num(val(r, col.drawOdds)),
+      away: num(val(r, col.awayOdds)),
+      over25: num(val(r, col.o25Odds)),
+      under25: num(val(r, col.u25Odds)),
+      over15: num(val(r, "o15Odds")),
+      under15: num(val(r, "u15Odds")),
+      bttsYes: num(val(r, col.bttsYesOdds)) || num(val(r, "btts_yes_odds")),
+      bttsNo: num(val(r, "bttsNoOdds")) || num(val(r, "btts_no_odds")),
+    };
+
     const derived = computeDerivedPickFromStats({
       hgs,
       hgc,
@@ -327,11 +340,7 @@ async function buildPicksData(minChance, minRating, minRecents) {
       h2hA: num(val(r, col.h2hA)),
       h2hOv: num(val(r, col.h2hOv)),
       h2hGg: num(val(r, col.h2hGg)),
-      ov25SheetPct: num(val(r, col.ov25)),
-      ggSheetPct: num(val(r, col.gg)),
-      homeSheetPct: num(val(r, col.home)),
-      drawSheetPct: num(val(r, col.draw)),
-      awaySheetPct: num(val(r, col.away)),
+      rawOdds,
     });
 
     if (!derived) continue;
@@ -368,22 +377,18 @@ async function buildPicksData(minChance, minRating, minRecents) {
       fullLeague: `${country} • ${league}`.trim(),
       league: `${country} • ${league}`.trim(),
       table: val(r, col.table),
-      market,
-      selection,
-      pickLabel,
-      predictedScore,
+      market: derived.market,
+      selection: derived.selection,
+      pickLabel: derived.pickLabel,
+      predictedScore: derived.predictedScore,
       tips: "",
+      chance: `${confidence}%`,
       confidence: Math.round(confidence),
       rating: Math.round(algRating),
       vipScore,
-      odds: null, // Placeholder to be populated
-      rawOdds: {
-        home: num(val(r, col.homeOdds)),
-        draw: num(val(r, col.drawOdds)),
-        away: num(val(r, col.awayOdds)),
-        over25: num(val(r, col.o25Odds)),
-        under25: num(val(r, col.u25Odds)),
-      },
+      odds: derivedOdds,
+      rawOdds,
+      marketSignal,
       recent: { homeCount: hRecentCount, awayCount: aRecentCount },
       form: {
         homeStr: hFormStr,
@@ -391,65 +396,50 @@ async function buildPicksData(minChance, minRating, minRecents) {
         homeGrade: val(r, col.hGrp),
         awayGrade: val(r, col.aGrp),
       },
-      marketSignal,
-      hppg: num(val(r, col.hppg)),
-      appg: num(val(r, col.appg)),
-      hgs,
-      hgc,
-      ags,
-      agc,
-      hWin: marketSignalVals.hWin,
-      hDraw: marketSignalVals.hDraw,
-      hLost: marketSignalVals.hLost,
-      aWin: marketSignalVals.aWin,
-      aDraw: marketSignalVals.aDraw,
-      aLost: marketSignalVals.aLost,
-      hBtts: marketSignalVals.hBtts,
-      aBtts: marketSignalVals.aBtts,
-      hOv2: marketSignalVals.hOv2,
-      aOv2: marketSignalVals.aOv2,
-      hcs: num(val(r, col.hcs)),
-      acs: num(val(r, col.acs)),
-      hfts: num(val(r, col.hfts)),
-      afts: num(val(r, col.afts)),
-      hgsOver15: num(val(r, col.hgsOver15)),
-      hgcOver15: num(val(r, col.hgcOver15)),
-      agsOver15: num(val(r, col.agsOver15)),
-      agcOver15: num(val(r, col.agcOver15)),
-      H2H_H: num(val(r, col.h2hH)),
-      H2H_D: num(val(r, col.h2hD)),
-      H2H_A: num(val(r, col.h2hA)),
-      H2H_OV: num(val(r, col.h2hOv)),
-      H2H_UN: num(val(r, col.h2hUn)),
-      H2H_GG: num(val(r, col.h2hGg)),
-      H2H_NG: num(val(r, col.h2hNg)),
-      H2H_GP: num(val(r, col.h2hGp)),
-      H_Recent: hRecentCell,
-      A_Recent: aRecentCell,
-      "H2H-Recent": val(r, col.h2hRecent),
-      hForm: hFormStr,
-      aForm: aFormStr,
-      flag: val(r, col.flag),
-      pick: pickLabel,
-      cScore: predictedScore,
+      meta: {
+        hppg: num(val(r, col.hppg)),
+        appg: num(val(r, col.appg)),
+        hgs,
+        hgc,
+        ags,
+        agc,
+        hWin: marketSignalVals.hWin,
+        hDraw: marketSignalVals.hDraw,
+        hLost: marketSignalVals.hLost,
+        aWin: marketSignalVals.aWin,
+        aDraw: marketSignalVals.aDraw,
+        aLost: marketSignalVals.aLost,
+        hBtts: marketSignalVals.hBtts,
+        aBtts: marketSignalVals.aBtts,
+        hOv2: marketSignalVals.hOv2,
+        aOv2: marketSignalVals.aOv2,
+        hcs: num(val(r, col.hcs)),
+        acs: num(val(r, col.acs)),
+        hfts: num(val(r, col.hfts)),
+        afts: num(val(r, col.afts)),
+        hgsOver15: num(val(r, col.hgsOver15)),
+        hgcOver15: num(val(r, col.hgcOver15)),
+        agsOver15: num(val(r, col.agsOver15)),
+        agcOver15: num(val(r, col.agcOver15)),
+        H2H_H: num(val(r, col.h2hH)),
+        H2H_D: num(val(r, col.h2hD)),
+        H2H_A: num(val(r, col.h2hA)),
+        H2H_OV: num(val(r, col.h2hOv)),
+        H2H_UN: num(val(r, col.h2hUn)),
+        H2H_GG: num(val(r, col.h2hGg)),
+        H2H_NG: num(val(r, col.h2hNg)),
+        H2H_GP: num(val(r, col.h2hGp)),
+        H_Recent: hRecentCell,
+        A_Recent: aRecentCell,
+        "H2H-Recent": val(r, col.h2hRecent),
+        hForm: hFormStr,
+        aForm: aFormStr,
+        flag: val(r, col.flag),
+        pick: pickLabel,
+        cScore: predictedScore,
+      },
+      ftScore: val(r, col.ftScore),
     };
-    // 5. Populate correct real odds based on the selection
-    // STRICT RULE: Only matches with real bookmaker odds can be VIP picks.
-    if (pick.market === "1X2") {
-      if (pick.selection === "Home") pick.odds = pick.rawOdds.home;
-      else if (pick.selection === "Draw") pick.odds = pick.rawOdds.draw;
-      else if (pick.selection === "Away") pick.odds = pick.rawOdds.away;
-    } else if (pick.market === "O/U 2.5") {
-      if (pick.selection === "Over 2.5") pick.odds = pick.rawOdds.over25;
-      else if (pick.selection === "Under 2.5") pick.odds = pick.rawOdds.under25;
-    } else if (pick.market === "BTTS") {
-      if (pick.selection === "Yes") pick.odds = num(val(r, col.bttsYesOdds));
-      // If we don't have bookmaker odds for BTTS No, we can't show it.
-      else pick.odds = null; 
-    }
-
-    // Skip this match entirely if there are no real bookmaker odds
-    if (!pick.odds || pick.odds < 1.01) continue;
 
     picks.push(pick);
   }

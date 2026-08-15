@@ -69,7 +69,7 @@ export function deriveLambdas({
 
 export function computeMarketsFromLambdas(lambdaH: number, lambdaA: number) {
   const MAX = 6;
-  const probs = { home: 0, draw: 0, away: 0, over25: 0, btts: 0 };
+  const probs = { home: 0, draw: 0, away: 0, over25: 0, over15: 0, btts: 0 };
   let best = { i: 0, j: 0, prob: 0 };
 
   const homePoisson = Array.from({ length: MAX + 1 }, (_, i) =>
@@ -90,6 +90,7 @@ export function computeMarketsFromLambdas(lambdaH: number, lambdaA: number) {
       else probs.away += pij;
 
       if (i + j >= 3) probs.over25 += pij;
+      if (i + j >= 2) probs.over15 += pij;
       if (i > 0 && j > 0) probs.btts += pij;
     }
   }
@@ -98,9 +99,36 @@ export function computeMarketsFromLambdas(lambdaH: number, lambdaA: number) {
   probs.draw = clamp01(probs.draw);
   probs.away = clamp01(probs.away);
   probs.over25 = clamp01(probs.over25);
+  probs.over15 = clamp01(probs.over15);
   probs.btts = clamp01(probs.btts);
 
   return { probs, predictedScore: `${best.i}-${best.j}` };
+}
+
+export function getDoubleChanceOdds(rawOdds: any) {
+  const h = Number(rawOdds?.home);
+  const d = Number(rawOdds?.draw);
+  const a = Number(rawOdds?.away);
+
+  if (!h || !d || !a || h <= 1 || d <= 1 || a <= 1)
+    return { h1x: 0, h12: 0, hx2: 0 };
+
+  const implied1 = 1 / h;
+  const impliedX = 1 / d;
+  const implied2 = 1 / a;
+
+  const margin = implied1 + impliedX + implied2;
+  const true1 = implied1 / margin;
+  const trueX = impliedX / margin;
+  const true2 = implied2 / margin;
+
+  const dcMargin = 1.05;
+
+  return {
+    h1x: Number((1 / ((true1 + trueX) * dcMargin)).toFixed(2)),
+    h12: Number((1 / ((true1 + true2) * dcMargin)).toFixed(2)),
+    hx2: Number((1 / ((trueX + true2) * dcMargin)).toFixed(2)),
+  };
 }
 
 export function computeDerivedPickFromStats({
@@ -119,11 +147,7 @@ export function computeDerivedPickFromStats({
   h2hA,
   h2hOv,
   h2hGg,
-  ov25SheetPct,
-  ggSheetPct,
-  homeSheetPct,
-  drawSheetPct,
-  awaySheetPct,
+  rawOdds,
 }: any) {
   const { lambdaH, lambdaA } = deriveLambdas({
     hgs,
@@ -140,7 +164,6 @@ export function computeDerivedPickFromStats({
 
   const { probs, predictedScore } = computeMarketsFromLambdas(lambdaH, lambdaA);
 
-  // 3. Head-to-Head Anchoring
   let h2hHomeBoost = 0;
   let h2hAwayBoost = 0;
   let h2hOverBoost = 0;
@@ -153,75 +176,81 @@ export function computeDerivedPickFromStats({
     if (Number(h2hGg) > 60) h2hBttsBoost = 0.1;
   }
 
-  const blend = (pPoisson: number, pSheetPct: any, h2hBoost: number = 0) => {
-    const sheet =
-      Number.isFinite(pSheetPct) && pSheetPct > 0 ? pSheetPct / 100 : null;
-    const final = sheet === null ? pPoisson : clamp01(pPoisson * 0.7 + sheet * 0.3);
-    return clamp01(final + h2hBoost);
+  const pOver25 = clamp01(probs.over25 + h2hOverBoost);
+  const pUnder25 = clamp01(1 - probs.over25);
+  const pOver15 = clamp01(probs.over15 + (h2hOverBoost > 0 ? 0.05 : 0));
+  const pUnder15 = clamp01(1 - probs.over15);
+  const pBtts = clamp01(probs.btts + h2hBttsBoost);
+  const pBttsNo = clamp01(1 - probs.btts);
+  const pHome = clamp01(probs.home + h2hHomeBoost);
+  const pDraw = clamp01(probs.draw); 
+  const pAway = clamp01(probs.away + h2hAwayBoost);
+  
+  const p1X = clamp01(pHome + pDraw);
+  const p12 = clamp01(pHome + pAway);
+  const pX2 = clamp01(pDraw + pAway);
+
+  const dcOdds = getDoubleChanceOdds(rawOdds);
+
+  const getBestInGroup = (options: any[]) => {
+    const valid = options.filter(o => o && Number.isFinite(o.odds) && o.odds >= 1.34);
+    if (valid.length === 0) return null;
+    valid.sort((a, b) => b.p - a.p);
+    return valid[0];
   };
 
-  const pOver = blend(probs.over25, ov25SheetPct, h2hOverBoost);
-  const pBtts = blend(probs.btts, ggSheetPct, h2hBttsBoost);
-  const pHome = blend(probs.home, homeSheetPct, h2hHomeBoost);
-  const pDraw = blend(probs.draw, drawSheetPct, 0); // No H2H boost for draws in this logic
-  const pAway = blend(probs.away, awaySheetPct, h2hAwayBoost);
+  // 1. 1X2 Market
+  let top = getBestInGroup([
+    { market: "1X2", selection: "Home", pickLabel: "1X2 - Home", p: pHome, odds: Number(rawOdds?.home) || 0 },
+    { market: "1X2", selection: "Draw", pickLabel: "1X2 - Draw", p: pDraw, odds: Number(rawOdds?.draw) || 0 },
+    { market: "1X2", selection: "Away", pickLabel: "1X2 - Away", p: pAway, odds: Number(rawOdds?.away) || 0 }
+  ]);
 
-  const candidates = [];
-
-  if (Number.isFinite(ov25SheetPct) && ov25SheetPct > 0) {
-    candidates.push({ market: "O/U 2.5", selection: "Over 2.5", pickLabel: "Over 2.5", p: pOver });
-    candidates.push({ market: "O/U 2.5", selection: "Under 2.5", pickLabel: "Under 2.5", p: 1 - pOver });
+  // 2. Double Chance
+  if (!top) {
+    top = getBestInGroup([
+      { market: "Double Chance", selection: "1X", pickLabel: "Double Chance - 1X", p: p1X, odds: dcOdds.h1x },
+      { market: "Double Chance", selection: "12", pickLabel: "Double Chance - 12", p: p12, odds: dcOdds.h12 },
+      { market: "Double Chance", selection: "X2", pickLabel: "Double Chance - X2", p: pX2, odds: dcOdds.hx2 }
+    ]);
   }
 
-  if (Number.isFinite(ggSheetPct) && ggSheetPct > 0) {
-    candidates.push({ market: "BTTS", selection: "Yes", pickLabel: "BTTS — Yes", p: pBtts });
-    candidates.push({ market: "BTTS", selection: "No", pickLabel: "BTTS — No", p: 1 - pBtts });
+  // 3. Over/Under 2.5
+  if (!top) {
+    top = getBestInGroup([
+      { market: "O/U 2.5", selection: "Over 2.5", pickLabel: "Over 2.5", p: pOver25, odds: Number(rawOdds?.over25) || 0 },
+      { market: "O/U 2.5", selection: "Under 2.5", pickLabel: "Under 2.5", p: pUnder25, odds: Number(rawOdds?.under25) || 0 }
+    ]);
   }
 
-  const has1X2 = (Number.isFinite(homeSheetPct) && homeSheetPct > 0) || 
-                 (Number.isFinite(awaySheetPct) && awaySheetPct > 0) || 
-                 (Number.isFinite(drawSheetPct) && drawSheetPct > 0);
-
-  if (has1X2) {
-    if (pHome >= pAway && pHome >= pDraw) {
-      candidates.push({ market: "1X2", selection: "Home", pickLabel: "1X2 — Home", p: pHome });
-    } else if (pAway >= pHome && pAway >= pDraw) {
-      candidates.push({ market: "1X2", selection: "Away", pickLabel: "1X2 — Away", p: pAway });
-    } else {
-      candidates.push({ market: "1X2", selection: "Draw", pickLabel: "1X2 — Draw", p: pDraw });
-    }
+  // 4. Over/Under 1.5
+  if (!top) {
+    top = getBestInGroup([
+      { market: "O/U 1.5", selection: "Over 1.5", pickLabel: "Over 1.5", p: pOver15, odds: Number(rawOdds?.over15) || 0 },
+      { market: "O/U 1.5", selection: "Under 1.5", pickLabel: "Under 1.5", p: pUnder15, odds: Number(rawOdds?.under15) || 0 }
+    ]);
   }
 
-  candidates.sort((a, b) => b.p - a.p);
-  const top = candidates[0];
+  // 5. BTTS
+  if (!top) {
+    top = getBestInGroup([
+      { market: "BTTS", selection: "Yes", pickLabel: "BTTS - Yes", p: pBtts, odds: Number(rawOdds?.bttsYes) || 0 },
+      { market: "BTTS", selection: "No", pickLabel: "BTTS - No", p: pBttsNo, odds: Number(rawOdds?.bttsNo) || 0 }
+    ]);
+  }
 
-  // 4. Stricter VIP Threshold (0.60 instead of 0.56)
   if (!top || top.p < 0.60) return null;
-
-  let exactOdds = null;
-  if (top.market === "1X2") {
-    if (top.selection === "Home" && homeSheetPct > 0) exactOdds = Number((100 / homeSheetPct).toFixed(2));
-    if (top.selection === "Draw" && drawSheetPct > 0) exactOdds = Number((100 / drawSheetPct).toFixed(2));
-    if (top.selection === "Away" && awaySheetPct > 0) exactOdds = Number((100 / awaySheetPct).toFixed(2));
-  } else if (top.market === "BTTS") {
-    if (top.selection === "Yes" && ggSheetPct > 0) exactOdds = Number((100 / ggSheetPct).toFixed(2));
-    if (top.selection === "No" && ggSheetPct > 0) exactOdds = Number((100 / (100 - ggSheetPct)).toFixed(2));
-  } else if (top.market === "O/U 2.5") {
-    if (top.selection === "Over 2.5" && ov25SheetPct > 0) exactOdds = Number((100 / ov25SheetPct).toFixed(2));
-    if (top.selection === "Under 2.5" && ov25SheetPct > 0) exactOdds = Number((100 / (100 - ov25SheetPct)).toFixed(2));
-  }
 
   return {
     ...top,
     predictedScore,
     confidence: Math.round(top.p * 100),
-    odds: exactOdds,
     model: {
       lambdaH,
       lambdaA,
       probs: {
         ...probs,
-        over25: pOver,
+        over25: pOver25,
         btts: pBtts,
         home: pHome,
         draw: pDraw,

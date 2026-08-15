@@ -570,6 +570,37 @@ function formatUpdatedAt(v) {
   Memoized Card
 ===================================================================================== */
 
+function checkIfPickWon(ftScore, market, selection) {
+  if (!ftScore || !ftScore.includes("-")) return null;
+  const [h, a] = ftScore.split("-").map(Number);
+  if (isNaN(h) || isNaN(a)) return null;
+
+  if (market === "1X2") {
+    if (selection === "Home") return h > a;
+    if (selection === "Away") return a > h;
+    if (selection === "Draw") return h === a;
+  }
+  if (market === "O/U 2.5") {
+    if (selection === "Over 2.5") return h + a > 2;
+    if (selection === "Under 2.5") return h + a < 3;
+  }
+  if (market === "O/U 1.5") {
+    if (selection === "Over 1.5") return h + a > 1;
+    if (selection === "Under 1.5") return h + a < 2;
+  }
+  if (market === "BTTS") {
+    if (selection === "Yes") return h > 0 && a > 0;
+    if (selection === "No") return h === 0 || a === 0;
+  }
+  if (market === "Double Chance") {
+    if (selection === "1X") return h >= a;
+    if (selection === "12") return h !== a;
+    if (selection === "X2") return a >= h;
+  }
+
+  return null;
+}
+
 const VipPickCard = React.memo(function VipPickCard({
   p,
   darkMode,
@@ -589,12 +620,31 @@ const VipPickCard = React.memo(function VipPickCard({
   const rating = p.rating;
   const vipScore = p.vipScore;
 
+  const wonStatus = checkIfPickWon(p.ftScore, p.market, p.selection);
+
   return (
-    <Card darkMode={darkMode}>
+    <Card 
+      darkMode={darkMode}
+      className={cn(
+        wonStatus === true && (darkMode ? "border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.15)]" : "border-emerald-500 shadow-emerald-500/20"),
+        wonStatus === false && (darkMode ? "border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.15)] opacity-80 grayscale-[30%]" : "border-red-500 shadow-red-500/20 opacity-80 grayscale-[30%]")
+      )}
+    >
       <div className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-2">
+              {wonStatus === true && (
+                <Pill darkMode={darkMode} tone="green">
+                  <Check size={12} /> Won ({p.ftScore})
+                </Pill>
+              )}
+              {wonStatus === false && (
+                <Pill darkMode={darkMode} tone="red">
+                  Lost ({p.ftScore})
+                </Pill>
+              )}
+
               <Pill
                 darkMode={darkMode}
                 tone={
@@ -624,7 +674,7 @@ const VipPickCard = React.memo(function VipPickCard({
                 {p.market || "VIP"}
               </Pill>
 
-              {kickoffPassed ? (
+              {kickoffPassed && wonStatus === null ? (
                 <Pill darkMode={darkMode} tone="red">
                   <Lock size={12} />
                   Locked
