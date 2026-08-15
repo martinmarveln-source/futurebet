@@ -1,15 +1,12 @@
-const { neon } = require('@neondatabase/serverless');
-require('dotenv').config({ path: '../../.env' });
+import sql from "@/app/api/utils/sql";
+import { NextResponse } from "next/server";
 
-const sql = neon(process.env.DATABASE_URL);
-
-async function testQuery() {
+export async function GET(req: Request) {
   try {
     const today = new Date().toISOString().split('T')[0];
     const minChance = 65;
     const minRating = 55;
 
-    console.log("Running query for date:", today);
     const dbPicks = await sql`
       SELECT 
         v.id, v.match_id, v.match_date, v.chance_percent, v.rating_percent,
@@ -18,8 +15,6 @@ async function testQuery() {
       LEFT JOIN matches_cache m ON v.match_id = m.id::VARCHAR
       WHERE v.match_date = ${today}
     `;
-    console.log("All picks for today:");
-    console.table(dbPicks);
 
     const filtered = await sql`
       SELECT 
@@ -32,11 +27,20 @@ async function testQuery() {
       AND v.rating_percent >= ${minRating}
       ORDER BY v.vip_score DESC
     `;
-    console.log("Filtered picks for today:");
-    console.table(filtered);
-  } catch (err) {
-    console.error("SQL Error:", err);
+
+    const allMatches = await sql`
+      SELECT id, match_date, home_team, away_team FROM matches_cache WHERE match_date = ${today}
+    `;
+
+    return NextResponse.json({
+      today,
+      dbPicksCount: dbPicks.length,
+      dbPicks,
+      filteredCount: filtered.length,
+      filtered,
+      allMatchesCount: allMatches.length
+    });
+  } catch (error) {
+    return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }
-
-testQuery();
