@@ -56,7 +56,7 @@ export async function GET(req: Request) {
     // Map back to the exact JSON schema the frontend expects, replacing the ftScore in the payload with the current_ft_score!
     const mappedPicks = dbPicks.map(row => {
        const payload = row.payload;
-       if (row.current_ft_score) {
+       if (row.current_ft_score && row.current_ft_score !== "#N/A") {
          payload.ftScore = row.current_ft_score; // Ensures it's always auto-updated
        }
        return payload;
