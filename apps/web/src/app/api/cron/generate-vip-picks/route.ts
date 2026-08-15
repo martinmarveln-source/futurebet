@@ -369,6 +369,9 @@ async function buildPicksData(minChance, minRating, minRecents) {
     const vipScore = Math.round(0.55 * confidence + 0.45 * algRating);
     const derivedOdds = derived.odds;
 
+    // Strict odds requirement: must have odds and must be >= 1.34
+    if (!derivedOdds || derivedOdds < 1.34) continue;
+
     const pick = {
       id: `vip-${i}`,
       date: dateStr,
@@ -465,12 +468,16 @@ async function buildPicksData(minChance, minRating, minRecents) {
 ========================= */
 export async function GET(req: Request) {
   try {
+    const url = new URL(req.url);
+    const secretParam = url.searchParams.get("secret");
     const authHeader = req.headers.get("authorization");
     const cronSecret = process.env.CRON_SECRET;
     
+    const isCron = cronSecret && (authHeader === `Bearer ${cronSecret}` || secretParam === cronSecret);
+
     // In production, enforce cron secret
     if (process.env.NODE_ENV === "production") {
-      if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+      if (!isCron) {
          return Response.json({ error: "Unauthorized" }, { status: 401 });
       }
     }
@@ -478,10 +485,9 @@ export async function GET(req: Request) {
     const minChance = 65;
     const minRating = 55;
     const minRecents = 0;
-    const isCron = cronSecret && authHeader === `Bearer ${cronSecret}`;
 
-    if (isCron) {
-      const { picks } = await fetchAndParseDailyMatches(
+    if (isCron || process.env.NODE_ENV !== "production") {
+      const { picks } = await buildPicksData(
         minChance,
         minRating,
         minRecents
