@@ -495,6 +495,7 @@ export async function GET(req: Request) {
 
       // Persist to database
       console.log(`Persisting ${picks.length} VIP picks to DB...`);
+      const todayIso = new Date().toISOString().split('T')[0];
       const promises = picks.map(p => {
         // Create a unique ID for the match so we overwrite the same match on the same date if it updates
         const matchIdKey = p.meta.flag ? `${p.date}-${p.meta.flag}` : p.id;
@@ -502,7 +503,7 @@ export async function GET(req: Request) {
           INSERT INTO vip_picks (
             id, match_id, match_date, time, match, league, market, selection, odds, vip_score, predicted_score, chance_percent, rating_percent, payload, updated_at
           ) VALUES (
-            ${matchIdKey}, ${p.meta.flag || ''}, ${p.date}, ${p.time}, ${p.match}, ${p.league}, ${p.market}, ${p.selection}, ${p.odds}, ${p.vipScore}, ${p.predictedScore}, ${p.chance}, ${p.rating}, ${JSON.stringify(p)}, CURRENT_TIMESTAMP
+            ${matchIdKey}, ${p.meta.flag || ''}, ${todayIso}, ${p.time}, ${p.match}, ${p.league}, ${p.market}, ${p.selection}, ${p.odds}, ${p.vipScore}, ${p.predictedScore}, ${p.chance}, ${p.rating}, ${JSON.stringify(p)}, CURRENT_TIMESTAMP
           )
           ON CONFLICT (id) DO UPDATE SET
             time = EXCLUDED.time,
