@@ -265,6 +265,12 @@ async function buildPicksData(minChance, minRating, minRecents) {
     h2hGp: "h2hGP",
     h2hRecent: "h2hRecent",
     flag: "flag",
+    homeOdds: "homeOdds",
+    drawOdds: "drawOdds",
+    awayOdds: "awayOdds",
+    o25Odds: "o25Odds",
+    u25Odds: "u25Odds",
+    bttsYesOdds: "bttsYesOdds", // Just in case, the standard is usually "ggOdds" or similar, but we'll use fallback logic below
   };
 
   const val = (r, key) => (key === undefined ? "" : r[key] ?? "");
@@ -352,8 +358,9 @@ async function buildPicksData(minChance, minRating, minRecents) {
       vals: marketSignalVals,
     });
     const vipScore = Math.round(0.55 * confidence + 0.45 * algRating);
+    const derivedOdds = derived.odds;
 
-    picks.push({
+    const pick = {
       id: `vip-${i}`,
       date: dateStr,
       time: val(r, col.time),
@@ -369,6 +376,14 @@ async function buildPicksData(minChance, minRating, minRecents) {
       confidence: Math.round(confidence),
       rating: Math.round(algRating),
       vipScore,
+      odds: null, // Placeholder to be populated
+      rawOdds: {
+        home: num(val(r, col.homeOdds)),
+        draw: num(val(r, col.drawOdds)),
+        away: num(val(r, col.awayOdds)),
+        over25: num(val(r, col.o25Odds)),
+        under25: num(val(r, col.u25Odds)),
+      },
       recent: { homeCount: hRecentCount, awayCount: aRecentCount },
       form: {
         homeStr: hFormStr,
@@ -418,6 +433,19 @@ async function buildPicksData(minChance, minRating, minRecents) {
       pick: pickLabel,
       cScore: predictedScore,
     });
+    // 5. Populate correct real odds based on the selection
+    if (pick.market === "1X2") {
+      if (pick.selection === "Home") pick.odds = pick.rawOdds.home || derivedOdds;
+      else if (pick.selection === "Draw") pick.odds = pick.rawOdds.draw || derivedOdds;
+      else if (pick.selection === "Away") pick.odds = pick.rawOdds.away || derivedOdds;
+    } else if (pick.market === "O/U 2.5") {
+      if (pick.selection === "Over 2.5") pick.odds = pick.rawOdds.over25 || derivedOdds;
+      else if (pick.selection === "Under 2.5") pick.odds = pick.rawOdds.under25 || derivedOdds;
+    } else {
+      pick.odds = derivedOdds;
+    }
+
+    picks.push(pick);
   }
 
   picks.sort((a, b) => (b.vipScore ?? 0) - (a.vipScore ?? 0));
