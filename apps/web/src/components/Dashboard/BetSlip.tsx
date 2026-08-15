@@ -267,13 +267,17 @@ export default function BetSlip({ darkMode = false }) {
     matches.forEach((m: any, i: number) => {
       lines.push(`${numToEmoji(i + 1)} ${m.match}`);
       
-      const countryStr = m.country || "Intl";
-      const leagueStr = m.fullLeague || m.league || "League";
+      let countryStr = String(m.country || "").replace(/Intl\s*-\s*/g, "").replace("Intl", "").trim();
+      if (!countryStr) countryStr = "World";
+      const leagueStr = String(m.fullLeague || m.league || "League").trim();
       lines.push(`🌍 ${countryStr} - ${leagueStr}`);
 
       let dateStr = String(m.dateRaw || m.date || m.dateISO || "").trim();
       if (dateStr && dateStr.length > 10) dateStr = dateStr.slice(0, 10);
-      const timeStr = String(m.time || "").trim();
+      
+      let timeStr = String(m.time || m.kickoff_at || m.kickoff || "").trim();
+      // Only keep HH:MM if it has seconds
+      if (timeStr && timeStr.split(":").length === 3) timeStr = timeStr.slice(0, 5);
       
       if (dateStr && timeStr) {
         lines.push(`📅 ${dateStr} - ${timeStr}`);
@@ -285,31 +289,23 @@ export default function BetSlip({ darkMode = false }) {
       
       if (Number(m.odds) > 0) {
         let chanceNum = Number(m.chance) || Number(m.confidence) || 0;
-        let chanceStr = "";
-        if (chanceNum > 0) {
-          chanceStr = `Chance: ${Math.round(chanceNum)}% | `;
-        }
         
         let evStr = "";
         if (chanceNum > 0) {
           const ev = ((chanceNum / 100) * Number(m.odds)) - 1;
           const evPct = (ev * 100).toFixed(1);
-          const sign = ev >= 0 ? '+' : '';
-          evStr = ` | EV: ${sign}${evPct}%`;
+          const sign = ev > 0 ? '+' : '';
+          
+          let evEmoji = "🔴"; // negative EV
+          if (ev > 0.05) evEmoji = "🟢"; // solid EV
+          else if (ev >= 0) evEmoji = "🟡"; // slight EV
+          
+          evStr = ` - ${evEmoji} EV: ${sign}${evPct}%`;
         }
 
-        lines.push(`📊 ${chanceStr}Odds: ${Number(m.odds).toFixed(2)}${evStr}`);
+        lines.push(`📊 Odds: ${Number(m.odds).toFixed(2)}${evStr}`);
       }
       lines.push("");
-    });
-
-    systemBets.forEach((bet) => {
-      if (bet.totalStake > 0) {
-        lines.push(`💸 ${bet.label} (${bet.numBets} bets)`);
-        lines.push(
-          `Stake: ₦${bet.totalStake} | Potential: ₦${bet.maxReturn.toFixed(2)}`
-        );
-      }
     });
 
     lines.push("");
