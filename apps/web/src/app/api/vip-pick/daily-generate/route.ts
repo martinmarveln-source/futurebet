@@ -432,7 +432,7 @@ async function buildPicksData(minChance, minRating, minRecents) {
       flag: val(r, col.flag),
       pick: pickLabel,
       cScore: predictedScore,
-    });
+    };
     // 5. Populate correct real odds based on the selection
     // STRICT RULE: Only matches with real bookmaker odds can be VIP picks.
     if (pick.market === "1X2") {
