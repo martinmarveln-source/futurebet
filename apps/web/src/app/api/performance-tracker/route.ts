@@ -698,59 +698,32 @@ export async function GET(req) {
     let vipWon = 0;
 
     try {
-      // Calculate VIP outcomes for the last 7 days using the real VIP algorithm
+      // Calculate VIP outcomes for the last 7 days from the vip_picks table
       const vipRows = await sql`
-        SELECT ft_score, raw_data 
-        FROM matches_cache
-        WHERE match_date >= (CURRENT_DATE - INTERVAL '7 days')
-          AND match_date <= CURRENT_DATE
-          AND chance >= 65
-          AND rating >= 55
-          AND ft_score IS NOT NULL
-          AND ft_score != ''
+        SELECT 
+          v.market, 
+          v.selection, 
+          m.ft_score 
+        FROM vip_picks v
+        INNER JOIN matches_cache m ON v.match_id = m.id::VARCHAR
+        WHERE v.match_date >= (CURRENT_DATE - INTERVAL '7 days')
+          AND v.match_date <= CURRENT_DATE
+          AND m.ft_score IS NOT NULL
+          AND m.ft_score != ''
       `;
       
       let vWon = 0;
       let vLost = 0;
+      
       for (const row of vipRows) {
-        if (!row.raw_data) continue;
+        // Construct the pickLabel format expected by evalSelectionOutcome (e.g., "BTTS - Yes")
+        const prediction = `${row.market} - ${row.selection}`;
         
-        let raw = {};
-        try {
-          raw = typeof row.raw_data === "string" ? JSON.parse(row.raw_data) : row.raw_data;
-        } catch (e) {
-          continue;
-        }
-        
-        const derived = computeDerivedPickFromStats({
-          hgs: Number(raw.hgs) || 0,
-          hgc: Number(raw.hgc) || 0,
-          ags: Number(raw.ags) || 0,
-          agc: Number(raw.agc) || 0,
-          hFormStr: String(raw.hForm || ''),
-          aFormStr: String(raw.aForm || ''),
-          hcs: parseFloat(raw.hcs) || 0,
-          acs: parseFloat(raw.acs) || 0,
-          hfts: parseFloat(raw.hfts) || 0,
-          afts: parseFloat(raw.afts) || 0,
-          h2hGp: parseFloat(raw.h2hGP) || 0,
-          h2hH: parseFloat(raw.h2hH) || 0,
-          h2hA: parseFloat(raw.h2hA) || 0,
-          h2hOv: parseFloat(raw.h2hOV) || 0,
-          h2hGg: parseFloat(raw.h2hGG) || 0,
-          ov25SheetPct: parseFloat(raw.ov25) || 0,
-          ggSheetPct: parseFloat(raw.gg) || 0,
-          homeSheetPct: parseFloat(raw.homeWin) || 0,
-          drawSheetPct: parseFloat(raw.draw) || 0,
-          awaySheetPct: parseFloat(raw.awayWin) || 0,
-        });
-
-        if (!derived) continue; // The Poisson model didn't find a high enough confidence pick
-
-        const outcome = evalSelectionOutcome({ prediction: derived.pickLabel, ftScore: row.ft_score });
+        const outcome = evalSelectionOutcome({ prediction, ftScore: row.ft_score });
         if (outcome === 'won') vWon++;
         else if (outcome === 'lost') vLost++;
       }
+      
       vipWon = vWon;
       vipTotal = vWon + vLost;
       vipWinRate = vipTotal > 0 ? Math.round((vWon / vipTotal) * 100) : 0;

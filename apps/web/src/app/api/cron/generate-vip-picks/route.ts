@@ -201,14 +201,14 @@ function computeMarketSignal({ market, selection, vals }) {
 async function buildPicksData(minChance, minRating, minRecents) {
   // Query matches_cache for data synced by the cron job
   const dbRows = await sql`
-    SELECT raw_data FROM matches_cache
+    SELECT id, raw_data FROM matches_cache
   `;
 
   if (!dbRows || dbRows.length === 0) {
     return { meta: { total: 0 }, picks: [] };
   }
 
-  const table = dbRows.map(r => r.raw_data);
+  const table = dbRows;
 
   // Map to the keys used in sync-matches raw_data
   const col = {
@@ -278,7 +278,8 @@ async function buildPicksData(minChance, minRating, minRecents) {
   const picks = [];
 
   for (let i = 0; i < table.length; i++) {
-    const r = table[i];
+    const cacheId = table[i].id;
+    const r = table[i].raw_data;
     if (!r) continue;
 
     const dateStr = val(r, col.date);
@@ -368,12 +369,18 @@ async function buildPicksData(minChance, minRating, minRecents) {
     });
     const vipScore = Math.round(0.55 * confidence + 0.45 * algRating);
     const derivedOdds = derived.odds;
+    const ftScoreVal = val(r, col.ftScore);
+    const hasOutcome = ftScoreVal && (ftScoreVal.includes("-") || ftScoreVal.includes(":"));
 
     // Strict odds requirement: must have odds and must be >= 1.34
-    if (!derivedOdds || derivedOdds < 1.34) continue;
+    // BUT if the match already has an outcome (ftScore), the odds might have been erased from the sheet, so we don't skip it.
+    if (!hasOutcome) {
+      if (!derivedOdds || derivedOdds < 1.34) continue;
+    }
 
     const pick = {
-      id: `vip-${i}`,
+      id: `vip-${cacheId}`,
+      match_id: String(cacheId),
       date: dateStr,
       time: val(r, col.time),
       match,
