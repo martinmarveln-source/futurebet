@@ -46,7 +46,7 @@ export async function GET(req: Request) {
         v.*, 
         m.ft_score as current_ft_score 
       FROM vip_picks v 
-      LEFT JOIN matches_cache m ON v.match_id = m.match_id
+      LEFT JOIN matches_cache m ON v.match_id = m.id::VARCHAR
       WHERE v.match_date = ${today}
       AND v.chance_percent::NUMERIC >= ${minChance}
       AND v.rating_percent >= ${minRating}
