@@ -29,7 +29,8 @@ import { checkIfPickWon } from "@/utils/vipAlgorithm";
 import useUserPermissions from "@/hooks/useUserPermissions";
 import useUser from "@/utils/useUser";
 import { useQuery } from "@tanstack/react-query";
-import useBetslipStore from "@/store/betslipStore";
+import useBetslipStore, { getRealOdds } from "@/store/betslipStore";
+import { marketProb } from "@/utils/matchUtils";
 import TeamComparisonModal from "./TeamComparisonModal";
 
 const getConvictionColor = (tier) => {
@@ -389,9 +390,33 @@ function createCandidate({
   opposition = 0,
   support = 0,
   penalty = 0,
+  match = null,
 }) {
   const margin = prob - opposition;
-  const score = prob * 0.62 + clamp(margin, -20, 35) * 0.45 + support - penalty;
+  
+  // Calculate Value Edge
+  let edgeScore = 0;
+  let realOdds = null;
+  let valueEdge = 0;
+  
+  if (match) {
+    realOdds = getRealOdds(match, market, option);
+    if (realOdds && realOdds > 1) {
+      const implied = (1 / realOdds) * 100;
+      valueEdge = prob - implied;
+      // Bonus points for positive edge
+      if (valueEdge > 5) edgeScore += 10;
+      else if (valueEdge > 0) edgeScore += 5;
+      else if (valueEdge < -10) penalty += 15; // Heavy penalty for bad odds
+    } else {
+      // If no real odds exist, heavily penalize or ignore? 
+      // We'll add a severe penalty to strongly prefer markets with real odds available
+      penalty += 25; 
+    }
+  }
+
+  const score = prob * 0.62 + clamp(margin, -20, 35) * 0.45 + support - penalty + edgeScore;
+  
   return {
     market,
     option,
@@ -399,143 +424,87 @@ function createCandidate({
     prob,
     score: Math.round(score * 10) / 10,
     margin: Math.round(margin),
+    realOdds,
+    valueEdge: Math.round(valueEdge * 10) / 10,
   };
 }
 
 function getRecommendedMarket(match) {
-  const gg = pct(match?.gg),
-    ng = pct(match?.ng),
-    ov25 = pct(match?.ov25),
-    un25 = pct(match?.un25);
-  const home = pct(match?.homeWin),
-    draw = pct(match?.draw),
-    away = pct(match?.awayWin);
-  const hgs = toNum(match?.hgs),
-    hgc = toNum(match?.hgc),
-    ags = toNum(match?.ags),
-    agc = toNum(match?.agc);
-  const hBtts = pct(match?.hBtts),
-    aBtts = pct(match?.aBtts),
-    hOv2 = pct(match?.hOv2),
-    aOv2 = pct(match?.aOv2);
-  const failRate = avg(
-    pct(match?.hfts ?? match?.hFailedToScore),
-    pct(match?.afts ?? match?.aFailedToScore)
-  );
+  const gg = pct(match?.gg), ng = pct(match?.ng);
+  const ov25 = pct(match?.ov25), un25 = pct(match?.un25);
+  const home = pct(match?.homeWin), draw = pct(match?.draw), away = pct(match?.awayWin);
+  
+  // Extended markets
+  const dc1X = home + draw;
+  const dc12 = home + away;
+  const dcX2 = draw + away;
+  
+  const o15 = marketProb(match, "Over 1.5", "Yes");
+  const u15 = marketProb(match, "Over 1.5", "No");
+  const o35 = marketProb(match, "Over 3.5", "Yes");
+  const u35 = marketProb(match, "Over 3.5", "No");
+
+  const hgs = toNum(match?.hgs), hgc = toNum(match?.hgc);
+  const ags = toNum(match?.ags), agc = toNum(match?.agc);
+  const hBtts = pct(match?.hBtts), aBtts = pct(match?.aBtts);
+  const hOv2 = pct(match?.hOv2), aOv2 = pct(match?.aOv2);
+  
+  const failRate = avg(pct(match?.hfts ?? match?.hFailedToScore), pct(match?.afts ?? match?.aFailedToScore));
   const cleanSheetRate = avg(pct(match?.hcs), pct(match?.acs));
   const predicted = parsePredictedScore(match?.cScore || match?.predictedScore);
-  const totalAvg =
-    toNum(match?.avg) ||
-    (hgs || hgc || ags || agc ? (hgs + hgc + ags + agc) / 2 : 0);
-  const bttsProfile = avg(hBtts, aBtts, gg),
-    overProfile = avg(hOv2, aOv2, ov25);
+  const totalAvg = toNum(match?.avg) || (hgs || hgc || ags || agc ? (hgs + hgc + ags + agc) / 2 : 0);
+  const bttsProfile = avg(hBtts, aBtts, gg), overProfile = avg(hOv2, aOv2, ov25);
 
   const homeDir =
     (toNum(match?.hppg) > toNum(match?.appg) + 0.3 ? 4 : 0) +
     (toNum(match?.hPts) > toNum(match?.aPts) + 2 ? 3 : 0) +
     (predicted && predicted.home > predicted.away ? 3 : 0) +
-    (hgs > ags ? 1 : 0) +
-    (agc > hgc ? 1 : 0);
+    (hgs > ags ? 2 : 0) +
+    (agc > hgc ? 2 : 0);
+    
   const awayDir =
     (toNum(match?.appg) > toNum(match?.hppg) + 0.3 ? 4 : 0) +
     (toNum(match?.aPts) > toNum(match?.hPts) + 2 ? 3 : 0) +
     (predicted && predicted.away > predicted.home ? 3 : 0) +
-    (ags > hgs ? 1 : 0) +
-    (hgc > agc ? 1 : 0);
+    (ags > hgs ? 2 : 0) +
+    (hgc > agc ? 2 : 0);
 
   const candidates = [
-    home > 0
-      ? createCandidate({
-          market: "1X2",
-          option: "Home",
-          label: "1X2 — Home",
-          prob: home,
-          opposition: Math.max(draw, away),
-          support: homeDir,
-          penalty: draw >= 30 && Math.abs(home - draw) <= 5 ? 4 : 0,
-        })
-      : null,
-    draw > 0
-      ? createCandidate({
-          market: "1X2",
-          option: "Draw",
-          label: "1X2 — Draw",
-          prob: draw,
-          opposition: Math.max(home, away),
-          support: (draw >= 30 ? 4 : 0) + (Math.abs(home - away) <= 6 ? 3 : 0),
-          penalty: Math.max(home, away) >= 50 ? 4 : 0,
-        })
-      : null,
-    away > 0
-      ? createCandidate({
-          market: "1X2",
-          option: "Away",
-          label: "1X2 — Away",
-          prob: away,
-          opposition: Math.max(home, draw),
-          support: awayDir,
-          penalty: draw >= 30 && Math.abs(away - draw) <= 5 ? 4 : 0,
-        })
-      : null,
-    gg > 0
-      ? createCandidate({
-          market: "BTTS",
-          option: "Yes",
-          label: "BTTS — Yes",
-          prob: gg,
-          opposition: ng,
-          support: (bttsProfile >= 56 ? 4 : 0) + (totalAvg >= 2.55 ? 4 : 0),
-          penalty: failRate >= 40 ? 4 : 0,
-        })
-      : null,
-    ng > 0
-      ? createCandidate({
-          market: "BTTS",
-          option: "No",
-          label: "BTTS — No",
-          prob: ng,
-          opposition: gg,
-          support: (failRate >= 34 ? 4 : 0) + (cleanSheetRate >= 28 ? 4 : 0),
-          penalty: bttsProfile >= 60 && totalAvg >= 2.7 ? 4 : 0,
-        })
-      : null,
-    ov25 > 0
-      ? createCandidate({
-          market: "Over 2.5",
-          option: "Yes",
-          label: "Over 2.5",
-          prob: ov25,
-          opposition: un25,
-          support: (overProfile >= 58 ? 4 : 0) + (totalAvg >= 2.65 ? 5 : 0),
-          penalty: un25 >= 58 ? 4 : 0,
-        })
-      : null,
-    un25 > 0
-      ? createCandidate({
-          market: "Under 2.5",
-          option: "Yes",
-          label: "Under 2.5",
-          prob: un25,
-          opposition: ov25,
-          support: (un25 >= 56 ? 4 : 0) + (totalAvg <= 2.2 ? 5 : 0),
-          penalty: overProfile >= 60 ? 4 : 0,
-        })
-      : null,
+    // 1X2
+    home > 0 ? createCandidate({ market: "1X2", option: "Home", label: "1X2 — Home", prob: home, opposition: Math.max(draw, away), support: homeDir, penalty: draw >= 30 && Math.abs(home - draw) <= 5 ? 4 : 0, match }) : null,
+    draw > 0 ? createCandidate({ market: "1X2", option: "Draw", label: "1X2 — Draw", prob: draw, opposition: Math.max(home, away), support: (draw >= 30 ? 4 : 0) + (Math.abs(home - away) <= 6 ? 3 : 0), penalty: Math.max(home, away) >= 50 ? 4 : 0, match }) : null,
+    away > 0 ? createCandidate({ market: "1X2", option: "Away", label: "1X2 — Away", prob: away, opposition: Math.max(home, draw), support: awayDir, penalty: draw >= 30 && Math.abs(away - draw) <= 5 ? 4 : 0, match }) : null,
+    
+    // Double Chance
+    dc1X > 0 ? createCandidate({ market: "Double Chance", option: "Home or Draw", label: "DC — 1X", prob: dc1X, opposition: away, support: homeDir + (draw >= 28 ? 2 : 0), penalty: home < 30 ? 5 : 0, match }) : null,
+    dc12 > 0 ? createCandidate({ market: "Double Chance", option: "Home or Away", label: "DC — 12", prob: dc12, opposition: draw, support: homeDir + awayDir, penalty: draw >= 33 ? 8 : 0, match }) : null,
+    dcX2 > 0 ? createCandidate({ market: "Double Chance", option: "Draw or Away", label: "DC — X2", prob: dcX2, opposition: home, support: awayDir + (draw >= 28 ? 2 : 0), penalty: away < 30 ? 5 : 0, match }) : null,
+
+    // BTTS
+    gg > 0 ? createCandidate({ market: "BTTS", option: "Yes", label: "BTTS — Yes", prob: gg, opposition: ng, support: (bttsProfile >= 56 ? 4 : 0) + (totalAvg >= 2.55 ? 4 : 0), penalty: failRate >= 40 ? 4 : 0, match }) : null,
+    ng > 0 ? createCandidate({ market: "BTTS", option: "No", label: "BTTS — No", prob: ng, opposition: gg, support: (failRate >= 34 ? 4 : 0) + (cleanSheetRate >= 28 ? 4 : 0), penalty: bttsProfile >= 60 && totalAvg >= 2.7 ? 4 : 0, match }) : null,
+    
+    // O/U 2.5
+    ov25 > 0 ? createCandidate({ market: "Over 2.5", option: "Yes", label: "Over 2.5", prob: ov25, opposition: un25, support: (overProfile >= 58 ? 4 : 0) + (totalAvg >= 2.65 ? 5 : 0), penalty: un25 >= 58 ? 4 : 0, match }) : null,
+    un25 > 0 ? createCandidate({ market: "Under 2.5", option: "Yes", label: "Under 2.5", prob: un25, opposition: ov25, support: (un25 >= 56 ? 4 : 0) + (totalAvg <= 2.2 ? 5 : 0), penalty: overProfile >= 60 ? 4 : 0, match }) : null,
+    
+    // O/U 1.5
+    o15 > 0 ? createCandidate({ market: "Over 1.5", option: "Yes", label: "Over 1.5", prob: o15, opposition: u15, support: (overProfile >= 50 ? 2 : 0) + (totalAvg >= 2.0 ? 3 : 0), penalty: u15 >= 35 ? 4 : 0, match }) : null,
+    u15 > 0 ? createCandidate({ market: "Over 1.5", option: "No", label: "Under 1.5", prob: u15, opposition: o15, support: (un25 >= 65 ? 3 : 0) + (totalAvg <= 1.8 ? 4 : 0), penalty: overProfile >= 50 ? 5 : 0, match }) : null,
+    
+    // O/U 3.5
+    o35 > 0 ? createCandidate({ market: "Over 3.5", option: "Yes", label: "Over 3.5", prob: o35, opposition: u35, support: (overProfile >= 70 ? 4 : 0) + (totalAvg >= 3.2 ? 5 : 0), penalty: un25 >= 45 ? 6 : 0, match }) : null,
+    u35 > 0 ? createCandidate({ market: "Over 3.5", option: "No", label: "Under 3.5", prob: u35, opposition: o35, support: (un25 >= 50 ? 3 : 0) + (totalAvg <= 2.8 ? 3 : 0), penalty: overProfile >= 60 ? 4 : 0, match }) : null,
   ].filter(Boolean);
 
   if (!candidates.length) return null;
-  candidates.sort((a, b) =>
-    b.score !== a.score
-      ? b.score - a.score
-      : b.prob !== a.prob
-      ? b.prob - a.prob
-      : b.margin - a.margin
-  );
+  candidates.sort((a, b) => b.score - a.score);
 
   const best = candidates[0];
-  const minProb =
-    best.market === "1X2" ? (best.option === "Draw" ? 28 : 42) : 54;
-  if (best.prob < minProb) return null;
+  
+  // Stricter fallback rules - if highest score is too low or best prob is weak, suggest nothing
+  if (best.prob < 50 || best.score < 25) return null;
+  
   return best;
 }
 
@@ -1530,10 +1499,9 @@ export function calculateHistWinRateForMatch(match: any, archiveData: any[]) {
   const normalizedMatchChance = matchChance <= 1 && matchChance > 0 ? matchChance * 100 : matchChance;
   const normalizedMatchRating = matchRating <= 1 && matchRating > 0 ? matchRating * 100 : matchRating;
 
-  // Use Primary AI Pick instead of raw ML Pick
+  // Use Primary AI Pick strictly
   const recommendedOpt = getRecommendedMarket(match);
-  const fallbackOpt = normalizePickDescriptor(match?.pick || match?.options || "");
-  const active = recommendedOpt || fallbackOpt;
+  const active = recommendedOpt;
 
   let primaryMarket = match?.pick;
   if (active) {
@@ -1777,11 +1745,7 @@ export default function MatchCard({
     if (!canSeeAdvancedData) return null;
     return getRecommendedMarket(match);
   }, [isPro, match]);
-  const fallbackSelection = useMemo(
-    () => normalizePickDescriptor(pickText),
-    [pickText]
-  );
-  const activeSelection = recommended || fallbackSelection;
+  const activeSelection = recommended; // Strict adherence to algorithm
 
   const pickOdds = useMemo(() => {
     const odds = getOddsForRecommendation(match, activeSelection, pickText);
@@ -2486,10 +2450,7 @@ export default function MatchCard({
                         {(valueTag === "Value" || valueTag === "Solid") &&
                         !canSeeAdvancedData ? (
                           <span className="flex items-center gap-1.5">
-                            {recommended?.market ||
-                              marketText ||
-                              "Match Market"}{" "}
-                            •
+                            {recommended?.market || "Match Market"} •
                             <span className="blur-[4px] select-none opacity-50">
                               Hidden
                             </span>
@@ -2505,9 +2466,22 @@ export default function MatchCard({
                             </span>
                           </span>
                         ) : recommended ? (
-                          formatSelectionLabel(recommended)
-                        ) : pickText ? (
-                          `${pickText}${marketText ? ` • ${marketText}` : ""}`
+                          <div className="flex items-center gap-2">
+                            {formatSelectionLabel(recommended)}
+                            {/* Reason Badges */}
+                            {recommended.valueEdge > 5 ? (
+                              <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest", darkMode ? "bg-purple-500/20 text-purple-400" : "bg-purple-100 text-purple-700")}>High Value</span>
+                            ) : recommended.prob >= 70 ? (
+                              <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest", darkMode ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700")}>Safest Prob</span>
+                            ) : (
+                              <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest", darkMode ? "bg-blue-500/20 text-blue-400" : "bg-blue-100 text-blue-700")}>Form Backed</span>
+                            )}
+                          </div>
+                        ) : canSeeAdvancedData ? (
+                          <span className={cn("px-2 py-0.5 rounded-md text-xs font-black uppercase tracking-widest", darkMode ? "bg-rose-500/10 text-rose-400" : "bg-rose-50 text-rose-600")}>
+                            <ShieldAlert size={12} className="inline mr-1" />
+                            High Volatility - No Safe Pick
+                          </span>
                         ) : (
                           "—"
                         )}
