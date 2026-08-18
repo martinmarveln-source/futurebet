@@ -8,6 +8,7 @@ import {
   generatePickReasons,
 } from "@/utils/matchUtils";
 import { Chip, ProgressBar } from "./PremiumUI";
+import useBetslipStore from "@/store/betslipStore";
 
 export const HomePickRow = memo(function HomePickRow({
   m,
@@ -51,6 +52,16 @@ export const HomePickRow = memo(function HomePickRow({
   const valueLabel = valueTagFromVip(vipScore);
   const fairOdds = fairOddsFromPickMarket(m);
   const marketLabel = getPick(m) || getTips(m) || "Main";
+
+  let realOdds = null;
+  if (marketLabel && marketLabel.includes(" - ")) {
+    const [market, option] = marketLabel.split(" - ");
+    realOdds = useBetslipStore.getState().computeOddsForSelection(m, market, option);
+  } else if (marketLabel === "Over 2.5") {
+    realOdds = useBetslipStore.getState().computeOddsForSelection(m, "Over 2.5", "Yes");
+  }
+
+  const noRealOdds = realOdds === null || realOdds === undefined || realOdds === 0;
 
   const riskNote = (() => {
     const chanceN = Number(chance) || 0;
@@ -154,6 +165,9 @@ export const HomePickRow = memo(function HomePickRow({
                 Fair {fairOdds}
               </Chip>
             )}
+            <Chip tone={realOdds ? "green" : "gray"} darkMode={darkMode}>
+              Odds {realOdds ? realOdds.toFixed(2) : "—"}
+            </Chip>
           </div>
         </div>
 
@@ -250,7 +264,7 @@ export const HomePickRow = memo(function HomePickRow({
           <div className="w-full sm:w-[130px] shrink-0 flex flex-row sm:flex-col items-center justify-end gap-2.5">
             <button
               onClick={() => onAdd(m)}
-              disabled={!canAdd}
+              disabled={!canAdd || noRealOdds}
               title={
                 !user
                   ? "Sign in to add picks"
@@ -260,13 +274,16 @@ export const HomePickRow = memo(function HomePickRow({
                   ? "Already in BetSlip"
                   : !canAddMore()
                   ? `Max ${maxMatches || 20} matches reached`
+                  : noRealOdds
+                  ? "No real odds available — cannot add to betslip"
                   : "Add to BetSlip"
               }
               className={cn(
                 "flex-1 sm:w-full inline-flex justify-center items-center gap-2 px-3 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-[0.99]",
-                alreadyAdded
+                (kickoffPassed || noRealOdds) && "pointer-events-none grayscale blur-[1.1px] opacity-55",
+                alreadyAdded && !kickoffPassed && !noRealOdds
                   ? "bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)] border border-emerald-400"
-                  : !user || !canAddMore() || kickoffPassed
+                  : !user || !canAddMore() || kickoffPassed || noRealOdds
                   ? "bg-gray-200 text-gray-400 border border-transparent dark:bg-white/5 dark:text-gray-600 cursor-not-allowed"
                   : "bg-blue-600 text-white shadow-lg shadow-blue-500/20 hover:bg-blue-500 hover:shadow-blue-500/40 border border-transparent"
               )}
@@ -274,6 +291,10 @@ export const HomePickRow = memo(function HomePickRow({
               {alreadyAdded ? (
                 <>
                   <Check size={14} /> Added
+                </>
+              ) : noRealOdds ? (
+                <>
+                  <AlertCircle size={14} /> No Odds
                 </>
               ) : (
                 <>
