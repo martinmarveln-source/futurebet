@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useMemo, useCallback } from "react";
 import { getOddsForMatch } from "@/utils/matchUtils";
+import { getRecommendedMarket } from "@/components/Dashboard/MatchCard";
 
 export function useMatchFiltering() {
   const bandRank = useCallback(
@@ -86,12 +87,18 @@ export function useMatchFiltering() {
 
     if (oddsFilter !== "all") {
       list = list.filter((m) => {
-        const odds = getOddsForMatch(m);
+        const rec = getRecommendedMarket(m);
+        
+        if (oddsFilter === "value-edge") {
+          return rec?.valueEdge > 0;
+        }
+
+        const odds = rec?.realOdds || getOddsForMatch(m);
         if (!odds) return false;
 
-        if (oddsFilter === "1.2-1.5") return odds >= 1.2 && odds < 1.5;
-        if (oddsFilter === "1.5-2") return odds >= 1.5 && odds < 2;
-        if (oddsFilter === "2-3") return odds >= 2 && odds < 3;
+        if (oddsFilter === "1.1-1.49") return odds >= 1.1 && odds < 1.5;
+        if (oddsFilter === "1.5-1.99") return odds >= 1.5 && odds < 2;
+        if (oddsFilter === "2-2.99") return odds >= 2 && odds < 3;
         if (oddsFilter === "3+") return odds >= 3;
 
         return true;

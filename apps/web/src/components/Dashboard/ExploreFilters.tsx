@@ -244,10 +244,11 @@ export function ExploreFilters({
               )}
             >
               <option value="all">Any Odds</option>
-              <option value="1.2-1.5">1.20 – 1.50</option>
-              <option value="1.5-2">1.50 – 2.00</option>
-              <option value="2-3">2.00 – 3.00</option>
-              <option value="3+">3.00+ Edge</option>
+              <option value="1.1-1.49">1.10 – 1.49 (Ultra Safe)</option>
+              <option value="1.5-1.99">1.50 – 1.99 (Solid Value)</option>
+              <option value="2-2.99">2.00 – 2.99 (High Return)</option>
+              <option value="3+">3.00+ (Extreme Edge)</option>
+              <option value="value-edge">Positive Value Edge</option>
             </select>
             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
               ▼
