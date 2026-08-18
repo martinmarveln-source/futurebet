@@ -280,8 +280,9 @@ export function useAutoPickLogic({
 
       if (!sel?.selectedMarket) continue;
       
-      const realOdds = sel.odds || sel.prob ? (sel.prob ? 1 / (sel.prob / 100) : 1) : 1; // Basic fallback if odds aren't directly available, but usually pickBestSelectionForMatch sets odds/prob
-      const matchOdds = Number(sel.odds) || 1.0;
+      const prob = sel.prob || sel.bestProb || 0;
+      const realOdds = prob > 0 ? Number((100 / prob).toFixed(2)) : 1.0;
+      const matchOdds = Number(sel.odds) || realOdds;
 
       // Smart Diversification: Cap at 2 matches per league
       if (autoDiversify) {
@@ -299,7 +300,7 @@ export function useAutoPickLogic({
         ...m,
         selectedMarket: sel.selectedMarket,
         selectedOption: sel.selectedOption,
-        prob: sel.prob,
+        prob: prob,
         odds: matchOdds,
       });
       
