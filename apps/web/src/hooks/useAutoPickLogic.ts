@@ -4,7 +4,7 @@ import {
   vipScoreFromMatch,
   pickBestSelectionForMatch,
 } from "@/utils/matchUtils";
-import useBetslipStore from "@/store/betslipStore";
+import useBetslipStore, { getRealOdds } from "@/store/betslipStore";
 
 export function useAutoPickLogic({
   user,
@@ -280,9 +280,11 @@ export function useAutoPickLogic({
 
       if (!sel?.selectedMarket) continue;
       
+      const realOdds = getRealOdds(m, sel.selectedMarket, sel.selectedOption);
+      if (!realOdds || realOdds <= 1) continue;
+      
       const prob = sel.prob || sel.bestProb || 0;
-      const realOdds = prob > 0 ? Number((100 / prob).toFixed(2)) : 1.0;
-      const matchOdds = Number(sel.odds) || realOdds;
+      const matchOdds = realOdds;
 
       // Smart Diversification: Cap at 2 matches per league
       if (autoDiversify) {

@@ -155,7 +155,7 @@ function calculatePoissonMarketProbs(m) {
   return { home: pHome, draw: pDraw, away: pAway, btts: pBTTS, o25: pO25 };
 }
 
-function deriveMasterOdds(match, market, option) {
+export function getRealOdds(match, market, option) {
   if (!match || !market || !option) return null;
 
   const mkt = String(market).trim();
@@ -189,9 +189,24 @@ function deriveMasterOdds(match, market, option) {
   }
 
   const dOdds = Number(directOdds);
-  if (Number.isFinite(dOdds) && dOdds > 0) {
+  if (Number.isFinite(dOdds) && dOdds > 1) {
     return Number(dOdds.toFixed(2));
   }
+
+  const rawOdds = Number(match?.odds);
+  if (Number.isFinite(rawOdds) && rawOdds > 1) {
+    return Number(rawOdds.toFixed(2));
+  }
+
+  return null;
+}
+
+function deriveMasterOdds(match, market, option) {
+  const realOdds = getRealOdds(match, market, option);
+  if (realOdds) return realOdds;
+
+  const mkt = String(market).trim();
+  const opt = String(option).trim();
 
   // Fallback to converting sheet probabilities to exact odds
   const home = toProbPercent(match.homeWin ?? match.home ?? match.hWin);
