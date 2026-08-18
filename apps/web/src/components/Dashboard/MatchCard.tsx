@@ -328,17 +328,9 @@ function resolveProbabilityForSelection(match, market, option) {
   if (market === "Under 2.5")
     return pct(option === "Yes" ? match?.un25 : match?.ov25);
   if (market === "Over 1.5")
-    return pct(
-      option === "Yes"
-        ? match?.ov15 || avg(match?.hgsOver15, match?.agsOver15)
-        : match?.un15 || 100 - avg(match?.hgsOver15, match?.agsOver15)
-    );
+    return marketProb(match, "Over 1.5", option);
   if (market === "Under 1.5")
-    return pct(
-      option === "Yes"
-        ? match?.un15 || 100 - avg(match?.hgsOver15, match?.agsOver15)
-        : match?.ov15 || avg(match?.hgsOver15, match?.agsOver15)
-    );
+    return marketProb(match, "Over 1.5", option === "Yes" ? "No" : "Yes");
   if (market === "Over 3.5")
     return pct(option === "Yes" ? match?.ov35 : match?.un35);
   if (market === "Under 3.5")
@@ -1755,7 +1747,11 @@ export default function MatchCard({
 
   const valueEdge = useMemo(() => {
     if (!pickOdds || !activeSelection) return null;
-    const modelProb = resolveProbabilityForSelection(
+    
+    // If we already computed the value edge in the algorithm, just return it
+    if (activeSelection.valueEdge !== undefined) return activeSelection.valueEdge;
+
+    const modelProb = activeSelection.prob || resolveProbabilityForSelection(
       match,
       activeSelection.market,
       activeSelection.option
