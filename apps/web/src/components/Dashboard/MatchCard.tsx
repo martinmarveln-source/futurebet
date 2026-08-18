@@ -374,7 +374,7 @@ function getPickStrength({ chance = 0, rating = 0, flag = "" }) {
   return { label: "Risky", kind: "danger" };
 }
 
-function createCandidate({
+export function createCandidate({
   market,
   option,
   label,
@@ -421,7 +421,7 @@ function createCandidate({
   };
 }
 
-function getRecommendedMarket(match) {
+export function getRecommendedMarket(match) {
   const gg = pct(match?.gg), ng = pct(match?.ng);
   const ov25 = pct(match?.ov25), un25 = pct(match?.un25);
   const home = pct(match?.homeWin), draw = pct(match?.draw), away = pct(match?.awayWin);

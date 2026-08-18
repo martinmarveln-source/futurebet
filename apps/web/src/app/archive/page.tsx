@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format, subDays } from "date-fns";
 import { ChevronLeft, Calendar as CalendarIcon, Loader2, Lock, CheckCircle2, XCircle, MinusCircle, Trophy, Activity, Target } from "lucide-react";
 import Link from "next/link";
+import { getRecommendedMarket } from "@/components/Dashboard/MatchCard";
 
 export default function ArchivePage() {
   const [selectedDate, setSelectedDate] = useState<Date>(subDays(new Date(), 1));
@@ -53,7 +54,27 @@ export default function ArchivePage() {
     const algoBTTSFavored = bttsYesProb >= bttsNoProb ? "YES" : "NO";
     const algoOU25Favored = over25Prob >= under25Prob ? "OVER" : "UNDER";
 
-    const mainPick = (match.pick || match.raw_data?.pick || match.tips || match.raw_data?.tips || "").toUpperCase();
+    const normalizedMatch = { ...(match.raw_data || {}), ...match };
+    const algoPickObj = getRecommendedMarket(normalizedMatch);
+    let fallbackPick = match.pick || match.raw_data?.pick || match.tips || match.raw_data?.tips || "";
+    let mainPick = fallbackPick.toUpperCase();
+    
+    if (algoPickObj) {
+      const { market, option } = algoPickObj;
+      if (market === "1X2") mainPick = option.toUpperCase(); // "HOME", "DRAW", "AWAY"
+      else if (market === "Double Chance") {
+        if (option === "Home or Draw") mainPick = "1X";
+        else if (option === "Home or Away") mainPick = "12";
+        else if (option === "Draw or Away") mainPick = "X2";
+      }
+      else if (market === "BTTS") mainPick = option === "Yes" ? "GG" : "NG";
+      else if (market === "Over 2.5") mainPick = option === "Yes" ? "OVER 2.5" : "UNDER 2.5";
+      else if (market === "Under 2.5") mainPick = option === "Yes" ? "UNDER 2.5" : "OVER 2.5";
+      else if (market === "Over 1.5") mainPick = option === "Yes" ? "OVER 1.5" : "UNDER 1.5";
+      else if (market === "Under 1.5") mainPick = option === "Yes" ? "UNDER 1.5" : "OVER 1.5";
+      else if (market === "Over 3.5") mainPick = option === "Yes" ? "OVER 3.5" : "UNDER 3.5";
+      else if (market === "Under 3.5") mainPick = option === "Yes" ? "UNDER 3.5" : "OVER 3.5";
+    }
 
     let isMainPickHit = false;
     let hasMainPickEvaluation = false;
