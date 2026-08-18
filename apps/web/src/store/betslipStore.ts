@@ -407,6 +407,9 @@ const useBetslipStore = create(
       matches: [],
       maxMatches: 20,
       stake: 1000,
+      slipTitle: "",
+
+      setSlipTitle: (title) => set({ slipTitle: title || "" }),
 
       setStakeAmount: (value) => {
         const n = Number(value);

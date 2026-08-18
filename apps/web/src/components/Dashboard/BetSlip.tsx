@@ -84,6 +84,7 @@ export default function BetSlip({ darkMode = false }) {
     clearAll,
     updateMatchSelection,
     setStakeAmount,
+    slipTitle,
   } = useBetslipStore();
 
   // Modal State
@@ -258,6 +259,10 @@ export default function BetSlip({ darkMode = false }) {
       return alert("Complete all selections before sharing!");
 
     const lines = ["🔥 *MY FUTUREBET SYSTEM* 🔥", ""];
+    if (slipTitle) {
+      lines.push(`✨ ${slipTitle}`);
+      lines.push("");
+    }
     
     const numToEmoji = (n: number) => {
       const emojis = ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
