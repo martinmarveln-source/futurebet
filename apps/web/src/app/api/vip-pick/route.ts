@@ -38,56 +38,6 @@ function generateBookieRoutes(matchName, market) {
   };
 }
 
-/* =========================
-   CSV PARSER
-========================= */
-function parseCSV(text) {
-  text = String(text ?? "");
-  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
-
-  const rows = [];
-  let row = [];
-  let cell = "";
-  let inQuotes = false;
-
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    const next = text[i + 1];
-
-    if (ch === '"') {
-      if (inQuotes && next === '"') {
-        cell += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (ch === "," && !inQuotes) {
-      row.push(cell);
-      cell = "";
-      continue;
-    }
-
-    if ((ch === "\n" || ch === "\r") && !inQuotes) {
-      if (ch === "\r" && next === "\n") i++;
-      row.push(cell);
-      cell = "";
-
-      if (row.some((c) => String(c ?? "").trim())) rows.push(row);
-      row = [];
-      continue;
-    }
-
-    cell += ch;
-  }
-
-  row.push(cell);
-  if (row.some((c) => String(c ?? "").trim())) rows.push(row);
-
-  return rows.map((r) => r.map((c) => String(c ?? "").trim()));
-}
 
 /* =========================
    HELPERS & DATE ENGINE

@@ -22,50 +22,7 @@ function hasStaleCache() {
   return CACHE && Date.now() - CACHE_TIME < STALE_TTL;
 }
 
-/* =========================
-   CSV PARSER
-========================= */
-function parseCSV(text) {
-  const rows = [];
-  let row = [];
-  let cell = "";
-  let inQuotes = false;
 
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    const next = text[i + 1];
-
-    if (ch === '"') {
-      if (inQuotes && next === '"') {
-        cell += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (ch === "," && !inQuotes) {
-      row.push(cell);
-      cell = "";
-      continue;
-    }
-
-    if ((ch === "\n" || ch === "\r") && !inQuotes) {
-      if (ch === "\r" && next === "\n") i++;
-      row.push(cell);
-      cell = "";
-      if (row.some((c) => String(c ?? "").trim().length > 0)) rows.push(row);
-      row = [];
-      continue;
-    }
-    cell += ch;
-  }
-
-  row.push(cell);
-  if (row.some((c) => String(c ?? "").trim().length > 0)) rows.push(row);
-  return rows.map((r) => r.map((c) => String(c ?? "").trim()));
-}
 
 /* =========================
    HELPERS

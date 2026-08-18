@@ -241,47 +241,7 @@ function kickoffTs(match) {
   return Number.isFinite(ts) ? ts : 0;
 }
 
-function parseCsv(text) {
-  const rows = [];
-  let row = [];
-  let field = "";
-  let inQuotes = false;
 
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    const next = text[i + 1];
-
-    if (inQuotes) {
-      if (char === '"' && next === '"') {
-        field += '"';
-        i++;
-      } else if (char === '"') {
-        inQuotes = false;
-      } else {
-        field += char;
-      }
-    } else {
-      if (char === '"') {
-        inQuotes = true;
-      } else if (char === ",") {
-        row.push(field.trim());
-        field = "";
-      } else if (char === "\n") {
-        row.push(field.trim());
-        if (row.some((cell) => String(cell).trim() !== "")) rows.push(row);
-        row = [];
-        field = "";
-      } else if (char !== "\r") {
-        field += char;
-      }
-    }
-  }
-
-  row.push(field.trim());
-  if (row.some((cell) => String(cell).trim() !== "")) rows.push(row);
-
-  return rows;
-}
 
 function normalizeGuide(match) {
   return String(match?.GUIDE || match?.pick || "")
