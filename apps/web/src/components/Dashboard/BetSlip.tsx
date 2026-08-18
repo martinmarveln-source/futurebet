@@ -278,9 +278,14 @@ export default function BetSlip({ darkMode = false }) {
       let dateStr = String(m.dateRaw || m.date || m.dateISO || "").trim();
       if (dateStr && dateStr.length > 10) dateStr = dateStr.slice(0, 10);
       
-      let timeStr = String(m.time || m.kickoff_at || m.kickoff || "").trim();
-      // Only keep HH:MM if it has seconds
-      if (timeStr && timeStr.split(":").length === 3) timeStr = timeStr.slice(0, 5);
+      let timeStr = String(m.time || m.match_time || m.kickoff_at || m.kickoff || "").trim();
+      if (timeStr.includes("T")) {
+        // e.g. 2026-08-21T18:30:00Z -> 18:30
+        timeStr = timeStr.split("T")[1].slice(0, 5);
+      } else if (timeStr && timeStr.split(":").length >= 2) {
+        // e.g. 18:30:00 -> 18:30
+        timeStr = timeStr.slice(0, 5);
+      }
       
       if (dateStr && timeStr) {
         lines.push(`📅 ${dateStr} - ${timeStr}`);
