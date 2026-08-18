@@ -267,10 +267,13 @@ export default function BetSlip({ darkMode = false }) {
     matches.forEach((m: any, i: number) => {
       lines.push(`${numToEmoji(i + 1)} ${m.match}`);
       
-      let countryStr = String(m.country || "").replace(/Intl\s*-\s*/g, "").replace("Intl", "").trim();
-      if (!countryStr) countryStr = "World";
-      const leagueStr = String(m.fullLeague || m.league || "League").trim();
-      lines.push(`🌍 ${countryStr} - ${leagueStr}`);
+      let leagueStr = String(m.fullLeague || m.league || "League").trim();
+      // Remove "Intl - " or "World - " or "World" if it's there
+      leagueStr = leagueStr.replace(/Intl\s*-\s*/g, "").replace(/World\s*-\s*/g, "").trim();
+      if (leagueStr.startsWith("Intl ")) leagueStr = leagueStr.replace("Intl ", "");
+      if (leagueStr.startsWith("World ")) leagueStr = leagueStr.replace("World ", "");
+      
+      lines.push(`🌍 ${leagueStr}`);
 
       let dateStr = String(m.dateRaw || m.date || m.dateISO || "").trim();
       if (dateStr && dateStr.length > 10) dateStr = dateStr.slice(0, 10);
@@ -308,13 +311,7 @@ export default function BetSlip({ darkMode = false }) {
       lines.push("");
     });
 
-    lines.push("");
-    lines.push(`📈 Grand Total Stake: ${formatNaira(grandTotalStake)}`);
-    if (grandMaxReturn > 0) {
-      lines.push(
-        `🚀 Max Potential Return: ${formatNaira(grandMaxReturn)}`
-      );
-    }
+
     lines.push("");
     lines.push("🤖 Built with FutureBet Pro");
 
