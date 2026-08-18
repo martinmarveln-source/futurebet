@@ -17,7 +17,8 @@ import SettingsModal from "@/components/Dashboard/SettingsModal";
 import StatsCards from "@/components/Dashboard/StatsCards";
 import Controls from "@/components/Dashboard/Controls";
 import MatchesList from "@/components/Dashboard/MatchesList";
-import TeamComparisonModal from "@/components/Dashboard/TeamComparisonModal";
+import dynamic from "next/dynamic";
+const TeamComparisonModal = dynamic(() => import("@/components/Dashboard/TeamComparisonModal"), { ssr: false });
 import {
   BarChart3,
   Crown,

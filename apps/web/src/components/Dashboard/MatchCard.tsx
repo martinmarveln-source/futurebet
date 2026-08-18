@@ -31,7 +31,8 @@ import useUser from "@/utils/useUser";
 import { useQuery } from "@tanstack/react-query";
 import useBetslipStore, { getRealOdds } from "@/store/betslipStore";
 import { marketProb } from "@/utils/matchUtils";
-import TeamComparisonModal from "./TeamComparisonModal";
+import dynamic from "next/dynamic";
+const TeamComparisonModal = dynamic(() => import("./TeamComparisonModal"), { ssr: false });
 
 const getConvictionColor = (tier) => {
   switch (tier) {

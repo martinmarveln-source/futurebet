@@ -1,6 +1,7 @@
 // @ts-nocheck
 import React, { useMemo, useState, useCallback, useEffect } from "react";
-import TeamComparisonModal from "@/components/Dashboard/TeamComparisonModal";
+import dynamic from "next/dynamic";
+const TeamComparisonModal = dynamic(() => import("@/components/Dashboard/TeamComparisonModal"), { ssr: false });
 import { useQuery } from "@tanstack/react-query";
 import {
   Crown,
