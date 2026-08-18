@@ -136,30 +136,54 @@ export function marketProb(m, market, option) {
 
   if (market === "Over 1.5") {
     const direct = Number(m?.ov15);
-    const p =
-      Number.isFinite(direct) && direct > 0
-        ? direct
-        : approxOverProbFromAvg(m?.avg, 1.5);
+    let p = 0;
+    if (Number.isFinite(direct) && direct > 0) {
+      p = direct;
+    } else {
+      const hStats = Number(m?.hgsOver15);
+      const aStats = Number(m?.agsOver15);
+      if (Number.isFinite(hStats) && Number.isFinite(aStats) && (hStats > 0 || aStats > 0)) {
+        p = (hStats + aStats) / 2;
+      } else {
+        p = approxOverProbFromAvg(m?.avg, 1.5);
+      }
+    }
     if (option === "Yes") return p || 0;
     if (option === "No") return p ? 100 - p : 0;
   }
 
   if (market === "Over 3.5") {
     const direct = Number(m?.ov35);
-    const p =
-      Number.isFinite(direct) && direct > 0
-        ? direct
-        : approxOverProbFromAvg(m?.avg, 3.5);
+    let p = 0;
+    if (Number.isFinite(direct) && direct > 0) {
+      p = direct;
+    } else {
+      const hStats = Number(m?.hgsOver35);
+      const aStats = Number(m?.agsOver35);
+      if (Number.isFinite(hStats) && Number.isFinite(aStats) && (hStats > 0 || aStats > 0)) {
+        p = (hStats + aStats) / 2;
+      } else {
+        p = approxOverProbFromAvg(m?.avg, 3.5);
+      }
+    }
     if (option === "Yes") return p || 0;
     if (option === "No") return p ? 100 - p : 0;
   }
+  
   if (market === "Over 4.5") {
     const direct = Number(m?.ov45);
-    const p =
-      Number.isFinite(direct) && direct > 0
-        ? direct
-        : approxOverProbFromAvg(m?.avg, 4.5);
-
+    let p = 0;
+    if (Number.isFinite(direct) && direct > 0) {
+      p = direct;
+    } else {
+      const hStats = Number(m?.hgsOver45);
+      const aStats = Number(m?.agsOver45);
+      if (Number.isFinite(hStats) && Number.isFinite(aStats) && (hStats > 0 || aStats > 0)) {
+        p = (hStats + aStats) / 2;
+      } else {
+        p = approxOverProbFromAvg(m?.avg, 4.5);
+      }
+    }
     if (option === "Yes") return p || 0;
     if (option === "No") return p ? 100 - p : 0;
   }
