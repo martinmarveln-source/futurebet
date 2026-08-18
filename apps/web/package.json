@@ -3,7 +3,7 @@
 	"private": true,
 	"scripts": {
 		"dev": "next dev --port 4000",
-		"build": "NEXT_TELEMETRY_DISABLED=1 next build",
+		"build": "next build",
 		"start": "next start",
 		"typecheck": "tsc --noEmit",
 		"sync-sandbox": "tsx sync-sandbox.ts"
