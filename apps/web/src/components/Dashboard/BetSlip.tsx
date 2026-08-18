@@ -318,6 +318,13 @@ export default function BetSlip({ darkMode = false }) {
 
 
     lines.push("");
+    if (grandTotalStake > 0) {
+      lines.push(`📈 Grand Total Stake: ${formatNaira(grandTotalStake)}`);
+    }
+    if (grandMaxReturn > 0) {
+      lines.push(`🚀 Max Potential Return: ${formatNaira(grandMaxReturn)}`);
+    }
+    lines.push("");
     lines.push("🤖 Built with FutureBet Pro");
 
     try {
