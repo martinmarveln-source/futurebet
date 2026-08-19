@@ -98,8 +98,21 @@ export function TabNavigation({
           )}
         >
           <GitCompare className="h-3 w-3 sm:h-4 sm:w-4" />
-          <span>Compare</span>
+          <span>Team Compare</span>
         </button>
+
+        <a
+          href="/stats"
+          className={cn(
+            "flex items-center justify-center space-x-1 sm:space-x-2 py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0",
+            darkMode
+              ? "border-transparent text-blue-400 hover:text-blue-300"
+              : "border-transparent text-blue-600 hover:text-blue-800"
+          )}
+        >
+          <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4" />
+          <span>Stats Hub</span>
+        </a>
 
         <button
           onClick={() => setActiveTab("betslip")}
