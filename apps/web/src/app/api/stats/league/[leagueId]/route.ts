@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import sql from "../../../../utils/sql";
+import sql from "../../../utils/sql";
 
 export async function GET(
   request: Request,
