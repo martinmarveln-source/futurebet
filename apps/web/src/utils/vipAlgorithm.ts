@@ -177,11 +177,11 @@ export function computeDerivedPickFromStats({
   }
 
   const pOver25 = clamp01(probs.over25 + h2hOverBoost);
-  const pUnder25 = clamp01(1 - probs.over25);
+  const pUnder25 = clamp01(1 - pOver25);
   const pOver15 = clamp01(probs.over15 + (h2hOverBoost > 0 ? 0.05 : 0));
-  const pUnder15 = clamp01(1 - probs.over15);
+  const pUnder15 = clamp01(1 - pOver15);
   const pBtts = clamp01(probs.btts + h2hBttsBoost);
-  const pBttsNo = clamp01(1 - probs.btts);
+  const pBttsNo = clamp01(1 - pBtts);
   const pHome = clamp01(probs.home + h2hHomeBoost);
   const pDraw = clamp01(probs.draw); 
   const pAway = clamp01(probs.away + h2hAwayBoost);
