@@ -110,6 +110,12 @@ export default function StatsHub() {
     <div className="min-h-screen bg-[#030712] text-slate-200">
       <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
 
+        {/* Back */}
+        <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-white mb-6 transition-colors">
+          <ChevronLeft className="w-4 h-4" />
+          Back to Dashboard
+        </Link>
+
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
           <div>

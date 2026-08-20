@@ -1,73 +1,97 @@
 import { NextResponse } from "next/server";
 import sql from "../../utils/sql";
 
+function parseNum(val: any): number | null {
+  if (val == null || val === "") return null;
+  const n = parseFloat(String(val).replace(/%/, ""));
+  return isNaN(n) ? null : n;
+}
+
 export async function GET(request: Request) {
   try {
-    // Get distinct countries + leagues with team count and basic market averages
+    // Safest approach: fetch raw rows and compute averages in JS.
+    // This avoids all Postgres JSON casting errors if market_stats is text.
     const rows = await sql`
-      SELECT 
-        country,
-        league,
-        COUNT(*) AS team_count,
-        ROUND(AVG((market_stats->>'BTTS_ALL')::numeric), 0)::int AS btts_percent,
-        ROUND(AVG((market_stats->>'O25_ALL')::numeric), 0)::int AS over_25_percent,
-        ROUND(AVG((market_stats->>'O15_ALL')::numeric), 0)::int AS over_15_percent
+      SELECT country, league, market_stats
       FROM league_table_cache
       WHERE country IS NOT NULL 
         AND country != ''
         AND LOWER(country) != 'country'
-        AND market_stats IS NOT NULL
-      GROUP BY country, league
-
-      UNION ALL
-
-      SELECT 
-        country,
-        league,
-        COUNT(*) AS team_count,
-        NULL AS btts_percent,
-        NULL AS over_25_percent,
-        NULL AS over_15_percent
-      FROM league_table_cache
-      WHERE country IS NOT NULL 
-        AND country != ''
-        AND LOWER(country) != 'country'
-        AND market_stats IS NULL
-      GROUP BY country, league
-
-      ORDER BY country, league
     `;
 
     if (!rows || rows.length === 0) {
       return NextResponse.json({ success: true, data: [] });
     }
 
-    const countryMap = new Map<string, any[]>();
+    // Map: country -> Map(league -> { teams: int, btts: [], o25: [], o15: [] })
+    const countryMap = new Map<string, Map<string, any>>();
 
     for (const row of rows) {
       const country = row.country;
-      if (!countryMap.has(country)) countryMap.set(country, []);
+      const league = row.league;
+      
+      if (!countryMap.has(country)) {
+        countryMap.set(country, new Map());
+      }
+      const leagueMap = countryMap.get(country)!;
+      
+      if (!leagueMap.has(league)) {
+        leagueMap.set(league, { teams: 0, btts: [], o25: [], o15: [] });
+      }
+      
+      const stats = leagueMap.get(league)!;
+      stats.teams += 1;
 
-      const leagues = countryMap.get(country)!;
-      // deduplicate leagues (union may produce dupes for same league with/without market_stats)
-      const existing = leagues.find((l: any) => l.league === row.league);
-      if (!existing) {
-        leagues.push({
-          league: row.league,
-          teamCount: parseInt(row.team_count ?? "0"),
-          overview: {
-            btts_percent: row.btts_percent ?? null,
-            over_25_percent: row.over_25_percent ?? null,
-            over_15_percent: row.over_15_percent ?? null,
-          },
-        });
+      if (row.market_stats) {
+        let ms = row.market_stats;
+        if (typeof ms === "string") {
+          try { ms = JSON.parse(ms); } catch (e) {}
+        }
+        
+        if (ms && typeof ms === "object") {
+          const btts = parseNum(ms.BTTS_ALL);
+          const o25 = parseNum(ms.O25_ALL);
+          const o15 = parseNum(ms.O15_ALL);
+          
+          if (btts !== null) stats.btts.push(btts);
+          if (o25 !== null) stats.o25.push(o25);
+          if (o15 !== null) stats.o15.push(o15);
+        }
       }
     }
 
-    const data = Array.from(countryMap.entries()).map(([country, leagues]) => ({
-      country,
-      leagues,
-    }));
+    const data = [];
+    for (const [country, leagueMap] of countryMap.entries()) {
+      const leagues = [];
+      for (const [league, stats] of leagueMap.entries()) {
+        
+        // Compute averages safely
+        const avgBtts = stats.btts.length > 0 ? Math.round(stats.btts.reduce((a: number, b: number) => a + b, 0) / stats.btts.length) : null;
+        const avgO25 = stats.o25.length > 0 ? Math.round(stats.o25.reduce((a: number, b: number) => a + b, 0) / stats.o25.length) : null;
+        const avgO15 = stats.o15.length > 0 ? Math.round(stats.o15.reduce((a: number, b: number) => a + b, 0) / stats.o15.length) : null;
+
+        leagues.push({
+          league,
+          teamCount: stats.teams,
+          overview: {
+            btts_percent: avgBtts,
+            over_25_percent: avgO25,
+            over_15_percent: avgO15,
+          }
+        });
+      }
+      
+      // Sort leagues alphabetically within country
+      leagues.sort((a, b) => a.league.localeCompare(b.league));
+      
+      data.push({
+        country,
+        leagues
+      });
+    }
+    
+    // Sort countries alphabetically
+    data.sort((a, b) => a.country.localeCompare(b.country));
 
     return NextResponse.json({ success: true, data });
   } catch (error: any) {
