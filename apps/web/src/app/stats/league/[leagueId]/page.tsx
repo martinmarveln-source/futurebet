@@ -340,7 +340,7 @@ export default function LeaguePageInner({ params }: { params: Promise<{ leagueId
                               <td className="p-3 text-center font-black text-white">{row.pts || 0}</td>
                               <td className="p-3 text-center">
                                 <span className={cn("text-xs font-bold", parse(row.ppg) >= 2 ? "text-emerald-400" : parse(row.ppg) >= 1.5 ? "text-amber-400" : "text-red-400")}>
-                                  {row.ppg || "—"}
+                                  {row.ppg ? Number(row.ppg).toFixed(2) : "—"}
                                 </span>
                               </td>
                               <td className="p-3 text-center"><NextMatchPill data={nm} /></td>

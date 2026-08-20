@@ -66,27 +66,27 @@ export async function GET(req) {
     let table = [];
     
     if (normCountry && normLeague) {
-      // Find exact matches based on normalized names
-      // We pull all and filter in JS to reuse the normalize logic for now, 
-      // or we can just query directly. Since DB has exact strings, let's query directly and filter.
-      // But to ensure it matches the same logic, we'll just fetch all rows for the given country/league.
-      const rows = await sql`
-        SELECT * FROM league_table_cache
-      `;
-      
+      const rows = await sql`SELECT * FROM league_table_cache`;
       table = rows.filter(
         (r) =>
           normalize(r.country) === normCountry &&
           normalize(r.league) === normLeague
-      );
+      ).map(r => {
+        let ms = r.market_stats;
+        if (typeof ms === 'string' && ms) {
+          try { ms = JSON.parse(ms); } catch(e) {}
+        }
+        return { ...r, market_stats: ms, winRate: r.win_rate };
+      });
     } else {
-      const rows = await sql`
-        SELECT * FROM league_table_cache
-      `;
-      table = rows.map(r => ({
-        ...r,
-        winRate: r.win_rate // map snake_case to camelCase
-      }));
+      const rows = await sql`SELECT * FROM league_table_cache`;
+      table = rows.map(r => {
+        let ms = r.market_stats;
+        if (typeof ms === 'string' && ms) {
+          try { ms = JSON.parse(ms); } catch(e) {}
+        }
+        return { ...r, market_stats: ms, winRate: r.win_rate };
+      });
     }
 
     // Sort by points desc, then gd desc

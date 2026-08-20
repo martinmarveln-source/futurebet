@@ -116,6 +116,17 @@ export default function StatsHub() {
           Back to Dashboard
         </Link>
 
+        {/* Top Navigation Tabs */}
+        <div className="flex gap-2 mb-8 border-b border-slate-800 pb-px">
+          <Link href="/stats" className="px-4 py-2 border-b-2 border-blue-500 text-blue-400 font-bold text-sm">
+            Browse Leagues
+          </Link>
+          <Link href="/stats/insights" className="px-4 py-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-bold text-sm flex items-center gap-1.5 transition-colors">
+            <Trophy className="w-4 h-4" />
+            Premium Market Insights
+          </Link>
+        </div>
+
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
           <div>
