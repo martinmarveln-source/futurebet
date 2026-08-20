@@ -41,7 +41,7 @@ function NextMatchPill({ data }: { data?: { label: string; urgency: string } | n
   );
 }
 
-type View = "standard" | "goals" | "markets" | "homeaway";
+type View = "standard" | "goals" | "markets" | "homeaway" | "xganalysis";
 type SortDir = "asc" | "desc" | null;
 
 function SortIcon({ field, sortField, sortDir }: { field: string; sortField: string; sortDir: SortDir }) {
@@ -161,6 +161,7 @@ export default function LeaguePageInner({ params }: { params: Promise<{ leagueId
     goals: "Goals",
     markets: "Markets",
     homeaway: "Home/Away",
+    xganalysis: "xG Analysis",
   };
 
   return (
@@ -286,6 +287,7 @@ export default function LeaguePageInner({ params }: { params: Promise<{ leagueId
                           <Th field="O15_ALL" sortField={sortField} sortDir={sortDir} onSort={handleSort}>O1.5</Th>
                           <Th field="O25_ALL" sortField={sortField} sortDir={sortDir} onSort={handleSort}>O2.5</Th>
                           <Th field="O35_ALL" sortField={sortField} sortDir={sortDir} onSort={handleSort}>O3.5</Th>
+                          <Th field="O45_ALL" sortField={sortField} sortDir={sortDir} onSort={handleSort}>O4.5</Th>
                           <Th field="BTTS_ALL" sortField={sortField} sortDir={sortDir} onSort={handleSort}>BTTS</Th>
                           <Th field="CS_ALL" sortField={sortField} sortDir={sortDir} onSort={handleSort}>CS</Th>
                           <Th field="FTS_ALL" sortField={sortField} sortDir={sortDir} onSort={handleSort}>FTS</Th>
@@ -304,6 +306,19 @@ export default function LeaguePageInner({ params }: { params: Promise<{ leagueId
                           <Th field="Away_Win" sortField={sortField} sortDir={sortDir} onSort={handleSort}>A-W%</Th>
                           <Th field="AWAY_DRAW" sortField={sortField} sortDir={sortDir} onSort={handleSort}>A-D%</Th>
                           <Th field="AWAY_LOST" sortField={sortField} sortDir={sortDir} onSort={handleSort}>A-L%</Th>
+                        </>
+                      )}
+
+                      {view === "xganalysis" && (
+                        <>
+                          <Th field="XG_ALL" sortField={sortField} sortDir={sortDir} onSort={handleSort}>xG</Th>
+                          <Th field="XGA_ALL" sortField={sortField} sortDir={sortDir} onSort={handleSort}>xGA</Th>
+                          <Th field="XG_HOME" sortField={sortField} sortDir={sortDir} onSort={handleSort}>xG H</Th>
+                          <Th field="XGA_HOME" sortField={sortField} sortDir={sortDir} onSort={handleSort}>xGA H</Th>
+                          <Th field="XG_AWAY" sortField={sortField} sortDir={sortDir} onSort={handleSort}>xG A</Th>
+                          <Th field="XGA_AWAY" sortField={sortField} sortDir={sortDir} onSort={handleSort}>xGA A</Th>
+                          <Th field="gs" sortField={sortField} sortDir={sortDir} onSort={handleSort}>GF</Th>
+                          <Th field="gc" sortField={sortField} sortDir={sortDir} onSort={handleSort}>GA</Th>
                         </>
                       )}
                     </tr>
@@ -360,7 +375,7 @@ export default function LeaguePageInner({ params }: { params: Promise<{ leagueId
                           {view === "markets" && (
                             <>
                               {[
-                                ms.O15_ALL, ms.O25_ALL, ms.O35_ALL,
+                                ms.O15_ALL, ms.O25_ALL, ms.O35_ALL, ms.O45_ALL,
                                 ms.BTTS_ALL, ms.CS_ALL, ms.FTS_ALL,
                                 ms.Home_Win, ms.Away_Win,
                               ].map((val, i) => (
@@ -387,6 +402,29 @@ export default function LeaguePageInner({ params }: { params: Promise<{ leagueId
                               <td className="p-3 text-center text-red-400 text-xs">{ms.AWAY_LOST != null && ms.AWAY_LOST !== "" ? `${Math.round(parse(ms.AWAY_LOST, true))}%` : "—"}</td>
                             </>
                           )}
+
+                          {view === "xganalysis" && (() => {
+                            const xg    = parseFloat(ms.XG_ALL  ?? "0") || 0;
+                            const xga   = parseFloat(ms.XGA_ALL ?? "0") || 0;
+                            const xgH   = parseFloat(ms.XG_HOME  ?? "0") || 0;
+                            const xgaH  = parseFloat(ms.XGA_HOME ?? "0") || 0;
+                            const xgA   = parseFloat(ms.XG_AWAY  ?? "0") || 0;
+                            const xgaA  = parseFloat(ms.XGA_AWAY ?? "0") || 0;
+                            const xgd   = xg - xga;
+                            const xgColor = xgd >= 0.5 ? "text-emerald-400 font-bold" : xgd >= 0 ? "text-amber-400" : "text-red-400";
+                            return (
+                              <>
+                                <td className="p-3 text-center text-emerald-400 font-semibold text-xs">{xg > 0 ? xg.toFixed(2) : "—"}</td>
+                                <td className="p-3 text-center text-red-400 text-xs">{xga > 0 ? xga.toFixed(2) : "—"}</td>
+                                <td className="p-3 text-center text-indigo-400 text-xs">{xgH > 0 ? xgH.toFixed(2) : "—"}</td>
+                                <td className="p-3 text-center text-orange-400 text-xs">{xgaH > 0 ? xgaH.toFixed(2) : "—"}</td>
+                                <td className="p-3 text-center text-purple-400 text-xs">{xgA > 0 ? xgA.toFixed(2) : "—"}</td>
+                                <td className="p-3 text-center text-rose-400 text-xs">{xgaA > 0 ? xgaA.toFixed(2) : "—"}</td>
+                                <td className="p-3 text-center text-emerald-300 text-xs">{row.gs ?? "—"}</td>
+                                <td className="p-3 text-center text-red-300 text-xs">{row.gc ?? "—"}</td>
+                              </>
+                            );
+                          })()}
                         </tr>
                       );
                     })}
@@ -403,17 +441,26 @@ export default function LeaguePageInner({ params }: { params: Promise<{ leagueId
               </div>
 
               {/* Legend */}
-              <div className="px-4 py-3 border-t border-slate-800 flex items-center gap-4 text-[10px] text-slate-500">
+              <div className="px-4 py-3 border-t border-slate-800 flex items-center gap-4 text-[10px] text-slate-500 flex-wrap">
                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> Top 4 zone</span>
                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Relegation zone</span>
-                {view === "markets" && (
+                {(view === "markets") && (
                   <>
                     <span className="text-emerald-400 font-semibold">≥70%</span>
                     <span className="text-amber-400 font-semibold">40–70%</span>
                     <span className="text-red-400 font-semibold">&lt;40%</span>
                   </>
                 )}
+                {view === "xganalysis" && (
+                  <>
+                    <span className="text-emerald-400 font-semibold">Green = xG/GF</span>
+                    <span className="text-red-400 font-semibold">Red = xGA/GA</span>
+                    <span className="text-indigo-400 font-semibold">Indigo = Home</span>
+                    <span className="text-purple-400 font-semibold">Purple = Away</span>
+                  </>
+                )}
               </div>
+
             </div>
           </div>
         )}

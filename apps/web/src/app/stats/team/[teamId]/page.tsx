@@ -14,6 +14,10 @@ import PPGSplitCard from "@/components/Stats/PPGSplitCard";
 import GoalsSplitCard from "@/components/Stats/GoalsSplitCard";
 import WinRateCard from "@/components/Stats/WinRateCard";
 import TeamStatCard from "@/components/Stats/TeamStatCard";
+import BettingVerdictCard from "@/components/Stats/BettingVerdictCard";
+import GoalThreatCard from "@/components/Stats/GoalThreatCard";
+import XGIntelligencePanel from "@/components/Stats/XGIntelligencePanel";
+import DerivedStatsCard from "@/components/Stats/DerivedStatsCard";
 
 const TABS = [
   { id: "overview", label: "Overview", icon: Activity },
@@ -278,12 +282,18 @@ function TeamPageInner({ params }: { params: Promise<{ teamId: string }> }) {
                   ppgHome={ms?.PPG_Home}
                   ppgAway={ms?.PPG_Away}
                 />
+
+                {/* Betting Verdict */}
+                <BettingVerdictCard stats={ms} general={stats.general} />
               </div>
             )}
 
             {/* GOALS */}
             {activeTab === "goals" && (
-              <GoalsSplitCard stats={ms} general={stats.general} />
+              <div className="space-y-4">
+                <GoalsSplitCard stats={ms} general={stats.general} />
+                <GoalThreatCard stats={ms} />
+              </div>
             )}
 
             {/* MARKETS */}
@@ -330,92 +340,20 @@ function TeamPageInner({ params }: { params: Promise<{ teamId: string }> }) {
 
             {/* ADVANCED */}
             {activeTab === "advanced" && (
-              <div className="bg-[#0f172a] rounded-2xl border border-slate-800 p-5 space-y-6">
-                <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                  <Brain className="w-4 h-4 text-violet-400" />
-                  Advanced Analytics
-                </h2>
-
-                {ms ? (
-                  <>
-                    {/* Column headers */}
-                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-500 pb-1 border-b border-slate-800">
-                      <span>Metric</span>
-                      <div className="flex gap-4">
-                        <span className="w-12 text-right text-slate-400">ALL</span>
-                        <span className="w-12 text-right text-indigo-400">HOME</span>
-                        <span className="w-12 text-right text-purple-400">AWAY</span>
-                      </div>
-                    </div>
-
-                    <AdvancedStatRow
-                      label="FTS (Failed to Score)"
-                      all={ms.FTS_ALL != null ? `${Math.round(parse(ms.FTS_ALL))}%` : "—"}
-                      home={ms.FTS_HOME != null ? `${Math.round(parse(ms.FTS_HOME))}%` : "—"}
-                      away={ms.FTS_AWAY != null ? `${Math.round(parse(ms.FTS_AWAY))}%` : "—"}
-                    />
-                    <AdvancedStatRow
-                      label="Clean Sheet (CS)"
-                      all={ms.CS_ALL != null ? `${Math.round(parse(ms.CS_ALL))}%` : "—"}
-                      home={ms.CS_HOME != null ? `${Math.round(parse(ms.CS_HOME))}%` : "—"}
-                      away={ms.CS_AWAY != null ? `${Math.round(parse(ms.CS_AWAY))}%` : "—"}
-                    />
-                    <AdvancedStatRow
-                      label="HGS Over 1.5"
-                      all={ms.HGS_Over_15 != null ? `${Math.round(parse(ms.HGS_Over_15))}%` : "—"}
-                      home="—"
-                      away="—"
-                    />
-                    <AdvancedStatRow
-                      label="HGC Over 1.5"
-                      all={ms.HGC_Over_15 != null ? `${Math.round(parse(ms.HGC_Over_15))}%` : "—"}
-                      home="—"
-                      away="—"
-                    />
-                    <AdvancedStatRow
-                      label="AGS Over 1.5"
-                      all={ms.AGS_Over_15 != null ? `${Math.round(parse(ms.AGS_Over_15))}%` : "—"}
-                      home="—"
-                      away="—"
-                    />
-                    <AdvancedStatRow
-                      label="AGC Over 1.5"
-                      all={ms.AGC_Over_15 != null ? `${Math.round(parse(ms.AGC_Over_15))}%` : "—"}
-                      home="—"
-                      away="—"
-                    />
-                    <AdvancedStatRow
-                      label="Over 3.5 Goals"
-                      all={ms.O35_ALL != null ? `${Math.round(parse(ms.O35_ALL))}%` : "—"}
-                      home={ms.O35_HOME != null ? `${Math.round(parse(ms.O35_HOME))}%` : "—"}
-                      away={ms.O35_AWAY != null ? `${Math.round(parse(ms.O35_AWAY))}%` : "—"}
-                    />
-                    <AdvancedStatRow
-                      label="Over 4.5 Goals"
-                      all={ms.O45_ALL != null ? `${Math.round(parse(ms.O45_ALL))}%` : "—"}
-                      home={ms.O45_HOME != null ? `${Math.round(parse(ms.O45_HOME))}%` : "—"}
-                      away={ms.O45_AWAY != null ? `${Math.round(parse(ms.O45_AWAY))}%` : "—"}
-                    />
-                    <AdvancedStatRow
-                      label="xG (Expected Goals)"
-                      all={ms.XG_ALL ?? "—"}
-                      home={ms.XG_HOME ?? "—"}
-                      away={ms.XG_AWAY ?? "—"}
-                    />
-                    <AdvancedStatRow
-                      label="xGA (Exp. Goals Against)"
-                      all={ms.XGA_ALL ?? "—"}
-                      home={ms.XGA_HOME ?? "—"}
-                      away={ms.XGA_AWAY ?? "—"}
-                    />
-                  </>
-                ) : (
-                  <div className="text-center py-10 text-slate-500 text-sm">
-                    No advanced market stats available for this team.
-                  </div>
-                )}
+              <div className="space-y-4">
+                <div className="bg-[#0f172a] rounded-2xl border border-slate-800 p-5">
+                  <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2 mb-5">
+                    <Brain className="w-4 h-4 text-violet-400" />
+                    xG Intelligence
+                  </h2>
+                  <XGIntelligencePanel stats={ms} general={stats.general} />
+                </div>
+                <div className="bg-[#0f172a] rounded-2xl border border-slate-800 p-5">
+                  <DerivedStatsCard stats={ms} general={stats.general} />
+                </div>
               </div>
             )}
+
           </>
         ) : (
           <div className="text-center py-16 text-slate-500">Team data not found.</div>
