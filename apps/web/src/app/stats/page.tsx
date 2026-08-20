@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import {
-  Globe2, ChevronRight, Activity, Trophy, Search, X,
+  Globe2, ChevronRight, ChevronLeft, Activity, Trophy, Search, X,
   Shield, TrendingUp, ChevronDown, ChevronUp, SlidersHorizontal,
 } from "lucide-react";
 
