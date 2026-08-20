@@ -40,7 +40,6 @@ export async function GET(
         WHERE (REPLACE(LOWER(home_team), ' ', '-') = REPLACE(LOWER(${decodedTeamId}), ' ', '-')
            OR REPLACE(LOWER(away_team), ' ', '-') = REPLACE(LOWER(${decodedTeamId}), ' ', '-'))
           AND REPLACE(LOWER(league), ' ', '-') = REPLACE(LOWER(${teamLeague}), ' ', '-')
-          AND season = ${season}
           AND raw_data IS NOT NULL
         ORDER BY match_date DESC
       `;
@@ -49,7 +48,6 @@ export async function GET(
         SELECT * FROM matches_cache 
         WHERE (REPLACE(LOWER(home_team), ' ', '-') = REPLACE(LOWER(${decodedTeamId}), ' ', '-')
            OR REPLACE(LOWER(away_team), ' ', '-') = REPLACE(LOWER(${decodedTeamId}), ' ', '-'))
-          AND season = ${season}
           AND raw_data IS NOT NULL
         ORDER BY match_date DESC
       `;
@@ -108,8 +106,11 @@ export async function GET(
       
       for (const match of matchesRows) {
         const isHome = match.home_team.toLowerCase().replace(/\s+/g, '-') === decodedTeamId.toLowerCase().replace(/\s+/g, '-');
-        const rd = match.raw_data;
-        if (!rd) continue;
+        let rd = match.raw_data;
+        if (typeof rd === 'string') {
+          try { rd = JSON.parse(rd); } catch(e) {}
+        }
+        if (!rd || typeof rd !== 'object') continue;
         
         const hgs = parseInt(rd.hgs || '0');
         const ags = parseInt(rd.ags || '0');
