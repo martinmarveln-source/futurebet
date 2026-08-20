@@ -9,8 +9,11 @@ export async function GET(request: Request) {
     // First, let's try league_table_cache since it definitely has data currently
     const rows = await sql`
       SELECT DISTINCT country, league 
-      FROM league_table_cache 
-      ORDER BY country ASC, league ASC
+      FROM league_table_cache
+      WHERE country IS NOT NULL 
+        AND country != ''
+        AND LOWER(country) != 'country'
+      ORDER BY country, league
     `;
 
     if (!rows || rows.length === 0) {

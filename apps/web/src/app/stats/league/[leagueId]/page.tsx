@@ -139,12 +139,12 @@ export default function LeaguePage({ params }: { params: Promise<{ leagueId: str
                             {row.team}
                           </Link>
                         </td>
-                        <td className="p-4 text-center">{row.gp}</td>
-                        <td className="p-4 text-center text-emerald-400">{row.win}</td>
-                        <td className="p-4 text-center text-slate-400">{row.draw}</td>
-                        <td className="p-4 text-center text-red-400">{row.lost}</td>
-                        <td className="p-4 text-center text-slate-300 hidden md:table-cell">{row.gd}</td>
-                        <td className="p-4 text-center font-bold text-white">{row.pts}</td>
+                        <td className="p-4 text-center">{row.gp || 0}</td>
+                        <td className="p-4 text-center text-emerald-400">{row.win || 0}</td>
+                        <td className="p-4 text-center text-slate-400">{row.draw || 0}</td>
+                        <td className="p-4 text-center text-red-400">{row.lost || 0}</td>
+                        <td className="p-4 text-center text-slate-300 hidden md:table-cell">{row.gd || 0}</td>
+                        <td className="p-4 text-center font-bold text-white">{row.pts || 0}</td>
                       </tr>
                     ))}
                     {table.length === 0 && (
