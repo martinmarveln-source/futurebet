@@ -68,6 +68,7 @@ export async function GET(
         away: { gp: 0, wins: 0, gf_per_game: 0 }
       },
       betting: { over_15: 0, over_25: 0, btts_yes: 0, clean_sheet: 0 },
+      market_stats: null,
       form: { overall: "", home: "", away: "" }
     };
 
@@ -88,6 +89,11 @@ export async function GET(
       if (gp > 0) {
         responseData.goals.gf_per_game = parseFloat((responseData.goals.scored / gp).toFixed(2));
         responseData.goals.ga_per_game = parseFloat((responseData.goals.conceded / gp).toFixed(2));
+      }
+      
+      // Inject the rich market stats from Google Sheet if they exist
+      if (g.market_stats) {
+        responseData.market_stats = typeof g.market_stats === 'string' ? JSON.parse(g.market_stats) : g.market_stats;
       }
     }
 

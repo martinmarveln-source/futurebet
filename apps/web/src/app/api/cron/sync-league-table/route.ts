@@ -28,10 +28,18 @@ export async function GET(request: Request) {
         pts TEXT,
         ppg TEXT,
         win_rate TEXT,
+        market_stats JSONB DEFAULT '{}'::jsonb,
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         UNIQUE(country, league, team)
       )
     `;
+
+    // Try to add the column if it doesn't exist (for backward compatibility)
+    try {
+      await sql`ALTER TABLE league_table_cache ADD COLUMN market_stats JSONB DEFAULT '{}'::jsonb`;
+    } catch (e) {
+      // Column likely already exists, ignore
+    }
 
     // 2. Fetch from Google Sheets
     const SHEET_ID = "1efYsSPNw6LJOmguPfJmzvq92o30ooAY2UgH_dbdYjq8";
@@ -73,15 +81,29 @@ export async function GET(request: Request) {
           if (!country || !league || !team || team === "Team") return;
 
           try {
+            const market_stats = JSON.stringify({
+              Home_Win: clean(r.c?.[13]?.v),
+              Away_Win: clean(r.c?.[14]?.v),
+              O15_ALL: clean(r.c?.[15]?.v), O15_HOME: clean(r.c?.[16]?.v), O15_AWAY: clean(r.c?.[17]?.v),
+              O25_ALL: clean(r.c?.[18]?.v), O25_HOME: clean(r.c?.[19]?.v), O25_AWAY: clean(r.c?.[20]?.v),
+              O35_ALL: clean(r.c?.[21]?.v), O35_HOME: clean(r.c?.[22]?.v), O35_AWAY: clean(r.c?.[23]?.v),
+              O45_ALL: clean(r.c?.[24]?.v), O45_HOME: clean(r.c?.[25]?.v), O45_AWAY: clean(r.c?.[26]?.v),
+              BTTS_ALL: clean(r.c?.[27]?.v), BTTS_HOME: clean(r.c?.[28]?.v), BTTS_AWAY: clean(r.c?.[29]?.v),
+              CS_ALL: clean(r.c?.[30]?.v), CS_HOME: clean(r.c?.[31]?.v), CS_AWAY: clean(r.c?.[32]?.v),
+              XG_ALL: clean(r.c?.[33]?.v), XG_HOME: clean(r.c?.[34]?.v), XG_AWAY: clean(r.c?.[35]?.v),
+              XGA_ALL: clean(r.c?.[36]?.v), XGA_HOME: clean(r.c?.[37]?.v), XGA_AWAY: clean(r.c?.[38]?.v),
+              FTS_ALL: clean(r.c?.[39]?.v), FTS_HOME: clean(r.c?.[40]?.v), FTS_AWAY: clean(r.c?.[41]?.v)
+            });
+
             await sql`
               INSERT INTO league_table_cache (
-                country, league, team, sn, gp, win, draw, lost, gs, gc, gd, pts, ppg, win_rate, updated_at
+                country, league, team, sn, gp, win, draw, lost, gs, gc, gd, pts, ppg, win_rate, market_stats, updated_at
               ) VALUES (
                 ${country}, ${league}, ${team}, 
                 ${clean(r.c?.[0]?.v)}, ${clean(r.c?.[4]?.v)}, ${clean(r.c?.[5]?.v)}, 
                 ${clean(r.c?.[6]?.v)}, ${clean(r.c?.[7]?.v)}, ${clean(r.c?.[8]?.v)}, 
                 ${clean(r.c?.[9]?.v)}, ${clean(r.c?.[10]?.v)}, ${clean(r.c?.[11]?.v)}, 
-                ${clean(r.c?.[12]?.v)}, ${clean(r.c?.[13]?.v)}, NOW()
+                ${clean(r.c?.[12]?.v)}, ${clean(r.c?.[13]?.v)}, ${market_stats}::jsonb, NOW()
               )
               ON CONFLICT (country, league, team) 
               DO UPDATE SET 
@@ -96,6 +118,7 @@ export async function GET(request: Request) {
                 pts = EXCLUDED.pts,
                 ppg = EXCLUDED.ppg,
                 win_rate = EXCLUDED.win_rate,
+                market_stats = EXCLUDED.market_stats,
                 updated_at = NOW();
             `;
             inserted++;
