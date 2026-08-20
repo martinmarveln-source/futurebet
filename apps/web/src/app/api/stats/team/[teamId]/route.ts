@@ -41,8 +41,7 @@ export async function GET(
            OR REPLACE(LOWER(away_team), ' ', '-') = REPLACE(LOWER(${decodedTeamId}), ' ', '-'))
           AND REPLACE(LOWER(league), ' ', '-') = REPLACE(LOWER(${teamLeague}), ' ', '-')
           AND season = ${season}
-          AND raw_data->>'ft_score' IS NOT NULL
-          AND raw_data->>'ft_score' != ''
+          AND raw_data IS NOT NULL
         ORDER BY match_date DESC
       `;
     } else {
@@ -51,8 +50,7 @@ export async function GET(
         WHERE (REPLACE(LOWER(home_team), ' ', '-') = REPLACE(LOWER(${decodedTeamId}), ' ', '-')
            OR REPLACE(LOWER(away_team), ' ', '-') = REPLACE(LOWER(${decodedTeamId}), ' ', '-'))
           AND season = ${season}
-          AND raw_data->>'ft_score' IS NOT NULL
-          AND raw_data->>'ft_score' != ''
+          AND raw_data IS NOT NULL
         ORDER BY match_date DESC
       `;
     }

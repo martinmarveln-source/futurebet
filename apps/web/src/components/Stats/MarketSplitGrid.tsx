@@ -23,10 +23,13 @@ const MARKETS = [
 
 type Split = "all" | "home" | "away";
 
-function parseNum(v: any): number {
-  if (!v) return 0;
+function parseNum(v: any, isPercent: boolean = true): number {
+  if (v === undefined || v === null || v === "") return 0;
   const n = parseFloat(String(v).replace(/%/, ""));
-  return isNaN(n) ? 0 : n;
+  if (isNaN(n)) return 0;
+  if (!isPercent) return n;
+  // If it's a fractional percent (like 0.85 or 1.0)
+  return n <= 1.0 ? Math.round(n * 100) : Math.round(n);
 }
 
 export default function MarketSplitGrid({ stats }: MarketSplitGridProps) {

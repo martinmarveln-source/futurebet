@@ -48,7 +48,7 @@ export async function GET(request: Request) {
           )
           AND LOWER(TRIM(league)) = LOWER(TRIM(${league}))
           AND match_date >= ${today}::date
-          AND (raw_data->>'ft_score' IS NULL OR raw_data->>'ft_score' = '')
+          AND raw_data IS NOT NULL
         ORDER BY match_date ASC, match_time ASC
         LIMIT 1
       `;
@@ -59,11 +59,12 @@ export async function GET(request: Request) {
 
       const r = rows[0];
       const isHome = r.home_team.toLowerCase().trim() === team.toLowerCase().trim();
-      const label = buildLabel(String(r.match_date).split("T")[0]);
+      const dateStr = typeof r.match_date === 'object' ? r.match_date.toISOString().split("T")[0] : new Date(r.match_date).toISOString().split("T")[0];
+      const label = buildLabel(dateStr);
       return NextResponse.json({
         success: true,
         data: {
-          match_date: String(r.match_date).split("T")[0],
+          match_date: dateStr,
           match_time: r.match_time || "",
           home_team: r.home_team,
           away_team: r.away_team,
@@ -83,7 +84,7 @@ export async function GET(request: Request) {
         FROM matches_cache
         WHERE LOWER(TRIM(league)) = LOWER(TRIM(${league}))
           AND match_date >= ${today}::date
-          AND (raw_data->>'ft_score' IS NULL OR raw_data->>'ft_score' = '')
+          AND raw_data IS NOT NULL
         ORDER BY 
           LEAST(LOWER(TRIM(home_team)), LOWER(TRIM(away_team))),
           GREATEST(LOWER(TRIM(home_team)), LOWER(TRIM(away_team))),
@@ -93,7 +94,7 @@ export async function GET(request: Request) {
       // Build a map: teamName (lowercase) → next match info
       const teamMap: Record<string, any> = {};
       for (const r of rows) {
-        const dateStr = String(r.match_date).split("T")[0];
+        const dateStr = typeof r.match_date === 'object' ? r.match_date.toISOString().split("T")[0] : new Date(r.match_date).toISOString().split("T")[0];
         const label = buildLabel(dateStr);
         const urgency = buildUrgency(label);
         const entry = {

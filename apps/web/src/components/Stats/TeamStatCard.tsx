@@ -24,11 +24,13 @@ const colorMap = {
   indigo: { bar: "bg-indigo-500", text: "text-indigo-400", glow: "shadow-indigo-500/20" },
 };
 
-function parseVal(v: string | number | null | undefined): number {
+function parseVal(v: string | number | null | undefined, isPercent: boolean): number {
   if (v === null || v === undefined || v === "") return 0;
   const str = String(v).replace(/%/g, "").trim();
   const n = parseFloat(str);
-  return isNaN(n) ? 0 : n;
+  if (isNaN(n)) return 0;
+  if (!isPercent) return n;
+  return n <= 1.0 ? n * 100 : n;
 }
 
 function heatColor(val: number): string {
@@ -51,7 +53,7 @@ export default function TeamStatCard({
 }: TeamStatCardProps) {
   const raw =
     activeSplit === "home" ? home : activeSplit === "away" ? away : all;
-  const val = parseVal(raw);
+  const val = parseVal(raw, isPercent ?? false);
   const displayVal = isPercent
     ? `${Math.round(val)}%`
     : suffix

@@ -11,9 +11,11 @@ import {
 
 const cn = (...c: any[]) => c.filter(Boolean).join(" ");
 
-function parse(v: any): number {
+function parse(v: any, isPercent: boolean = false): number {
   const n = parseFloat(String(v ?? "0").replace(/%/, ""));
-  return isNaN(n) ? 0 : n;
+  if (isNaN(n)) return 0;
+  if (isPercent && n <= 1.0) return n * 100;
+  return n;
 }
 
 function heatCell(val: number): string {
@@ -330,15 +332,15 @@ export default function LeaguePageInner({ params }: { params: Promise<{ leagueId
 
                           {view === "standard" && (
                             <>
-                              <td className="p-3 text-center text-slate-300">{row.gp ?? 0}</td>
-                              <td className="p-3 text-center text-emerald-400 font-semibold">{row.win ?? 0}</td>
-                              <td className="p-3 text-center text-slate-400">{row.draw ?? 0}</td>
-                              <td className="p-3 text-center text-red-400">{row.lost ?? 0}</td>
-                              <td className="p-3 text-center text-slate-300">{row.gd ?? 0}</td>
-                              <td className="p-3 text-center font-black text-white">{row.pts ?? 0}</td>
+                              <td className="p-3 text-center text-slate-300">{row.gp || 0}</td>
+                              <td className="p-3 text-center text-emerald-400 font-semibold">{row.win || 0}</td>
+                              <td className="p-3 text-center text-slate-400">{row.draw || 0}</td>
+                              <td className="p-3 text-center text-red-400">{row.lost || 0}</td>
+                              <td className="p-3 text-center text-slate-300">{row.gd || 0}</td>
+                              <td className="p-3 text-center font-black text-white">{row.pts || 0}</td>
                               <td className="p-3 text-center">
                                 <span className={cn("text-xs font-bold", parse(row.ppg) >= 2 ? "text-emerald-400" : parse(row.ppg) >= 1.5 ? "text-amber-400" : "text-red-400")}>
-                                  {row.ppg ?? "—"}
+                                  {row.ppg || "—"}
                                 </span>
                               </td>
                               <td className="p-3 text-center"><NextMatchPill data={nm} /></td>
@@ -347,11 +349,11 @@ export default function LeaguePageInner({ params }: { params: Promise<{ leagueId
 
                           {view === "goals" && (
                             <>
-                              <td className="p-3 text-center text-emerald-400 font-semibold">{row.gs ?? 0}</td>
-                              <td className="p-3 text-center text-red-400">{row.gc ?? 0}</td>
-                              <td className="p-3 text-center">{row.gd ?? 0}</td>
-                              <td className="p-3 text-center text-indigo-400">{ms.XG_ALL ?? "—"}</td>
-                              <td className="p-3 text-center text-orange-400">{ms.XGA_ALL ?? "—"}</td>
+                              <td className="p-3 text-center text-emerald-400 font-semibold">{row.gs || 0}</td>
+                              <td className="p-3 text-center text-red-400">{row.gc || 0}</td>
+                              <td className="p-3 text-center">{row.gd || 0}</td>
+                              <td className="p-3 text-center text-indigo-400">{ms.XG_ALL || "—"}</td>
+                              <td className="p-3 text-center text-orange-400">{ms.XGA_ALL || "—"}</td>
                             </>
                           )}
 
@@ -362,8 +364,8 @@ export default function LeaguePageInner({ params }: { params: Promise<{ leagueId
                                 ms.BTTS_ALL, ms.CS_ALL, ms.FTS_ALL,
                                 ms.Home_Win, ms.Away_Win,
                               ].map((val, i) => (
-                                <td key={i} className={cn("p-3 text-center text-xs", val != null ? heatCell(parse(val)) : "text-slate-600")}>
-                                  {val != null ? `${Math.round(parse(val))}%` : "—"}
+                                <td key={i} className={cn("p-3 text-center text-xs", val != null && val !== "" ? heatCell(parse(val, true)) : "text-slate-600")}>
+                                  {val != null && val !== "" ? `${Math.round(parse(val, true))}%` : "—"}
                                 </td>
                               ))}
                             </>
@@ -372,17 +374,17 @@ export default function LeaguePageInner({ params }: { params: Promise<{ leagueId
                           {view === "homeaway" && (
                             <>
                               <td className="p-3 text-center text-slate-300">{ms.GP_HOME ?? "—"}</td>
-                              <td className={cn("p-3 text-center text-xs", ms.Home_Win != null ? heatCell(parse(ms.Home_Win)) : "text-slate-600")}>
-                                {ms.Home_Win != null ? `${Math.round(parse(ms.Home_Win))}%` : "—"}
+                              <td className={cn("p-3 text-center text-xs", ms.Home_Win != null && ms.Home_Win !== "" ? heatCell(parse(ms.Home_Win, true)) : "text-slate-600")}>
+                                {ms.Home_Win != null && ms.Home_Win !== "" ? `${Math.round(parse(ms.Home_Win, true))}%` : "—"}
                               </td>
-                              <td className="p-3 text-center text-amber-400 text-xs">{ms.HOME_DRAW != null ? `${Math.round(parse(ms.HOME_DRAW))}%` : "—"}</td>
-                              <td className="p-3 text-center text-red-400 text-xs">{ms.HOME_LOST != null ? `${Math.round(parse(ms.HOME_LOST))}%` : "—"}</td>
+                              <td className="p-3 text-center text-amber-400 text-xs">{ms.HOME_DRAW != null && ms.HOME_DRAW !== "" ? `${Math.round(parse(ms.HOME_DRAW, true))}%` : "—"}</td>
+                              <td className="p-3 text-center text-red-400 text-xs">{ms.HOME_LOST != null && ms.HOME_LOST !== "" ? `${Math.round(parse(ms.HOME_LOST, true))}%` : "—"}</td>
                               <td className="p-3 text-center text-slate-300">{ms.GP_AWAY ?? "—"}</td>
-                              <td className={cn("p-3 text-center text-xs", ms.Away_Win != null ? heatCell(parse(ms.Away_Win)) : "text-slate-600")}>
-                                {ms.Away_Win != null ? `${Math.round(parse(ms.Away_Win))}%` : "—"}
+                              <td className={cn("p-3 text-center text-xs", ms.Away_Win != null && ms.Away_Win !== "" ? heatCell(parse(ms.Away_Win, true)) : "text-slate-600")}>
+                                {ms.Away_Win != null && ms.Away_Win !== "" ? `${Math.round(parse(ms.Away_Win, true))}%` : "—"}
                               </td>
-                              <td className="p-3 text-center text-amber-400 text-xs">{ms.AWAY_DRAW != null ? `${Math.round(parse(ms.AWAY_DRAW))}%` : "—"}</td>
-                              <td className="p-3 text-center text-red-400 text-xs">{ms.AWAY_LOST != null ? `${Math.round(parse(ms.AWAY_LOST))}%` : "—"}</td>
+                              <td className="p-3 text-center text-amber-400 text-xs">{ms.AWAY_DRAW != null && ms.AWAY_DRAW !== "" ? `${Math.round(parse(ms.AWAY_DRAW, true))}%` : "—"}</td>
+                              <td className="p-3 text-center text-red-400 text-xs">{ms.AWAY_LOST != null && ms.AWAY_LOST !== "" ? `${Math.round(parse(ms.AWAY_LOST, true))}%` : "—"}</td>
                             </>
                           )}
                         </tr>
