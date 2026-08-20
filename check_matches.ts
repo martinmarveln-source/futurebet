@@ -1,4 +1,4 @@
-import sql from "./apps/web/src/app/api/utils/sql.ts";
+﻿import sql from "./apps/web/src/app/api/utils/sql.ts";
 
 async function check() {
   const matches = await sql`
