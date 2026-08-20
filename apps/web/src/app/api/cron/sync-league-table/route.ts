@@ -81,6 +81,10 @@ export async function GET(request: Request) {
           if (!country || !league || !team || team === "Team") return;
 
           try {
+            // Determine if SN is at index 0 or index 54 based on user's new format where Column A (0) is League
+            const isColumnALeague = clean(r.c?.[0]?.v) === clean(r.c?.[2]?.v) || isNaN(Number(clean(r.c?.[0]?.v)));
+            const snValue = isColumnALeague ? clean(r.c?.[54]?.v) : clean(r.c?.[0]?.v);
+
             const market_stats = JSON.stringify({
               PPG_Home: clean(r.c?.[13]?.v),
               PPG_Away: clean(r.c?.[14]?.v),
@@ -110,7 +114,7 @@ export async function GET(request: Request) {
                 country, league, team, sn, gp, win, draw, lost, gs, gc, gd, pts, ppg, win_rate, market_stats, updated_at
               ) VALUES (
                 ${country}, ${league}, ${team}, 
-                ${clean(r.c?.[54]?.v) || clean(r.c?.[0]?.v)}, ${clean(r.c?.[4]?.v)}, ${clean(r.c?.[5]?.v)}, 
+                ${snValue}, ${clean(r.c?.[4]?.v)}, ${clean(r.c?.[5]?.v)}, 
                 ${clean(r.c?.[6]?.v)}, ${clean(r.c?.[7]?.v)}, ${clean(r.c?.[8]?.v)}, 
                 ${clean(r.c?.[9]?.v)}, ${clean(r.c?.[10]?.v)}, ${clean(r.c?.[11]?.v)}, 
                 ${clean(r.c?.[12]?.v)}, null, ${market_stats}::jsonb, NOW()
