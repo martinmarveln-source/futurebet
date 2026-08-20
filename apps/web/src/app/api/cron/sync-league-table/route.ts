@@ -60,6 +60,27 @@ export async function GET(request: Request) {
     let inserted = 0;
     let errors = 0;
 
+    // 2.5 Generate SN per league synchronously based on row order
+    const leagueRanks: Record<string, number> = {};
+    const validRows = [];
+    for (const r of rows) {
+      const country = clean(r.c?.[1]?.v);
+      const league = clean(r.c?.[2]?.v);
+      const team = clean(r.c?.[3]?.v);
+      
+      if (!country || !league || !team || team === "Team") continue;
+      
+      const leagueKey = `${country}-${league}`;
+      leagueRanks[leagueKey] = (leagueRanks[leagueKey] || 0) + 1;
+      r._generated_sn = leagueRanks[leagueKey].toString();
+      
+      r._country = country;
+      r._league = league;
+      r._team = team;
+      
+      validRows.push(r);
+    }
+
     // Helper to chunk arrays
     const chunkArray = (arr: any[], size: number) => {
       const chunks = [];
@@ -70,20 +91,16 @@ export async function GET(request: Request) {
     };
 
     // 3. Upsert into database in chunks to prevent timeouts
-    const chunks = chunkArray(rows, 50);
+    const chunks = chunkArray(validRows, 50);
     for (const chunk of chunks) {
       await Promise.all(
         chunk.map(async (r: any) => {
-          const country = clean(r.c?.[1]?.v);
-          const league = clean(r.c?.[2]?.v);
-          const team = clean(r.c?.[3]?.v);
-
-          if (!country || !league || !team || team === "Team") return;
+          const country = r._country;
+          const league = r._league;
+          const team = r._team;
+          const snValue = r._generated_sn;
 
           try {
-            // Determine if SN is at index 0 or index 54 based on user's new format where Column A (0) is League
-            const isColumnALeague = clean(r.c?.[0]?.v) === clean(r.c?.[2]?.v) || isNaN(Number(clean(r.c?.[0]?.v)));
-            const snValue = isColumnALeague ? clean(r.c?.[54]?.v) : clean(r.c?.[0]?.v);
 
             const market_stats = JSON.stringify({
               PPG_Home: clean(r.c?.[13]?.v),
