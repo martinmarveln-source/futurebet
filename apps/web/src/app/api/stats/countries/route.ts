@@ -3,16 +3,38 @@ import sql from "../../utils/sql";
 
 export async function GET(request: Request) {
   try {
-    // We group leagues by country using the team_stats_cache.
-    // If team_stats_cache is empty, fallback to league_table_cache.
-    
-    // First, let's try league_table_cache since it definitely has data currently
+    // Get distinct countries + leagues with team count and basic market averages
     const rows = await sql`
-      SELECT DISTINCT country, league 
+      SELECT 
+        country,
+        league,
+        COUNT(*) AS team_count,
+        ROUND(AVG((market_stats->>'BTTS_ALL')::numeric), 0)::int AS btts_percent,
+        ROUND(AVG((market_stats->>'O25_ALL')::numeric), 0)::int AS over_25_percent,
+        ROUND(AVG((market_stats->>'O15_ALL')::numeric), 0)::int AS over_15_percent
       FROM league_table_cache
       WHERE country IS NOT NULL 
         AND country != ''
         AND LOWER(country) != 'country'
+        AND market_stats IS NOT NULL
+      GROUP BY country, league
+
+      UNION ALL
+
+      SELECT 
+        country,
+        league,
+        COUNT(*) AS team_count,
+        NULL AS btts_percent,
+        NULL AS over_25_percent,
+        NULL AS over_15_percent
+      FROM league_table_cache
+      WHERE country IS NOT NULL 
+        AND country != ''
+        AND LOWER(country) != 'country'
+        AND market_stats IS NULL
+      GROUP BY country, league
+
       ORDER BY country, league
     `;
 
@@ -20,32 +42,34 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, data: [] });
     }
 
-    const countryMap = new Map<string, string[]>();
+    const countryMap = new Map<string, any[]>();
 
     for (const row of rows) {
       const country = row.country;
-      const league = row.league;
+      if (!countryMap.has(country)) countryMap.set(country, []);
 
-      if (!countryMap.has(country)) {
-        countryMap.set(country, []);
-      }
-      
       const leagues = countryMap.get(country)!;
-      if (!leagues.includes(league)) {
-        leagues.push(league);
+      // deduplicate leagues (union may produce dupes for same league with/without market_stats)
+      const existing = leagues.find((l: any) => l.league === row.league);
+      if (!existing) {
+        leagues.push({
+          league: row.league,
+          teamCount: parseInt(row.team_count ?? "0"),
+          overview: {
+            btts_percent: row.btts_percent ?? null,
+            over_25_percent: row.over_25_percent ?? null,
+            over_15_percent: row.over_15_percent ?? null,
+          },
+        });
       }
     }
 
     const data = Array.from(countryMap.entries()).map(([country, leagues]) => ({
       country,
-      leagues
+      leagues,
     }));
 
-    return NextResponse.json({
-      success: true,
-      data
-    });
-
+    return NextResponse.json({ success: true, data });
   } catch (error: any) {
     console.error("Countries stats error:", error);
     return NextResponse.json(
