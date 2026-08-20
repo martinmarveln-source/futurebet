@@ -1,4 +1,6 @@
 "use client";
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
 
 import { Trophy, ChevronLeft, Target, Shield, Home, AlertCircle, BarChart3, ArrowDown, ArrowUp, Activity, Globe } from "lucide-react";
 
