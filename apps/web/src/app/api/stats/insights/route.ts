@@ -5,6 +5,8 @@ import { auth } from "@/auth";
 export async function GET(request: Request) {
   try {
     const session = await auth();
+    const { searchParams } = new URL(request.url);
+    const minGames = parseInt(searchParams.get("minGames") || "4", 10);
 
     const rows = await sql`SELECT * FROM league_table_cache`;
 
@@ -25,28 +27,52 @@ export async function GET(request: Request) {
       return n <= 1.0 ? n * 100 : n;
     };
 
-    // Filter out teams with less than 5 games played to ensure statistical significance
-    const validTeams = teams.filter(t => (t.gp || 0) >= 5);
+    // Filter out teams with less than required games played
+    const validTeams = teams.filter(t => (t.gp || 0) >= minGames);
+
+    // Helper to get top 10
+    const getTop10 = (getValue: (t: any) => number) => {
+      return [...validTeams]
+        .sort((a, b) => getValue(b) - getValue(a))
+        .slice(0, 10)
+        .map(t => ({ team: t.team, league: t.league, country: t.country, value: getValue(t) }));
+    };
 
     // Best BTTS
-    const bestBTTS = [...validTeams].sort((a, b) => parsePct(b.market_stats.BTTS_ALL) - parsePct(a.market_stats.BTTS_ALL)).slice(0, 10).map(t => ({ team: t.team, league: t.league, country: t.country, value: parsePct(t.market_stats.BTTS_ALL) }));
+    const bestBTTS = getTop10(t => parsePct(t.market_stats.BTTS_ALL));
     
-    // Best Over 2.5
-    const bestO25 = [...validTeams].sort((a, b) => parsePct(b.market_stats.O25_ALL) - parsePct(a.market_stats.O25_ALL)).slice(0, 10).map(t => ({ team: t.team, league: t.league, country: t.country, value: parsePct(t.market_stats.O25_ALL) }));
+    // Overs
+    const bestO15 = getTop10(t => parsePct(t.market_stats.O15_ALL));
+    const bestO25 = getTop10(t => parsePct(t.market_stats.O25_ALL));
+    const bestO35 = getTop10(t => parsePct(t.market_stats.O35_ALL));
+
+    // Unders (Inverse of Overs)
+    const bestU15 = getTop10(t => 100 - parsePct(t.market_stats.O15_ALL));
+    const bestU25 = getTop10(t => 100 - parsePct(t.market_stats.O25_ALL));
+    const bestU35 = getTop10(t => 100 - parsePct(t.market_stats.O35_ALL));
 
     // Best Home Teams (Home Win Rate)
-    const bestHome = [...validTeams].sort((a, b) => parsePct(b.market_stats.Home_Win) - parsePct(a.market_stats.Home_Win)).slice(0, 10).map(t => ({ team: t.team, league: t.league, country: t.country, value: parsePct(t.market_stats.Home_Win) }));
+    const bestHome = getTop10(t => parsePct(t.market_stats.Home_Win));
     
     // Best Clean Sheet
-    const bestCS = [...validTeams].sort((a, b) => parsePct(b.market_stats.CS_ALL) - parsePct(a.market_stats.CS_ALL)).slice(0, 10).map(t => ({ team: t.team, league: t.league, country: t.country, value: parsePct(t.market_stats.CS_ALL) }));
+    const bestCS = getTop10(t => parsePct(t.market_stats.CS_ALL));
+
+    // Failed to Score
+    const bestFTS = getTop10(t => parsePct(t.market_stats.FTS_ALL));
 
     return NextResponse.json({
       success: true,
       data: {
         btts: bestBTTS,
+        o15: bestO15,
         o25: bestO25,
+        o35: bestO35,
+        u15: bestU15,
+        u25: bestU25,
+        u35: bestU35,
         homeWin: bestHome,
         cleanSheet: bestCS,
+        fts: bestFTS
       }
     });
 

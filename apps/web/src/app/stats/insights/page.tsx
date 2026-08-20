@@ -2,34 +2,34 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { Trophy, ChevronLeft, Target, Shield, Home } from "lucide-react";
+import { Trophy, ChevronLeft, Target, Shield, Home, AlertCircle, BarChart3, ArrowDown } from "lucide-react";
 
 export default function InsightsPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [minGames, setMinGames] = useState(4);
 
   useEffect(() => {
-    fetch("/api/stats/insights")
+    setLoading(true);
+    fetch(`/api/stats/insights?minGames=${minGames}`)
       .then(res => res.json())
       .then(json => {
         if (json.success) setData(json.data);
       })
       .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#030712] flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  }, [minGames]);
 
   const sections = [
-    { key: "btts", title: "Best BTTS Teams", icon: Target, color: "text-amber-400" },
-    { key: "o25", title: "Best Over 2.5 Teams", icon: Trophy, color: "text-emerald-400" },
+    { key: "btts", title: "Best BTTS", icon: Target, color: "text-amber-400" },
+    { key: "o15", title: "Best Over 1.5", icon: Trophy, color: "text-emerald-400" },
+    { key: "o25", title: "Best Over 2.5", icon: Trophy, color: "text-emerald-400" },
+    { key: "o35", title: "Best Over 3.5", icon: Trophy, color: "text-emerald-400" },
+    { key: "u15", title: "Best Under 1.5", icon: ArrowDown, color: "text-red-400" },
+    { key: "u25", title: "Best Under 2.5", icon: ArrowDown, color: "text-red-400" },
+    { key: "u35", title: "Best Under 3.5", icon: ArrowDown, color: "text-red-400" },
+    { key: "fts", title: "Highest Failed to Score", icon: AlertCircle, color: "text-orange-400" },
     { key: "homeWin", title: "Strongest Home Teams", icon: Home, color: "text-blue-400" },
-    { key: "cleanSheet", title: "Best Clean Sheet Teams", icon: Shield, color: "text-indigo-400" },
+    { key: "cleanSheet", title: "Best Clean Sheet", icon: Shield, color: "text-indigo-400" },
   ];
 
   return (
@@ -51,15 +51,38 @@ export default function InsightsPage() {
           </Link>
         </div>
 
-        <div className="mb-8">
-          <h1 className="text-3xl font-black flex items-center gap-3 text-white">
-            <Trophy className="w-8 h-8 text-amber-500" />
-            Premium Market Insights
-          </h1>
-          <p className="text-slate-400 mt-1 text-sm">
-            Top performing teams across all leagues globally for key betting markets.
-          </p>
+        <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-black flex items-center gap-3 text-white">
+              <Trophy className="w-8 h-8 text-amber-500" />
+              Premium Market Insights
+            </h1>
+            <p className="text-slate-400 mt-1 text-sm">
+              Top performing teams across all leagues globally for key betting markets.
+            </p>
+          </div>
+          
+          {/* Min Games Filter */}
+          <div className="flex items-center gap-3 bg-slate-900/80 border border-slate-800 px-4 py-2 rounded-xl">
+            <BarChart3 className="w-4 h-4 text-slate-400" />
+            <label className="text-sm font-semibold text-slate-300">Min. Matches Played:</label>
+            <select 
+              value={minGames} 
+              onChange={(e) => setMinGames(Number(e.target.value))}
+              className="bg-[#030712] border border-slate-700 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-1.5 font-bold"
+            >
+              {[1, 2, 3, 4, 5, 8, 10, 15, 20].map(num => (
+                <option key={num} value={num}>{num} Matches</option>
+              ))}
+            </select>
+          </div>
         </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : (
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {sections.map(sec => {
@@ -91,6 +114,7 @@ export default function InsightsPage() {
             );
           })}
         </div>
+        )}
       </div>
     </div>
   );
