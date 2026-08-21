@@ -287,12 +287,12 @@ export default function StatsHub() {
                           </div>
                           <div className="flex items-center gap-2 shrink-0 ml-2">
                             {/* League quick pills */}
-                            {l.overview?.btts_percent != null && (
+                            {typeof l.overview?.btts_percent === 'number' && !isNaN(l.overview.btts_percent) && (
                               <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium">
                                 BTTS {l.overview.btts_percent}%
                               </span>
                             )}
-                            {l.overview?.over_25_percent != null && (
+                            {typeof l.overview?.over_25_percent === 'number' && !isNaN(l.overview.over_25_percent) && (
                               <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-medium">
                                 O2.5 {l.overview.over_25_percent}%
                               </span>

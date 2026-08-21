@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import sql from "../../utils/sql";
 
+export const dynamic = "force-dynamic";
+
 function parseNum(val: any): number | null {
   if (val == null || val === "") return null;
   const n = parseFloat(String(val).replace(/%/, ""));
-  return isNaN(n) ? null : n;
+  if (isNaN(n)) return null;
+  return n <= 1.0 && n > 0 ? n * 100 : n;
 }
 
 export async function GET(request: Request) {
@@ -50,8 +53,8 @@ export async function GET(request: Request) {
         
         if (ms && typeof ms === "object") {
           const btts = parseNum(ms.BTTS_ALL);
-          const o25 = parseNum(ms.O25_ALL);
-          const o15 = parseNum(ms.O15_ALL);
+          const o25 = parseNum(ms['O2.5_ALL'] ?? ms.O25_ALL);
+          const o15 = parseNum(ms['O1.5_ALL'] ?? ms.O15_ALL);
           
           if (btts !== null) stats.btts.push(btts);
           if (o25 !== null) stats.o25.push(o25);
