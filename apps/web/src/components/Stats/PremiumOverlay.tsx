@@ -1,6 +1,6 @@
 import React from "react";
-import Link from "next/link";
 import { Lock } from "lucide-react";
+import UpgradeButton from "@/components/Dashboard/UpgradeButton";
 
 export default function PremiumOverlay({ message = "Unlock Premium Stats" }: { message?: string }) {
   return (
@@ -13,12 +13,11 @@ export default function PremiumOverlay({ message = "Unlock Premium Stats" }: { m
         <p className="text-sm text-slate-400 mb-6">
           Upgrade to Premium to access AI betting verdicts, advanced market splits, xG intelligence, and global market insights.
         </p>
-        <Link 
-          href="/pricing" 
-          className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-2.5 px-6 rounded-lg transition-colors w-full"
+        <UpgradeButton
+          className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-2.5 px-6 rounded-lg transition-colors w-full text-center flex items-center justify-center"
         >
           Upgrade Now
-        </Link>
+        </UpgradeButton>
       </div>
     </div>
   );
