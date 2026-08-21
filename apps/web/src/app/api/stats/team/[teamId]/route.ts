@@ -82,7 +82,9 @@ export async function GET(
         draws: parseInt(g.draw || '0'),
         losses: parseInt(g.lost || '0'),
         points: parseInt(g.pts || '0'),
-        ppg: parseFloat(g.ppg || '0')
+        ppg: parseFloat(g.ppg || '0'),
+        scored: parseInt(g.gs || '0'),
+        conceded: parseInt(g.gc || '0')
       };
       
       responseData.goals.scored = parseInt(g.gs || '0');
