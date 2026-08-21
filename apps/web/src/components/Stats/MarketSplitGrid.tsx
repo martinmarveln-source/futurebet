@@ -10,27 +10,18 @@ interface MarketSplitGridProps {
 }
 
 const MARKETS = [
-  { key: "O15", label: "Over 1.5 Goals", allKey: "O15_ALL", homeKey: "O15_HOME", awayKey: "O15_AWAY", color: "emerald" as const },
-  { key: "O25", label: "Over 2.5 Goals", allKey: "O25_ALL", homeKey: "O25_HOME", awayKey: "O25_AWAY", color: "blue" as const },
-  { key: "O35", label: "Over 3.5 Goals", allKey: "O35_ALL", homeKey: "O35_HOME", awayKey: "O35_AWAY", color: "indigo" as const },
-  { key: "O45", label: "Over 4.5 Goals", allKey: "O45_ALL", homeKey: "O45_HOME", awayKey: "O45_AWAY", color: "purple" as const },
-  { key: "BTTS", label: "BTTS (Both Score)", allKey: "BTTS_ALL", homeKey: "BTTS_HOME", awayKey: "BTTS_AWAY", color: "amber" as const },
-  { key: "CS", label: "Clean Sheet", allKey: "CS_ALL", homeKey: "CS_HOME", awayKey: "CS_AWAY", color: "blue" as const },
-  { key: "FTS", label: "Failed To Score", allKey: "FTS_ALL", homeKey: "FTS_HOME", awayKey: "FTS_AWAY", color: "red" as const },
-  { key: "XG", label: "Expected Goals (xG)", allKey: "XG_ALL", homeKey: "XG_HOME", awayKey: "XG_AWAY", color: "emerald" as const, isPercent: false },
-  { key: "XGA", label: "Expected Goals Against (xGA)", allKey: "XGA_ALL", homeKey: "XGA_HOME", awayKey: "XGA_AWAY", color: "red" as const, isPercent: false },
+  { key: "O15",  label: "Over 1.5 Goals",              allKey: "O15_ALL",  homeKey: "O15_HOME",  awayKey: "O15_AWAY",  color: "emerald" as const },
+  { key: "O25",  label: "Over 2.5 Goals",              allKey: "O25_ALL",  homeKey: "O25_HOME",  awayKey: "O25_AWAY",  color: "blue"    as const },
+  { key: "O35",  label: "Over 3.5 Goals",              allKey: "O35_ALL",  homeKey: "O35_HOME",  awayKey: "O35_AWAY",  color: "indigo"  as const },
+  { key: "O45",  label: "Over 4.5 Goals",              allKey: "O45_ALL",  homeKey: "O45_HOME",  awayKey: "O45_AWAY",  color: "purple"  as const },
+  { key: "BTTS", label: "BTTS (Both Score)",           allKey: "BTTS_ALL", homeKey: "BTTS_HOME", awayKey: "BTTS_AWAY", color: "amber"   as const },
+  { key: "CS",   label: "Clean Sheet",                 allKey: "CS_ALL",   homeKey: "CS_HOME",   awayKey: "CS_AWAY",   color: "blue"    as const },
+  { key: "FTS",  label: "Failed To Score",             allKey: "FTS_ALL",  homeKey: "FTS_HOME",  awayKey: "FTS_AWAY",  color: "red"     as const },
+  { key: "XG",   label: "Expected Goals (xG)",         allKey: "XG_ALL",   homeKey: "XG_HOME",   awayKey: "XG_AWAY",   color: "emerald" as const, isPercent: false },
+  { key: "XGA",  label: "Expected Goals Against (xGA)",allKey: "XGA_ALL",  homeKey: "XGA_HOME",  awayKey: "XGA_AWAY",  color: "red"     as const, isPercent: false },
 ];
 
 type Split = "all" | "home" | "away";
-
-function parseNum(v: any, isPercent: boolean = true): number {
-  if (v === undefined || v === null || v === "") return 0;
-  const n = parseFloat(String(v).replace(/%/, ""));
-  if (isNaN(n)) return 0;
-  if (!isPercent) return n;
-  // If it's a fractional percent (like 0.85 or 1.0)
-  return n <= 1.0 ? Math.round(n * 100) : Math.round(n);
-}
 
 export default function MarketSplitGrid({ stats }: MarketSplitGridProps) {
   const [split, setSplit] = useState<Split>("all");
@@ -42,6 +33,14 @@ export default function MarketSplitGrid({ stats }: MarketSplitGridProps) {
       </div>
     );
   }
+
+  const gpHome = parseInt(String(stats.GP_HOME ?? "0"), 10) || undefined;
+  const gpAway = parseInt(String(stats.GP_AWAY ?? "0"), 10) || undefined;
+  const gpAll  = gpHome && gpAway ? gpHome + gpAway : undefined;
+
+  // Safe PPG: always 2dp, no more
+  const ppgHome = parseFloat(String(stats.PPG_Home ?? "0")) || 0;
+  const ppgAway = parseFloat(String(stats.PPG_Away ?? "0")) || 0;
 
   return (
     <div className="space-y-5">
@@ -68,7 +67,7 @@ export default function MarketSplitGrid({ stats }: MarketSplitGridProps) {
         </div>
       </div>
 
-      {/* Market cards grid */}
+      {/* Market cards grid — pass GP context for count display */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {MARKETS.map((m) => {
           const isPercent = m.isPercent !== false;
@@ -82,34 +81,40 @@ export default function MarketSplitGrid({ stats }: MarketSplitGridProps) {
               activeSplit={split}
               color={m.color}
               isPercent={isPercent}
-              suffix={isPercent ? "" : ""}
+              gpAll={isPercent ? gpAll : undefined}
+              gpHome={isPercent ? gpHome : undefined}
+              gpAway={isPercent ? gpAway : undefined}
             />
           );
         })}
       </div>
 
-      {/* PPG split mini row */}
+      {/* PPG split — always 2dp, clearly labelled */}
       <div className="grid grid-cols-2 gap-3">
-        <TeamStatCard
-          label="PPG (Home)"
-          all={stats["PPG_Home"]}
-          home={stats["PPG_Home"]}
-          away={stats["PPG_Away"]}
-          activeSplit={split}
-          color="indigo"
-          isPercent={false}
-          description="Points per game at home"
-        />
-        <TeamStatCard
-          label="PPG (Away)"
-          all={stats["PPG_Away"]}
-          home={stats["PPG_Home"]}
-          away={stats["PPG_Away"]}
-          activeSplit={split}
-          color="purple"
-          isPercent={false}
-          description="Points per game away"
-        />
+        <div className="bg-slate-900/60 border border-slate-800/60 rounded-xl p-4 flex flex-col gap-1.5">
+          <div className="flex items-start justify-between gap-2">
+            <span className="text-slate-400 text-xs font-medium">PPG (Home)</span>
+            <span className={`text-xl font-black tabular-nums ${ppgHome >= 2 ? "text-emerald-400" : ppgHome >= 1.5 ? "text-amber-400" : "text-red-400"}`}>
+              {ppgHome.toFixed(2)}
+            </span>
+          </div>
+          <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+            <div className="bg-indigo-500 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, ppgHome * 33.3)}%` }} />
+          </div>
+          {gpHome && <div className="text-[10px] text-slate-600">{gpHome} home games</div>}
+        </div>
+        <div className="bg-slate-900/60 border border-slate-800/60 rounded-xl p-4 flex flex-col gap-1.5">
+          <div className="flex items-start justify-between gap-2">
+            <span className="text-slate-400 text-xs font-medium">PPG (Away)</span>
+            <span className={`text-xl font-black tabular-nums ${ppgAway >= 2 ? "text-emerald-400" : ppgAway >= 1.5 ? "text-amber-400" : "text-red-400"}`}>
+              {ppgAway.toFixed(2)}
+            </span>
+          </div>
+          <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+            <div className="bg-purple-500 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, ppgAway * 33.3)}%` }} />
+          </div>
+          {gpAway && <div className="text-[10px] text-slate-600">{gpAway} away games</div>}
+        </div>
       </div>
     </div>
   );

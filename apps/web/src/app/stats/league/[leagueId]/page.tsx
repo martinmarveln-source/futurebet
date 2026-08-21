@@ -145,15 +145,23 @@ export default function LeaguePageInner({ params }: { params: Promise<{ leagueId
     return rows;
   }, [table, search, sortField, sortDir]);
 
+  /** Format overview stat — hide zeros so cards only show when real data exists */
+  const fmtOverview = (raw: any, suffix = "%"): string | null => {
+    if (raw == null) return null;
+    const n = parseFloat(String(raw));
+    if (!isFinite(n) || n === 0) return null;
+    return `${n}${suffix}`;
+  };
+
   const overviewCards = [
-    { label: "Goals/Game", value: overview?.goals_per_game, color: "text-white" },
-    { label: "O1.5 %", value: overview?.over_15_percent != null ? `${overview.over_15_percent}%` : null, color: "text-emerald-400" },
-    { label: "O2.5 %", value: overview?.over_25_percent != null ? `${overview.over_25_percent}%` : null, color: "text-blue-400" },
-    { label: "BTTS %", value: overview?.btts_percent != null ? `${overview.btts_percent}%` : null, color: "text-amber-400" },
-    { label: "CS %", value: overview?.clean_sheet_percent != null ? `${overview.clean_sheet_percent}%` : null, color: "text-purple-400" },
-    { label: "FTS %", value: overview?.fts_percent != null ? `${overview.fts_percent}%` : null, color: "text-red-400" },
-    { label: "Avg xG", value: overview?.avg_xg, color: "text-indigo-400" },
-    { label: "Home Win %", value: overview?.home_win_percent != null ? `${overview.home_win_percent}%` : null, color: "text-teal-400" },
+    { label: "Goals/Game",  value: fmtOverview(overview?.goals_per_game, ""),   color: "text-white"      },
+    { label: "O1.5 %",      value: fmtOverview(overview?.over_15_percent),       color: "text-emerald-400"},
+    { label: "O2.5 %",      value: fmtOverview(overview?.over_25_percent),       color: "text-blue-400"  },
+    { label: "BTTS %",      value: fmtOverview(overview?.btts_percent),          color: "text-amber-400" },
+    { label: "CS %",        value: fmtOverview(overview?.clean_sheet_percent),   color: "text-purple-400"},
+    { label: "FTS %",       value: fmtOverview(overview?.fts_percent),           color: "text-red-400"   },
+    { label: "Avg xG",      value: fmtOverview(overview?.avg_xg, ""),            color: "text-indigo-400"},
+    { label: "Home Win %",  value: fmtOverview(overview?.home_win_percent),      color: "text-teal-400"  },
   ];
 
   const VIEW_LABELS: Record<View, string> = {
@@ -259,13 +267,14 @@ export default function LeaguePageInner({ params }: { params: Promise<{ leagueId
 
                       {view === "standard" && (
                         <>
-                          <Th field="gp" sortField={sortField} sortDir={sortDir} onSort={handleSort}>PL</Th>
+                          <Th field="gp"  sortField={sortField} sortDir={sortDir} onSort={handleSort}>PL</Th>
                           <Th field="win" sortField={sortField} sortDir={sortDir} onSort={handleSort}>W</Th>
                           <Th field="draw" sortField={sortField} sortDir={sortDir} onSort={handleSort}>D</Th>
                           <Th field="lost" sortField={sortField} sortDir={sortDir} onSort={handleSort}>L</Th>
-                          <Th field="gd" sortField={sortField} sortDir={sortDir} onSort={handleSort}>GD</Th>
+                          <Th field="gd"  sortField={sortField} sortDir={sortDir} onSort={handleSort}>GD</Th>
                           <Th field="pts" sortField={sortField} sortDir={sortDir} onSort={handleSort}>Pts</Th>
                           <Th field="ppg" sortField={sortField} sortDir={sortDir} onSort={handleSort}>PPG</Th>
+                          <th className="p-3 text-xs font-semibold text-slate-500 uppercase tracking-wider text-center whitespace-nowrap hidden sm:table-cell">Form</th>
                           <th className="p-3 text-xs font-semibold text-slate-500 uppercase tracking-wider text-center whitespace-nowrap">
                             <span className="flex items-center gap-1 justify-center"><Zap className="w-3 h-3" /> Next</span>
                           </th>
@@ -357,6 +366,20 @@ export default function LeaguePageInner({ params }: { params: Promise<{ leagueId
                                 <span className={cn("text-xs font-bold", parse(row.ppg) >= 2 ? "text-emerald-400" : parse(row.ppg) >= 1.5 ? "text-amber-400" : "text-red-400")}>
                                   {row.ppg ? Number(row.ppg).toFixed(2) : "—"}
                                 </span>
+                              </td>
+                              {/* Form mini-badges from Overall_Form (last 5 results) */}
+                              <td className="p-3 text-center hidden sm:table-cell">
+                                <div className="flex gap-0.5 justify-center">
+                                  {ms.Overall_Form
+                                    ? String(ms.Overall_Form).slice(-5).split("").map((r: string, i: number) => {
+                                        const cls = r === "W" ? "bg-emerald-500/80 text-white" : r === "L" ? "bg-red-500/80 text-white" : "bg-slate-600 text-slate-300";
+                                        return (
+                                          <span key={i} className={cn("w-4 h-4 rounded text-[9px] font-black flex items-center justify-center", cls)}>{r}</span>
+                                        );
+                                      })
+                                    : <span className="text-slate-700 text-xs">—</span>
+                                  }
+                                </div>
                               </td>
                               <td className="p-3 text-center"><NextMatchPill data={nm} /></td>
                             </>

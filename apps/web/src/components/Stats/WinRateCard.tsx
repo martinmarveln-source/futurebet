@@ -8,31 +8,57 @@ interface WinRateCardProps {
   stats: Record<string, any> | null;
 }
 
-function parse(v: any): number {
-  const n = parseFloat(String(v || 0).replace(/%/, ""));
-  return isNaN(n) ? 0 : n;
+/** Parses a value that may be:
+ *  - a whole percent  "65" → 65
+ *  - a fractional pct "0.65" → 65
+ *  - a string with %  "65%" → 65
+ *  - already a number 65 → 65
+ */
+function parsePct(v: any): number {
+  if (v === null || v === undefined || String(v).trim() === "") return 0;
+  const n = parseFloat(String(v).replace(/%/g, "").trim());
+  if (!isFinite(n)) return 0;
+  // Fractional form (0 < n ≤ 1): multiply to get percentage
+  return n > 0 && n <= 1.0 ? n * 100 : n;
+}
+
+function parseFloat2(v: any): number {
+  const n = parseFloat(String(v ?? "0"));
+  return isFinite(n) ? n : 0;
+}
+
+function parseGP(v: any): number {
+  const n = parseInt(String(v ?? "0"), 10);
+  return isFinite(n) ? n : 0;
 }
 
 function RateRow({
   label,
   homeVal,
   awayVal,
+  homeGp,
+  awayGp,
   homeColor,
   awayColor,
 }: {
   label: string;
   homeVal: number;
   awayVal: number;
+  homeGp?: number;
+  awayGp?: number;
   homeColor: string;
   awayColor: string;
 }) {
+  const fmtPct = (gp: number | undefined, pct: number) =>
+    gp ? `${Math.round(pct)}% (${Math.round((pct / 100) * gp)}/${gp})` : `${Math.round(pct)}%`;
+
   return (
     <div className="space-y-1.5">
       <div className="flex justify-between text-xs">
         <span className="text-slate-400 font-medium">{label}</span>
         <span className="flex gap-3">
-          <span className={`font-bold ${homeColor}`}>H: {Math.round(homeVal)}%</span>
-          <span className={`font-bold ${awayColor}`}>A: {Math.round(awayVal)}%</span>
+          <span className={`font-bold ${homeColor}`}>H: {fmtPct(homeGp, homeVal)}</span>
+          <span className={`font-bold ${awayColor}`}>A: {fmtPct(awayGp, awayVal)}</span>
         </span>
       </div>
       {/* Two stacked bars */}
@@ -65,14 +91,17 @@ function RateRow({
 export default function WinRateCard({ stats }: WinRateCardProps) {
   if (!stats) return null;
 
-  const homeWin = parse(stats.Home_Win);
-  const awayWin = parse(stats.Away_Win);
-  const homeDraw = parse(stats.HOME_DRAW);
-  const awayDraw = parse(stats.AWAY_DRAW);
-  const homeLost = parse(stats.HOME_LOST);
-  const awayLost = parse(stats.AWAY_LOST);
-  const ppgHome = parse(stats.PPG_Home);
-  const ppgAway = parse(stats.PPG_Away);
+  const gpHome  = parseGP(stats.GP_HOME);
+  const gpAway  = parseGP(stats.GP_AWAY);
+
+  const homeWin  = parsePct(stats.Home_Win);
+  const awayWin  = parsePct(stats.Away_Win);
+  const homeDraw = parsePct(stats.HOME_DRAW);
+  const awayDraw = parsePct(stats.AWAY_DRAW);
+  const homeLost = parsePct(stats.HOME_LOST);
+  const awayLost = parsePct(stats.AWAY_LOST);
+  const ppgHome  = parseFloat2(stats.PPG_Home);
+  const ppgAway  = parseFloat2(stats.PPG_Away);
 
   return (
     <div className="bg-slate-900/60 border border-slate-800/60 rounded-xl p-5 space-y-4">
@@ -84,37 +113,40 @@ export default function WinRateCard({ stats }: WinRateCardProps) {
       <div className="space-y-4">
         <RateRow
           label="Win Rate"
-          homeVal={homeWin}
-          awayVal={awayWin}
-          homeColor="text-emerald-400"
-          awayColor="text-emerald-300"
+          homeVal={homeWin}  awayVal={awayWin}
+          homeGp={gpHome}    awayGp={gpAway}
+          homeColor="text-emerald-400" awayColor="text-emerald-300"
         />
         <RateRow
           label="Draw Rate"
-          homeVal={homeDraw}
-          awayVal={awayDraw}
-          homeColor="text-amber-400"
-          awayColor="text-amber-300"
+          homeVal={homeDraw} awayVal={awayDraw}
+          homeGp={gpHome}    awayGp={gpAway}
+          homeColor="text-amber-400"   awayColor="text-amber-300"
         />
         <RateRow
           label="Loss Rate"
-          homeVal={homeLost}
-          awayVal={awayLost}
-          homeColor="text-red-400"
-          awayColor="text-red-300"
+          homeVal={homeLost} awayVal={awayLost}
+          homeGp={gpHome}    awayGp={gpAway}
+          homeColor="text-red-400"     awayColor="text-red-300"
         />
       </div>
 
       {/* PPG summary */}
       <div className="border-t border-slate-800 pt-3 grid grid-cols-2 gap-3 text-center">
         <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-lg p-2.5">
-          <div className="text-[10px] text-slate-400 mb-1">Home PPG</div>
+          <div className="text-[10px] text-slate-400 mb-0.5">
+            Home PPG
+            {gpHome > 0 && <span className="text-slate-600 ml-1">({gpHome} games)</span>}
+          </div>
           <div className={`text-xl font-black ${ppgHome >= 2 ? "text-emerald-400" : ppgHome >= 1.5 ? "text-amber-400" : "text-red-400"}`}>
             {ppgHome.toFixed(2)}
           </div>
         </div>
         <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-2.5">
-          <div className="text-[10px] text-slate-400 mb-1">Away PPG</div>
+          <div className="text-[10px] text-slate-400 mb-0.5">
+            Away PPG
+            {gpAway > 0 && <span className="text-slate-600 ml-1">({gpAway} games)</span>}
+          </div>
           <div className={`text-xl font-black ${ppgAway >= 2 ? "text-emerald-400" : ppgAway >= 1.5 ? "text-amber-400" : "text-red-400"}`}>
             {ppgAway.toFixed(2)}
           </div>

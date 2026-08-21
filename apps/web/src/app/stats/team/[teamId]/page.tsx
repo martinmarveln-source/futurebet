@@ -255,21 +255,41 @@ function TeamPageInner({ params }: { params: Promise<{ teamId: string }> }) {
                 <div className="bg-[#0f172a] rounded-2xl border border-slate-800 p-5">
                   <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2">
                     <Flame className="w-4 h-4 text-orange-400" />
-                    Recent Form
+                    Season Form
                   </h2>
                   <div className="space-y-3">
                     {[
-                      { label: "Overall", form: stats.form?.overall },
-                      { label: "Home", form: stats.form?.home },
-                      { label: "Away", form: stats.form?.away },
+                      {
+                        label: "Overall",
+                        // Prefer full-season form from sheet, fall back to computed last-5
+                        form: ms?.Overall_Form || stats.form?.overall,
+                        gp: stats.general?.gp,
+                      },
+                      {
+                        label: "Home",
+                        form: ms?.Home_Form || stats.form?.home,
+                        gp: parseInt(String(ms?.GP_HOME ?? "0"), 10) || null,
+                      },
+                      {
+                        label: "Away",
+                        form: ms?.Away_Form || stats.form?.away,
+                        gp: parseInt(String(ms?.GP_AWAY ?? "0"), 10) || null,
+                      },
                     ].map((f) => (
-                      <div key={f.label} className="flex items-center justify-between bg-slate-900/40 px-4 py-2.5 rounded-xl border border-slate-800/50">
-                        <span className="text-xs font-semibold text-slate-400 w-14">{f.label}</span>
-                        <div className="flex gap-1 flex-wrap justify-end">
-                          {f.form?.split("").slice(0, 10).map((r: string, i: number) => (
-                            <FormBadge key={i} result={r} />
-                          ))}
-                          {!f.form && <span className="text-slate-600 text-sm">No data</span>}
+                      <div key={f.label} className="bg-slate-900/40 px-4 py-3 rounded-xl border border-slate-800/50">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-slate-400 w-16">{f.label}</span>
+                          {f.gp != null && f.gp > 0 && (
+                            <span className="text-[10px] text-slate-600">{f.gp} games</span>
+                          )}
+                        </div>
+                        <div className="flex gap-1 flex-wrap">
+                          {f.form
+                            ? String(f.form).split("").map((r: string, i: number) => (
+                                <FormBadge key={i} result={r} />
+                              ))
+                            : <span className="text-slate-600 text-sm">No data</span>
+                          }
                         </div>
                       </div>
                     ))}
