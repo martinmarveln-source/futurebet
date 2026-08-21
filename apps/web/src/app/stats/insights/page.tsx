@@ -158,8 +158,8 @@ export default function InsightsPage() {
                             </div>
                           </div>
                         </div>
-                        <div className={`font-black text-base flex-shrink-0 ${sec.color}`}>
-                          {Math.round(item.value)}%
+                        <div className={`font-black text-[13px] flex-shrink-0 text-right ${sec.color}`}>
+                          {item.gp ? `${Math.round((item.value / 100) * item.gp)}/${item.gp} (${Math.round(item.value)}%)` : `${Math.round(item.value)}%`}
                         </div>
                       </>
                     );

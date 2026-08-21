@@ -45,12 +45,18 @@ export async function GET(request: Request) {
     const getStat = (t: any, baseKey: string) => parsePct(t.market_stats[`${baseKey}${keySuffix}`]);
     const getInverse = (t: any, baseKey: string) => 100 - parsePct(t.market_stats[`${baseKey}${keySuffix}`]);
 
+    const getGp = (t: any) => {
+      if (split === 'home') return parseInt(t.market_stats.GP_HOME || '0', 10) || 0;
+      if (split === 'away') return parseInt(t.market_stats.GP_AWAY || '0', 10) || 0;
+      return t.gp || 0;
+    };
+
     // Helper to get top 15 teams
     const getTop15 = (getValue: (t: any) => number, isAsc: boolean = false) => {
       return [...validTeams]
         .sort((a, b) => isAsc ? getValue(a) - getValue(b) : getValue(b) - getValue(a))
         .slice(0, 15)
-        .map(t => ({ team: t.team, league: t.league, country: t.country, value: getValue(t) }));
+        .map(t => ({ team: t.team, league: t.league, country: t.country, value: getValue(t), gp: getGp(t) }));
     };
 
     const teamData = {
@@ -86,6 +92,7 @@ export async function GET(request: Request) {
           league: leagueName,
           country,
           teamsCount: lTeams.length,
+          gp: Math.floor(lTeams.reduce((sum, t) => sum + getGp(t), 0) / 2),
           btts: lTeams.reduce((sum, t) => sum + getStat(t, 'BTTS'), 0) / lTeams.length,
           nbtts: lTeams.reduce((sum, t) => sum + getInverse(t, 'BTTS'), 0) / lTeams.length,
           o15: lTeams.reduce((sum, t) => sum + getStat(t, 'O15'), 0) / lTeams.length,
@@ -103,7 +110,7 @@ export async function GET(request: Request) {
       return [...validLeagues]
         .sort((a, b) => isAsc ? (a as any)[key] - (b as any)[key] : (b as any)[key] - (a as any)[key])
         .slice(0, 15)
-        .map(l => ({ team: l.league, league: l.league, country: l.country, value: (l as any)[key] }));
+        .map(l => ({ team: l.league, league: l.league, country: l.country, value: (l as any)[key], gp: l.gp }));
     };
 
     const leagueData = {
