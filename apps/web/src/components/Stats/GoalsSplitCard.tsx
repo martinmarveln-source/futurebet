@@ -56,14 +56,11 @@ function GpPctCell({
 }) {
   const count = gp ? Math.round((pct / 100) * gp) : null;
   return (
-    <div className="bg-slate-900 rounded-lg p-2 border border-slate-800/50 text-center">
+    <div className="bg-slate-900 rounded-lg p-2 border border-slate-800/50 text-center flex flex-col justify-center">
       <div className="text-[10px] text-slate-500 mb-1">{label}</div>
-      <div className={`text-base font-black ${color}`}>{Math.round(pct)}%</div>
-      {count !== null && gp && (
-        <div className="text-[10px] text-slate-600 mt-0.5">
-          {count}/{gp} games
-        </div>
-      )}
+      <div className={`text-sm font-black ${color}`}>
+        {count !== null && gp ? `${count}/${gp} (${Math.round(pct)}%)` : `${Math.round(pct)}%`}
+      </div>
     </div>
   );
 }

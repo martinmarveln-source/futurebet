@@ -390,8 +390,8 @@ export default function LeaguePageInner({ params }: { params: Promise<{ leagueId
                               <td className="p-3 text-center text-emerald-400 font-semibold">{row.gs || 0}</td>
                               <td className="p-3 text-center text-red-400">{row.gc || 0}</td>
                               <td className="p-3 text-center">{row.gd || 0}</td>
-                              <td className="p-3 text-center text-indigo-400">{ms.XG_ALL || "—"}</td>
-                              <td className="p-3 text-center text-orange-400">{ms.XGA_ALL || "—"}</td>
+                              <td className="p-3 text-center text-indigo-400">{ms.XG_ALL ? Number(ms.XG_ALL).toFixed(2) : "—"}</td>
+                              <td className="p-3 text-center text-orange-400">{ms.XGA_ALL ? Number(ms.XGA_ALL).toFixed(2) : "—"}</td>
                             </>
                           )}
 

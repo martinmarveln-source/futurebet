@@ -44,11 +44,11 @@ function heatColor(val: number): string {
   return "text-red-400";
 }
 
-/** Format a count/percentage pair: "70% (7/10)" when GP is available */
+/** Format a count/percentage pair: "7/10 (70%)" when GP is available */
 function fmtWithGp(pct: number, gp?: number): string {
   if (!gp) return `${Math.round(pct)}%`;
   const count = Math.round((pct / 100) * gp);
-  return `${Math.round(pct)}% (${count}/${gp})`;
+  return `${count}/${gp} (${Math.round(pct)}%)`;
 }
 
 export default function TeamStatCard({
@@ -94,7 +94,7 @@ export default function TeamStatCard({
 
   const fmtMini = (pct: number, gp?: number): string => {
     if (!isPercent) return pct.toFixed(2);
-    return gp ? `${Math.round(pct)}% (${Math.round((pct / 100) * gp)}/${gp})` : `${Math.round(pct)}%`;
+    return gp ? `${Math.round((pct / 100) * gp)}/${gp} (${Math.round(pct)}%)` : `${Math.round(pct)}%`;
   };
 
   return (

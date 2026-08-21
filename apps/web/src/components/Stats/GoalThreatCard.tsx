@@ -8,20 +8,28 @@ interface GoalThreatCardProps {
   stats: Record<string, any> | null;
 }
 
-function parse(v: any): number {
-  if (v === undefined || v === null || v === "") return 0;
-  const n = parseFloat(String(v).replace(/%/, ""));
-  return isNaN(n) ? 0 : n;
+function parsePct(v: any): number {
+  if (v === null || v === undefined || String(v).trim() === "") return 0;
+  const n = parseFloat(String(v).replace(/%/g, "").trim());
+  if (!isFinite(n)) return 0;
+  return n > 0 && n <= 1.0 ? n * 100 : n;
+}
+
+function parseGP(v: any): number | undefined {
+  const n = parseInt(String(v ?? "0"), 10);
+  return isFinite(n) && n > 0 ? n : undefined;
 }
 
 function ThreatBar({
   label,
   value,
   type,
+  gp,
 }: {
   label: string;
   value: number;
   type: "attack" | "concede";
+  gp?: number;
 }) {
   const isAttack = type === "attack";
   // Attack: high is good (green). Concede: high is bad (red).
@@ -39,6 +47,8 @@ function ThreatBar({
   const verdict = isAttack
     ? value >= 65 ? "HIGH THREAT" : value >= 45 ? "MODERATE" : "LOW THREAT"
     : value >= 65 ? "VULNERABLE" : value >= 45 ? "AVERAGE" : "SOLID";
+    
+  const countStr = gp ? `${Math.round((value / 100) * gp)}/${gp} ` : "";
 
   return (
     <div className="space-y-1.5 p-3 bg-slate-900/50 border border-slate-800 rounded-lg">
@@ -53,8 +63,8 @@ function ThreatBar({
             style={{ width: `${Math.min(100, value)}%` }}
           />
         </div>
-        <span className={`text-sm font-black tabular-nums w-10 text-right ${textColor}`}>
-          {Math.round(value)}%
+        <span className={`text-[11px] font-black tabular-nums w-14 text-right ${textColor}`}>
+          {countStr}({Math.round(value)}%)
         </span>
       </div>
     </div>
@@ -64,10 +74,13 @@ function ThreatBar({
 export default function GoalThreatCard({ stats }: GoalThreatCardProps) {
   if (!stats) return null;
 
-  const hgsO15 = parse(stats.HGS_Over_15 ?? stats["HGS_Over_1.5"]);
-  const hgcO15 = parse(stats.HGC_Over_15 ?? stats["HGC_Over_1.5"]);
-  const agsO15 = parse(stats.AGS_Over_15 ?? stats["AGS_Over_1.5"]);
-  const agcO15 = parse(stats.AGC_Over_15 ?? stats["AGC_Over_1.5"]);
+  const hgsO15 = parsePct(stats.HGS_Over_15 ?? stats["HGS_Over_1.5"]);
+  const hgcO15 = parsePct(stats.HGC_Over_15 ?? stats["HGC_Over_1.5"]);
+  const agsO15 = parsePct(stats.AGS_Over_15 ?? stats["AGS_Over_1.5"]);
+  const agcO15 = parsePct(stats.AGC_Over_15 ?? stats["AGC_Over_1.5"]);
+
+  const gpHome = parseGP(stats.GP_HOME);
+  const gpAway = parseGP(stats.GP_AWAY);
 
   const hasData = hgsO15 || hgcO15 || agsO15 || agcO15;
   if (!hasData) return null;
@@ -87,8 +100,8 @@ export default function GoalThreatCard({ stats }: GoalThreatCardProps) {
             <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />
             Home
           </div>
-          {hgsO15 > 0 && <ThreatBar label="Scored 2+ Goals at Home" value={hgsO15} type="attack" />}
-          {hgcO15 > 0 && <ThreatBar label="Conceded 2+ Goals at Home" value={hgcO15} type="concede" />}
+          {hgsO15 > 0 && <ThreatBar label="Scored 2+ Goals at Home" value={hgsO15} type="attack" gp={gpHome} />}
+          {hgcO15 > 0 && <ThreatBar label="Conceded 2+ Goals at Home" value={hgcO15} type="concede" gp={gpHome} />}
         </div>
 
         {/* Away Attack */}
@@ -97,8 +110,8 @@ export default function GoalThreatCard({ stats }: GoalThreatCardProps) {
             <span className="w-2 h-2 rounded-full bg-purple-500 inline-block" />
             Away
           </div>
-          {agsO15 > 0 && <ThreatBar label="Scored 2+ Goals Away" value={agsO15} type="attack" />}
-          {agcO15 > 0 && <ThreatBar label="Conceded 2+ Goals Away" value={agcO15} type="concede" />}
+          {agsO15 > 0 && <ThreatBar label="Scored 2+ Goals Away" value={agsO15} type="attack" gp={gpAway} />}
+          {agcO15 > 0 && <ThreatBar label="Conceded 2+ Goals Away" value={agcO15} type="concede" gp={gpAway} />}
         </div>
       </div>
 

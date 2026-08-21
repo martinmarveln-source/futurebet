@@ -50,7 +50,7 @@ function RateRow({
   awayColor: string;
 }) {
   const fmtPct = (gp: number | undefined, pct: number) =>
-    gp ? `${Math.round(pct)}% (${Math.round((pct / 100) * gp)}/${gp})` : `${Math.round(pct)}%`;
+    gp ? `${Math.round((pct / 100) * gp)}/${gp} (${Math.round(pct)}%)` : `${Math.round(pct)}%`;
 
   return (
     <div className="space-y-1.5">
