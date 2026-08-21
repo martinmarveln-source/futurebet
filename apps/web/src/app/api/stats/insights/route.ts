@@ -48,7 +48,7 @@ export async function GET(request: Request) {
     const getGp = (t: any) => {
       if (split === 'home') return parseInt(t.market_stats.GP_HOME || '0', 10) || 0;
       if (split === 'away') return parseInt(t.market_stats.GP_AWAY || '0', 10) || 0;
-      return t.gp || 0;
+      return parseInt(t.gp || '0', 10) || 0;
     };
 
     // Helper to get top 15 teams

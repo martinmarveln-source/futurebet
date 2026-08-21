@@ -165,11 +165,11 @@ export default function InsightsPage() {
                     );
 
                     return viewType === 'team' ? (
-                      <Link href={`/stats/team/${encodeURIComponent(item.team)}?league=${encodeURIComponent(item.league)}`} key={idx} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors">
+                      <Link href={`/stats/team/${encodeURIComponent(item.team)}?league=${encodeURIComponent(item.league)}&country=${encodeURIComponent(item.country)}`} key={idx} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors">
                         {content}
                       </Link>
                     ) : (
-                      <Link href={`/stats/league/${encodeURIComponent(item.league)}`} key={idx} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors">
+                      <Link href={`/stats/league/${encodeURIComponent(item.league)}?country=${encodeURIComponent(item.country)}`} key={idx} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors">
                         {content}
                       </Link>
                     )
