@@ -2,6 +2,8 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
+import OverallFormPill from "@/components/Stats/OverallFormPill";
+import PremiumOverlay from "@/components/Stats/PremiumOverlay";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -88,6 +90,7 @@ export default function LeaguePageInner({ params }: { params: Promise<{ leagueId
   const [view, setView] = useState<View>("standard");
   const [sortField, setSortField] = useState("sn");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [isPremium, setIsPremium] = useState(false);
 
   useEffect(() => { params.then((p) => setLeagueId(decodeURIComponent(p.leagueId))); }, [params]);
 
@@ -102,7 +105,10 @@ export default function LeaguePageInner({ params }: { params: Promise<{ leagueId
         ]);
         const ovJson = await ovRes.json();
         const tableJson = await tableRes.json();
-        if (ovJson.success) setOverview(ovJson.overview);
+        if (ovJson.success) {
+          setOverview(ovJson.overview);
+          setIsPremium(ovJson.isPremium);
+        }
         if (tableJson.success) setTable(tableJson.table);
       } finally { setLoading(false); }
     };
@@ -258,8 +264,12 @@ export default function LeaguePageInner({ params }: { params: Promise<{ leagueId
               </div>
 
               {/* Table */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-sm">
+              <div className="overflow-x-auto relative min-h-[300px]">
+                {(!isPremium && (view === "markets" || view === "xganalysis")) && (
+                  <PremiumOverlay message="Advanced Tables Locked" />
+                )}
+                
+                <table className={cn("w-full text-left border-collapse text-sm", (!isPremium && (view === "markets" || view === "xganalysis")) ? 'opacity-20 pointer-events-none filter blur-[2px]' : '')}>
                   <thead>
                     <tr className="bg-slate-900/60 text-slate-500">
                       <th className="p-3 text-xs font-semibold uppercase tracking-wider w-10">#</th>

@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import sql from "../../../utils/sql";
+import { auth } from "@/auth";
+import { hasPremiumAccess } from "../../../utils/premium";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ leagueId: string }> }
 ) {
   try {
+    const sessionResponse = await auth();
+    const isPremium = hasPremiumAccess(sessionResponse?.user);
+
     const { leagueId } = await params;
     const { searchParams } = new URL(request.url);
     const season = searchParams.get('season') || '2026/27';
@@ -22,6 +27,7 @@ export async function GET(
     if (!teamRows || teamRows.length === 0) {
       return NextResponse.json({
         success: true,
+        isPremium,
         league: decodedLeagueId,
         season,
         overview: {
@@ -90,6 +96,7 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
+      isPremium,
       league: decodedLeagueId,
       season,
       overview: {

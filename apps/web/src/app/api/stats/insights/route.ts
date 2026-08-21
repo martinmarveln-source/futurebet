@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
 import sql from "../../utils/sql";
 import { auth } from "@/auth";
+import { hasPremiumAccess } from "../../../utils/premium";
 
 export async function GET(request: Request) {
   try {
-    const session = await auth();
+    const sessionResponse = await auth();
+    const user = sessionResponse?.user;
+
+    if (!hasPremiumAccess(user)) {
+      return NextResponse.json({ success: false, error: "premium_required" }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const minGames = parseInt(searchParams.get("minGames") || "4", 10);
     const split = searchParams.get("split") || "overall"; // overall, home, away

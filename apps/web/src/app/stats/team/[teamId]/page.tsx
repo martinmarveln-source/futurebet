@@ -18,6 +18,7 @@ import BettingVerdictCard from "@/components/Stats/BettingVerdictCard";
 import GoalThreatCard from "@/components/Stats/GoalThreatCard";
 import XGIntelligencePanel from "@/components/Stats/XGIntelligencePanel";
 import DerivedStatsCard from "@/components/Stats/DerivedStatsCard";
+import PremiumOverlay from "@/components/Stats/PremiumOverlay";
 
 const TABS = [
   { id: "overview", label: "Overview", icon: Activity },
@@ -303,8 +304,13 @@ function TeamPageInner({ params }: { params: Promise<{ teamId: string }> }) {
                   ppgAway={ms?.PPG_Away}
                 />
 
-                {/* Betting Verdict */}
-                <BettingVerdictCard stats={ms} general={stats.general} />
+                {/* Betting Verdict - Premium */}
+                <div className="relative">
+                  {!stats.isPremium && <PremiumOverlay message="Betting Verdict Locked" />}
+                  <div className={!stats.isPremium ? 'opacity-20 pointer-events-none filter blur-[2px]' : ''}>
+                    <BettingVerdictCard stats={ms} general={stats.general} />
+                  </div>
+                </div>
               </div>
             )}
 
@@ -312,14 +318,23 @@ function TeamPageInner({ params }: { params: Promise<{ teamId: string }> }) {
             {activeTab === "goals" && (
               <div className="space-y-4">
                 <GoalsSplitCard stats={ms} general={stats.general} />
-                <GoalThreatCard stats={ms} />
+                
+                <div className="relative">
+                  {!stats.isPremium && <PremiumOverlay message="Goal Threat Locked" />}
+                  <div className={!stats.isPremium ? 'opacity-20 pointer-events-none filter blur-[2px]' : ''}>
+                    <GoalThreatCard stats={ms} />
+                  </div>
+                </div>
               </div>
             )}
 
             {/* MARKETS */}
             {activeTab === "markets" && (
-              <div className="bg-[#0f172a] rounded-2xl border border-slate-800 p-5">
-                <MarketSplitGrid stats={ms} />
+              <div className="bg-[#0f172a] rounded-2xl border border-slate-800 p-5 relative overflow-hidden">
+                {!stats.isPremium && <PremiumOverlay message="Market Splits Locked" />}
+                <div className={!stats.isPremium ? 'opacity-20 pointer-events-none filter blur-[2px]' : ''}>
+                  <MarketSplitGrid stats={ms} />
+                </div>
               </div>
             )}
 
@@ -360,16 +375,19 @@ function TeamPageInner({ params }: { params: Promise<{ teamId: string }> }) {
 
             {/* ADVANCED */}
             {activeTab === "advanced" && (
-              <div className="space-y-4">
-                <div className="bg-[#0f172a] rounded-2xl border border-slate-800 p-5">
-                  <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2 mb-5">
-                    <Brain className="w-4 h-4 text-violet-400" />
-                    xG Intelligence
-                  </h2>
-                  <XGIntelligencePanel stats={ms} general={stats.general} />
-                </div>
-                <div className="bg-[#0f172a] rounded-2xl border border-slate-800 p-5">
-                  <DerivedStatsCard stats={ms} general={stats.general} />
+              <div className="space-y-4 relative">
+                {!stats.isPremium && <PremiumOverlay message="Advanced Stats Locked" />}
+                <div className={!stats.isPremium ? 'opacity-20 pointer-events-none filter blur-[2px] space-y-4' : 'space-y-4'}>
+                  <div className="bg-[#0f172a] rounded-2xl border border-slate-800 p-5">
+                    <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2 mb-5">
+                      <Brain className="w-4 h-4 text-violet-400" />
+                      xG Intelligence
+                    </h2>
+                    <XGIntelligencePanel stats={ms} general={stats.general} />
+                  </div>
+                  <div className="bg-[#0f172a] rounded-2xl border border-slate-800 p-5">
+                    <DerivedStatsCard stats={ms} general={stats.general} />
+                  </div>
                 </div>
               </div>
             )}

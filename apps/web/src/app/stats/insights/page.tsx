@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { Trophy, ChevronLeft, Target, Shield, Home, AlertCircle, BarChart3, ArrowDown, ArrowUp, Activity, Globe } from "lucide-react";
+import PremiumOverlay from "../../../components/Stats/PremiumOverlay";
 
 export default function InsightsPage() {
   const [data, setData] = useState<any>(null);
@@ -10,14 +11,21 @@ export default function InsightsPage() {
   const [minGames, setMinGames] = useState(4);
   const [split, setSplit] = useState("overall"); // overall, home, away
   const [viewType, setViewType] = useState("team"); // team, league
+  const [isLocked, setIsLocked] = useState(false);
 
   useEffect(() => {
     setLoading(true);
+    setIsLocked(false);
     fetch(`/api/stats/insights?minGames=${minGames}&split=${split}`)
       .then(res => res.json())
       .then(json => {
-        if (json.success) setData(json.data);
+        if (json.success) {
+          setData(json.data);
+        } else if (json.error === "premium_required") {
+          setIsLocked(true);
+        }
       })
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, [minGames, split]);
 
@@ -117,11 +125,15 @@ export default function InsightsPage() {
             <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sections.map(sec => {
-            const Icon = sec.icon;
-            const items = currentData?.[sec.key];
-            if (!items || items.length === 0) return null;
+        <div className="relative min-h-[400px]">
+          {isLocked && <PremiumOverlay message="Premium Insights Locked" />}
+          
+          <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 ${isLocked ? 'opacity-20 pointer-events-none filter blur-[2px]' : ''}`}>
+            {sections.map(sec => {
+              const Icon = sec.icon;
+              // If locked, render some dummy data to make the background blur look realistic
+              const items = isLocked ? Array(5).fill({ team: 'Locked Team', league: 'Locked League', country: 'Locked', value: 100 }) : currentData?.[sec.key];
+              if (!items || items.length === 0) return null;
             
             return (
               <div key={sec.key} className="bg-[#0f172a] rounded-2xl border border-slate-800 shadow-xl overflow-hidden p-5 flex flex-col h-full">
@@ -166,6 +178,7 @@ export default function InsightsPage() {
               </div>
             );
           })}
+          </div>
         </div>
         )}
       </div>
