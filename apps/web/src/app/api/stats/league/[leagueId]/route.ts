@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import sql from "../../../utils/sql";
 import { auth } from "@/auth";
-import { hasPremiumAccess } from "../../../utils/premium";
+import { hasPremiumAccess } from "@/utils/premium";
 
 export async function GET(
   request: Request,
