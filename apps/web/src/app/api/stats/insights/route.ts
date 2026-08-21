@@ -15,8 +15,34 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const minGames = parseInt(searchParams.get("minGames") || "4", 10);
     const split = searchParams.get("split") || "overall"; // overall, home, away
+    const startDate = searchParams.get("startDate") || "";
+    const endDate = searchParams.get("endDate") || "";
 
     const rows = await sql`SELECT * FROM league_table_cache`;
+
+    let dateFilterSet: Set<string> | null = null;
+    if (startDate || endDate) {
+      const today = new Date().toISOString().split("T")[0];
+      const start = startDate || today;
+      const end = endDate || '2099-12-31';
+      
+      const matches = await sql`
+        SELECT home_team, away_team, league 
+        FROM matches_cache 
+        WHERE match_date >= ${start}::date 
+          AND match_date <= ${end}::date
+          AND raw_data IS NOT NULL
+      `;
+      
+      dateFilterSet = new Set();
+      for (const m of matches) {
+        const h = m.home_team?.trim().toLowerCase();
+        const a = m.away_team?.trim().toLowerCase();
+        const l = m.league?.trim().toLowerCase();
+        if (h) dateFilterSet.add(`${h}|${l}`);
+        if (a) dateFilterSet.add(`${a}|${l}`);
+      }
+    }
 
     const teams = rows.map(r => {
       let ms = r.market_stats;
@@ -35,8 +61,18 @@ export async function GET(request: Request) {
       return n <= 1.0 ? n * 100 : n;
     };
 
-    // Filter out teams with less than required games played
-    const validTeams = teams.filter(t => (t.gp || 0) >= minGames);
+    // Filter out teams with less than required games played, and apply date filter if active
+    const validTeams = teams.filter(t => {
+      if ((t.gp || 0) < minGames) return false;
+      if (dateFilterSet) {
+        const tName = t.team?.trim().toLowerCase();
+        const lName = t.league?.trim().toLowerCase();
+        if (!dateFilterSet.has(`${tName}|${lName}`)) {
+          return false;
+        }
+      }
+      return true;
+    });
 
     // Dynamic keys based on split
     const keySuffix = split === 'home' ? '_HOME' : split === 'away' ? '_AWAY' : '_ALL';

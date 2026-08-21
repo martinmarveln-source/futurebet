@@ -12,11 +12,21 @@ export default function InsightsPage() {
   const [split, setSplit] = useState("overall"); // overall, home, away
   const [viewType, setViewType] = useState("team"); // team, league
   const [isLocked, setIsLocked] = useState(false);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   useEffect(() => {
     setLoading(true);
     setIsLocked(false);
-    fetch(`/api/stats/insights?minGames=${minGames}&split=${split}`)
+    
+    const params = new URLSearchParams({
+      minGames: minGames.toString(),
+      split
+    });
+    if (startDate) params.append("startDate", startDate);
+    if (endDate) params.append("endDate", endDate);
+
+    fetch(`/api/stats/insights?${params.toString()}`)
       .then(res => res.json())
       .then(json => {
         if (json.success) {
@@ -27,7 +37,7 @@ export default function InsightsPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [minGames, split]);
+  }, [minGames, split, startDate, endDate]);
 
   const sections = [
     { key: "btts", title: "Best BTTS", icon: Target, color: "text-amber-400" },
@@ -116,6 +126,24 @@ export default function InsightsPage() {
                   <option key={num} value={num} className="bg-slate-900">Min {num} Matches</option>
                 ))}
               </select>
+            </div>
+
+            {/* Next Match Date Filter */}
+            <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg">
+              <span className="text-xs font-bold text-slate-400">Next Match:</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                className="bg-slate-800 border-none text-xs text-white rounded p-1 focus:ring-1 focus:ring-blue-500"
+              />
+              <span className="text-xs text-slate-500">to</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+                className="bg-slate-800 border-none text-xs text-white rounded p-1 focus:ring-1 focus:ring-blue-500"
+              />
             </div>
           </div>
         </div>
