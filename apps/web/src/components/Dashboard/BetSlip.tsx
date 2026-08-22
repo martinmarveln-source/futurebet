@@ -794,11 +794,15 @@ export default function BetSlip({ darkMode = false }) {
                     <div className="flex justify-between items-end">
                       <div>
                         <div className="text-[10px] text-gray-500 font-bold uppercase">Stake</div>
-                        <div className="text-sm font-black text-purple-500">₦{kb.recommendedStake.toFixed(0)}</div>
+                        <div className="text-sm font-black text-purple-500">
+                          {kb.edge > 0 ? `₦${kb.recommendedStake.toFixed(0)}` : <span className="text-[10px] text-rose-500 bg-rose-500/10 px-1.5 py-0.5 rounded">NO VALUE (₦0)</span>}
+                        </div>
                       </div>
                       <div className="text-right">
                         <div className="text-[10px] text-gray-500 font-bold uppercase">To Win</div>
-                        <div className="text-sm font-black text-emerald-500">₦{kb.potentialReturn.toFixed(0)}</div>
+                        <div className="text-sm font-black text-emerald-500">
+                          {kb.edge > 0 ? `₦${kb.potentialReturn.toFixed(0)}` : "₦0"}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -828,6 +832,12 @@ export default function BetSlip({ darkMode = false }) {
                   maximumFractionDigits: 0,
                 })}
               </div>
+              {activeTab === "ai" && totalKellyStake === 0 && kellyBets.length > 0 && (
+                <div className="text-[9px] text-rose-500 font-bold mt-1.5 uppercase tracking-wider max-w-[150px] leading-tight">
+                  <AlertTriangle size={10} className="inline mr-1" />
+                  Algorithm blocked betting on negative EV markets.
+                </div>
+              )}
             </div>
 
             <div className="text-right">
