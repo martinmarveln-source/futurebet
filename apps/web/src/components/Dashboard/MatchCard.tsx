@@ -1566,8 +1566,25 @@ export function calculateHistWinRateForMatch(match: any, archiveData: any[]) {
     });
   }
 
+  // Calculate LEAGUE SPECIFIC stats
+  const leagueName = String(match?.league || "").toLowerCase().trim();
+  const leagueRows = archiveData.filter((row: any) => {
+      const rowLeague = String(row.league || "").toLowerCase().trim();
+      if (rowLeague !== leagueName) return false;
+      
+      const chance = Number(row.chance || 0);
+      const normalizedChance = chance <= 1 && chance > 0 ? chance * 100 : chance;
+      const result = String(row.result || "").toUpperCase().trim();
+      
+      return normalizedChance >= 65 && (result === "W" || result === "L");
+  });
+
+  const totalLeague = leagueRows.length;
+  const leagueWins = leagueRows.filter((r: any) => String(r.result || "").toUpperCase().trim() === "W").length;
+  const leagueRate = totalLeague > 0 ? (leagueWins / totalLeague) * 100 : null;
+
   const total = matchedRows.length;
-  if (total === 0) return { winRate: null, sampleSize: 0, label: "—", totalWins: 0, rate: -1, count: 0 };
+  if (total === 0) return { winRate: null, sampleSize: 0, label: "—", totalWins: 0, rate: -1, count: 0, leagueRate, totalLeague, leagueWins };
 
   const wins = matchedRows.filter((r: any) => String(r.result || "").toUpperCase().trim() === "W").length;
   const rate = (wins / total) * 100;
@@ -1578,7 +1595,10 @@ export function calculateHistWinRateForMatch(match: any, archiveData: any[]) {
     totalWins: wins,
     label: `${rate.toFixed(1)}% (${wins}/${total})`,
     rate,
-    count: total
+    count: total,
+    leagueRate,
+    totalLeague,
+    leagueWins
   };
 }
 
@@ -3051,6 +3071,28 @@ export default function MatchCard({
                 canSeeAdvancedData={canSeeAdvancedData}
                 dcOdds={dcOdds}
               />
+              
+              {/* 🔥 AI TRUST INDEX (LEAGUE ROI) */}
+              {(isAdmin || isPremium || isSilver) && mlStats.leagueRate !== null && mlStats.totalLeague > 0 && (
+                <div className={cn(
+                  "mt-1 p-3 rounded-xl border flex items-start gap-3",
+                  mlStats.leagueRate >= 70
+                    ? darkMode ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700"
+                    : mlStats.leagueRate >= 50
+                      ? darkMode ? "bg-amber-500/10 border-amber-500/30 text-amber-400" : "bg-amber-50 border-amber-200 text-amber-700"
+                      : darkMode ? "bg-rose-500/10 border-rose-500/30 text-rose-400" : "bg-rose-50 border-rose-200 text-rose-700"
+                )}>
+                  <div className="mt-0.5">
+                    {mlStats.leagueRate >= 70 ? <ShieldAlert size={14} className="text-emerald-500" /> : <AlertTriangle size={14} />}
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-black uppercase tracking-widest mb-1 opacity-80">League Trust Index</div>
+                    <div className="text-xs font-bold leading-tight">
+                      Algorithm has a <span className="font-black">{mlStats.leagueRate.toFixed(1)}%</span> win rate for 65%+ confidence picks in <span className="font-black">{safeStr(match?.fullLeague || match?.league)}</span> <span className="opacity-70">({mlStats.leagueWins}/{mlStats.totalLeague})</span>.
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

@@ -99,6 +99,11 @@ export default function BetSlip({ darkMode = false }) {
   // System Bets State
   const [systemStakes, setSystemStakes] = useState({});
 
+  // AI Staking Engine (Kelly) State
+  const [activeTab, setActiveTab] = useState("system"); // "system" | "ai"
+  const [bankroll, setBankroll] = useState(10000);
+  const [kellyMultiplier, setKellyMultiplier] = useState(0.25); // Fractional Kelly
+
   const total = matches?.length || 0;
 
   const missingSelection = useMemo(() => {
@@ -144,6 +149,29 @@ export default function BetSlip({ darkMode = false }) {
       [size]: Math.max(0, Number(val)),
     }));
   };
+
+  const kellyBets = useMemo(() => {
+    return validMatches.map((m) => {
+      const odds = Number(m.odds);
+      const prob = Number(m.chance || 50) / 100;
+      const b = odds - 1;
+      const q = 1 - prob;
+      const f = b > 0 ? (b * prob - q) / b : 0;
+      const kellyFraction = Math.max(0, f) * kellyMultiplier;
+      const recommendedStake = bankroll * kellyFraction;
+      const potentialReturn = recommendedStake * odds;
+      return {
+        ...m,
+        kellyFraction,
+        recommendedStake,
+        potentialReturn,
+        edge: ((prob * odds) - 1) * 100
+      };
+    });
+  }, [validMatches, bankroll, kellyMultiplier]);
+
+  const totalKellyStake = useMemo(() => kellyBets.reduce((sum, b) => sum + b.recommendedStake, 0), [kellyBets]);
+  const totalKellyReturn = useMemo(() => kellyBets.reduce((sum, b) => sum + b.potentialReturn, 0), [kellyBets]);
 
   // 🔥 UX FIX: Dedicated button for quick Singles
   const handleQuickStakeSingles = (amt) => {
@@ -577,7 +605,7 @@ export default function BetSlip({ darkMode = false }) {
         )}
       </div>
 
-      {/* === SYSTEM BET BUILDER === */}
+      {/* === SYSTEM BET & AI STAKING BUILDER === */}
       {total > 0 && validMatches.length > 0 && (
         <div
           className={cn(
@@ -587,81 +615,163 @@ export default function BetSlip({ darkMode = false }) {
               : "bg-white/95 border-gray-200"
           )}
         >
-          <div className="flex items-center gap-2 mb-4 text-xs font-black uppercase tracking-widest text-gray-500">
-            <Calculator size={14} /> System Bet Combinations
+          {/* TAB NAV */}
+          <div className="flex bg-gray-100 dark:bg-black/50 p-1 rounded-2xl mb-6">
+            <button
+              onClick={() => setActiveTab("system")}
+              className={cn(
+                "flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+                activeTab === "system"
+                  ? darkMode ? "bg-white/10 text-white shadow" : "bg-white text-gray-900 shadow"
+                  : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              )}
+            >
+              System Bets
+            </button>
+            <button
+              onClick={() => setActiveTab("ai")}
+              className={cn(
+                "flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5",
+                activeTab === "ai"
+                  ? "bg-purple-600 text-white shadow-lg shadow-purple-500/30"
+                  : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              )}
+            >
+              <Brain size={14} /> AI Staking
+            </button>
           </div>
 
-          <div className="space-y-3 mb-6 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-            {systemBets.map((bet) => (
-              <div
-                key={bet.size}
-                className={cn(
-                  "p-3 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors",
-                  bet.totalStake > 0
-                    ? darkMode
-                      ? "border-emerald-500/50 bg-emerald-500/10"
-                      : "border-emerald-400 bg-emerald-50"
-                    : darkMode
-                    ? "border-white/10 bg-white/5"
-                    : "border-gray-200 bg-gray-50"
-                )}
-              >
-                <div className="flex-1">
-                  <div
-                    className={cn(
-                      "text-sm font-black tracking-tight",
-                      darkMode ? "text-white" : "text-gray-900"
-                    )}
-                  >
-                    {bet.label}
-                  </div>
-                  <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mt-0.5">
-                    {bet.numBets} {bet.numBets === 1 ? "Bet" : "Bets"}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="relative w-28 shrink-0">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-xs">
-                      ₦
-                    </span>
-                    <input
-                      aria-label="Stake per bet"
-                      type="number"
-                      value={systemStakes[bet.size] || ""}
-                      onChange={(e) =>
-                        handleSystemStakeChange(bet.size, e.target.value)
-                      }
-                      placeholder="Stake / Bet"
-                      className={cn(
-                        "w-full pl-6 pr-3 py-2 rounded-xl text-xs font-black tabular-nums outline-none transition-all",
-                        darkMode
-                          ? "bg-black/50 border-transparent focus:bg-black/80 focus:ring-1 focus:ring-emerald-500 text-white"
-                          : "bg-white border-gray-200 focus:ring-2 focus:ring-emerald-400 text-gray-900 border"
-                      )}
-                    />
-                  </div>
-                  <div className="w-24 text-right shrink-0">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-0.5">
-                      Potential
-                    </div>
+          {activeTab === "system" && (
+            <div className="space-y-3 mb-6 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+              {systemBets.map((bet) => (
+                <div
+                  key={bet.size}
+                  className={cn(
+                    "p-3 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors",
+                    bet.totalStake > 0
+                      ? darkMode
+                        ? "border-emerald-500/50 bg-emerald-500/10"
+                        : "border-emerald-400 bg-emerald-50"
+                      : darkMode
+                      ? "border-white/10 bg-white/5"
+                      : "border-gray-200 bg-gray-50"
+                  )}
+                >
+                  <div className="flex-1">
                     <div
                       className={cn(
-                        "text-xs font-black tabular-nums truncate",
-                        bet.maxReturn > 0
-                          ? "text-emerald-500"
-                          : darkMode
-                          ? "text-gray-400"
-                          : "text-gray-400"
+                        "text-sm font-black tracking-tight",
+                        darkMode ? "text-white" : "text-gray-900"
                       )}
                     >
-                      ₦{bet.maxReturn.toFixed(0)}
+                      {bet.label}
+                    </div>
+                    <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mt-0.5">
+                      {bet.numBets} {bet.numBets === 1 ? "Bet" : "Bets"}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="relative w-28 shrink-0">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-xs">
+                        ₦
+                      </span>
+                      <input
+                        aria-label="Stake per bet"
+                        type="number"
+                        value={systemStakes[bet.size] || ""}
+                        onChange={(e) =>
+                          handleSystemStakeChange(bet.size, e.target.value)
+                        }
+                        placeholder="Stake / Bet"
+                        className={cn(
+                          "w-full pl-6 pr-3 py-2 rounded-xl text-xs font-black tabular-nums outline-none transition-all",
+                          darkMode
+                            ? "bg-black/50 border-transparent focus:bg-black/80 focus:ring-1 focus:ring-emerald-500 text-white"
+                            : "bg-white border-gray-200 focus:ring-2 focus:ring-emerald-400 text-gray-900 border"
+                        )}
+                      />
+                    </div>
+                    <div className="w-24 text-right shrink-0">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-0.5">
+                        Potential
+                      </div>
+                      <div
+                        className={cn(
+                          "text-xs font-black tabular-nums truncate",
+                          bet.maxReturn > 0
+                            ? "text-emerald-500"
+                            : darkMode
+                            ? "text-gray-400"
+                            : "text-gray-400"
+                        )}
+                      >
+                        ₦{bet.maxReturn.toFixed(0)}
+                      </div>
                     </div>
                   </div>
                 </div>
+              ))}
+            </div>
+          )}
+
+          {activeTab === "ai" && (
+            <div className="mb-6 space-y-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-purple-500">Total Bankroll (₦)</label>
+                <input
+                  type="number"
+                  value={bankroll}
+                  onChange={(e) => setBankroll(Number(e.target.value) || 0)}
+                  className={cn(
+                    "w-full px-4 py-3 rounded-2xl text-sm font-black outline-none transition-all",
+                    darkMode ? "bg-black/50 text-white border border-white/10" : "bg-gray-50 border border-gray-200 text-gray-900"
+                  )}
+                  placeholder="Enter your total budget"
+                />
               </div>
-            ))}
-          </div>
+              
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-purple-500">Risk Profile</label>
+                <select
+                  value={kellyMultiplier}
+                  onChange={(e) => setKellyMultiplier(Number(e.target.value))}
+                  className={cn(
+                    "w-full px-4 py-3 rounded-2xl text-sm font-black outline-none transition-all",
+                    darkMode ? "bg-black/50 text-white border border-white/10" : "bg-gray-50 border border-gray-200 text-gray-900"
+                  )}
+                >
+                  <option value={0.1}>Low Risk (0.1x Kelly)</option>
+                  <option value={0.25}>Balanced (0.25x Kelly)</option>
+                  <option value={0.5}>Aggressive (0.5x Kelly)</option>
+                  <option value={1.0}>Maximum Risk (Full Kelly)</option>
+                </select>
+              </div>
+
+              <div className="space-y-3 mt-4 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                {kellyBets.map((kb, idx) => (
+                  <div key={idx} className={cn("p-3 rounded-2xl border", darkMode ? "bg-black/30 border-white/10" : "bg-white border-gray-100")}>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs font-bold truncate max-w-[150px]" title={kb.match}>{kb.match}</span>
+                      <span className={cn("text-[10px] font-black px-2 py-0.5 rounded", kb.edge > 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>
+                        {kb.edge > 0 ? "+" : ""}{kb.edge.toFixed(1)}% EV
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-end">
+                      <div>
+                        <div className="text-[10px] text-gray-500 font-bold uppercase">Stake</div>
+                        <div className="text-sm font-black text-purple-500">₦{kb.recommendedStake.toFixed(0)}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[10px] text-gray-500 font-bold uppercase">To Win</div>
+                        <div className="text-sm font-black text-emerald-500">₦{kb.potentialReturn.toFixed(0)}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex items-end justify-between mb-6 pt-4 border-t border-gray-200 dark:border-white/10">
             <div>
@@ -669,7 +779,7 @@ export default function BetSlip({ darkMode = false }) {
                 <Zap
                   size={12}
                   className={
-                    grandTotalStake > 0 ? "text-amber-500" : "text-gray-400"
+                    (activeTab === "system" ? grandTotalStake : totalKellyStake) > 0 ? "text-amber-500" : "text-gray-400"
                   }
                 />{" "}
                 Total Stake
@@ -680,7 +790,9 @@ export default function BetSlip({ darkMode = false }) {
                   darkMode ? "text-white" : "text-gray-900"
                 )}
               >
-                {formatNaira(grandTotalStake)}
+                ₦{(activeTab === "system" ? grandTotalStake : totalKellyStake).toLocaleString(undefined, {
+                  maximumFractionDigits: 0,
+                })}
               </div>
             </div>
 
@@ -691,7 +803,7 @@ export default function BetSlip({ darkMode = false }) {
               <div
                 className={cn(
                   "text-xl sm:text-2xl font-black tabular-nums leading-none",
-                  grandMaxReturn > 0
+                  (activeTab === "system" ? grandMaxReturn : totalKellyReturn) > 0
                     ? darkMode
                       ? "text-emerald-400 drop-shadow-[0_0_12px_rgba(52,211,153,0.3)]"
                       : "text-emerald-600"
@@ -700,7 +812,9 @@ export default function BetSlip({ darkMode = false }) {
                     : "text-gray-400"
                 )}
               >
-                {formatNaira(grandMaxReturn)}
+                ₦{(activeTab === "system" ? grandMaxReturn : totalKellyReturn).toLocaleString(undefined, {
+                  maximumFractionDigits: 0,
+                })}
               </div>
             </div>
           </div>
