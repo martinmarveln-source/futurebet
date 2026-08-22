@@ -104,6 +104,8 @@ export default function ArchivePage() {
     return {
       hasValidScore,
       scoreRaw,
+      cScoreRaw,
+      rating: match.rating || match.raw_data?.rating || "-",
       isExactScoreHit,
       mainPick,
       chance: match.chance || match.model_chance || match.raw_data?.chance || match.raw_data?.model_chance || "-",
@@ -165,22 +167,6 @@ export default function ArchivePage() {
        </div>
      )
   }
-  const getStatusIcon = (hit: boolean, favored: string, hasScore: boolean) => {
-    if (!hasScore) return <MinusCircle className="w-4 h-4 text-gray-400" />;
-    return hit ? (
-      <span className="flex items-center gap-1 text-xs font-bold text-green-700 bg-green-100 dark:bg-green-900/40 dark:text-green-400 px-2 py-1 rounded-md w-fit">
-        <CheckCircle2 className="w-3.5 h-3.5" /> {favored}
-      </span>
-    ) : (
-      <span className="flex items-center gap-1 text-xs font-bold text-red-700 bg-red-100 dark:bg-red-900/40 dark:text-red-400 px-2 py-1 rounded-md w-fit">
-        <XCircle className="w-3.5 h-3.5" /> {favored}
-      </span>
-    );
-  };
-  const winRate1X2 = totalValid > 0 ? Math.round((hits1X2 / totalValid) * 100) : 0;
-  const winRateBTTS = totalValid > 0 ? Math.round((hitsBTTS / totalValid) * 100) : 0;
-  const winRateOU25 = totalValid > 0 ? Math.round((hitsOU25 / totalValid) * 100) : 0;
-  const winRateMainPick = totalMainPickValid > 0 ? Math.round((hitsMainPick / totalMainPickValid) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-[#030712] pb-24">
@@ -224,81 +210,7 @@ export default function ArchivePage() {
         ) : (
           <div className="space-y-4">
             
-            {/* Stats Summary */}
-            {totalValid > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                
-                {/* Main Pick Stat Card */}
-                <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex flex-col justify-between relative overflow-hidden ring-2 ring-blue-500/20">
-                  <div className="flex items-center gap-2 mb-2 z-10 relative">
-                    <div className="p-1.5 bg-blue-500 rounded-lg text-white shadow-md shadow-blue-500/20">
-                      <Target className="w-4 h-4" />
-                    </div>
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Main Pick</span>
-                  </div>
-                  <div className="flex items-end gap-2 z-10 relative">
-                    <span className="text-4xl font-black text-slate-800 dark:text-white tracking-tighter">{winRateMainPick}%</span>
-                    <span className="text-sm font-bold text-slate-400 mb-1.5">{hitsMainPick} / {totalMainPickValid} won</span>
-                  </div>
-                  <div className="absolute bottom-0 left-0 h-1.5 bg-gray-100 dark:bg-slate-800 w-full z-0">
-                    <div className="h-full bg-blue-500" style={{ width: `${winRateMainPick}%` }}></div>
-                  </div>
-                </div>
-
-                {/* 1X2 Stat Card */}
-                <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex flex-col justify-between relative overflow-hidden">
-                  <div className="flex items-center gap-2 mb-2 z-10 relative">
-                    <div className="p-1.5 bg-amber-100 dark:bg-amber-900/30 rounded-lg text-amber-500">
-                      <Trophy className="w-4 h-4" />
-                    </div>
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">1X2 Accuracy</span>
-                  </div>
-                  <div className="flex items-end gap-2 z-10 relative">
-                    <span className="text-4xl font-black text-slate-800 dark:text-white tracking-tighter">{winRate1X2}%</span>
-                    <span className="text-sm font-bold text-slate-400 mb-1.5">{hits1X2} / {totalValid} won</span>
-                  </div>
-                  {/* Progress bar background decoration */}
-                  <div className="absolute bottom-0 left-0 h-1.5 bg-gray-100 dark:bg-slate-800 w-full z-0">
-                    <div className="h-full bg-amber-500" style={{ width: `${winRate1X2}%` }}></div>
-                  </div>
-                </div>
-
-                {/* BTTS Stat Card */}
-                <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex flex-col justify-between relative overflow-hidden">
-                  <div className="flex items-center gap-2 mb-2 z-10 relative">
-                    <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-500">
-                      <Activity className="w-4 h-4" />
-                    </div>
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">BTTS Accuracy</span>
-                  </div>
-                  <div className="flex items-end gap-2 z-10 relative">
-                    <span className="text-4xl font-black text-slate-800 dark:text-white tracking-tighter">{winRateBTTS}%</span>
-                    <span className="text-sm font-bold text-slate-400 mb-1.5">{hitsBTTS} / {totalValid} won</span>
-                  </div>
-                  <div className="absolute bottom-0 left-0 h-1.5 bg-gray-100 dark:bg-slate-800 w-full z-0">
-                    <div className="h-full bg-blue-500" style={{ width: `${winRateBTTS}%` }}></div>
-                  </div>
-                </div>
-
-                {/* O/U 2.5 Stat Card */}
-                <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex flex-col justify-between relative overflow-hidden">
-                  <div className="flex items-center gap-2 mb-2 z-10 relative">
-                    <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-500">
-                      <Target className="w-4 h-4" />
-                    </div>
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">O/U 2.5 Accuracy</span>
-                  </div>
-                  <div className="flex items-end gap-2 z-10 relative">
-                    <span className="text-4xl font-black text-slate-800 dark:text-white tracking-tighter">{winRateOU25}%</span>
-                    <span className="text-sm font-bold text-slate-400 mb-1.5">{hitsOU25} / {totalValid} won</span>
-                  </div>
-                  <div className="absolute bottom-0 left-0 h-1.5 bg-gray-100 dark:bg-slate-800 w-full z-0">
-                    <div className="h-full bg-purple-500" style={{ width: `${winRateOU25}%` }}></div>
-                  </div>
-                </div>
-
-              </div>
-            )}
+            {/* Removed Stats Summary as per request */}
 
             <div className="flex items-center justify-between px-2 mt-8">
               <h2 className="text-lg font-bold text-slate-800 dark:text-white">
@@ -317,12 +229,12 @@ export default function ArchivePage() {
                       <tr className="bg-gray-100 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
                         <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-slate-800">Time</th>
                         <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-slate-800">Match / League</th>
-                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center bg-gray-100 dark:bg-slate-800">Score</th>
-                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-slate-800 text-center">Chances</th>
                         <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-slate-800">Main Pick</th>
-                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-slate-800">1X2 Outcome</th>
-                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-slate-800">BTTS</th>
-                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-slate-800">O/U 2.5</th>
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-slate-800 text-center">Chances</th>
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-slate-800 text-center">Rating</th>
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center bg-gray-100 dark:bg-slate-800">Predicted Score</th>
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center bg-gray-100 dark:bg-slate-800">FT Score</th>
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center bg-gray-100 dark:bg-slate-800">Outcome</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-slate-800/80">
@@ -342,6 +254,30 @@ export default function ArchivePage() {
                                 {ev.leagueInfo}
                               </div>
                             </td>
+                            <td className="p-4 whitespace-nowrap">
+                              {ev.mainPick ? (
+                                <span className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 text-xs font-bold px-2 py-1 rounded border border-slate-200 dark:border-slate-700">
+                                  {ev.mainPick}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-center whitespace-nowrap">
+                              <span className="font-bold text-sm text-slate-700 dark:text-slate-300">
+                                {ev.chance !== "-" ? (String(ev.chance).includes('%') ? ev.chance : `${ev.chance}%`) : "-"}
+                              </span>
+                            </td>
+                            <td className="p-4 text-center whitespace-nowrap">
+                              <span className="font-bold text-sm text-blue-600 dark:text-blue-400">
+                                {ev.rating}
+                              </span>
+                            </td>
+                            <td className="p-4 text-center whitespace-nowrap">
+                              <span className="font-mono font-bold text-sm text-slate-700 dark:text-slate-300">
+                                {ev.cScoreRaw ? ev.cScoreRaw.replace(':', ' - ') : 'N/A'}
+                              </span>
+                            </td>
                             <td className="p-4 text-center whitespace-nowrap">
                               <span className={`inline-block px-3 py-1 font-mono font-bold text-sm rounded border shadow-inner ${
                                 ev.isExactScoreHit
@@ -351,37 +287,20 @@ export default function ArchivePage() {
                                 {ev.hasValidScore ? ev.scoreRaw.replace(':', ' - ') : 'N/A'}
                               </span>
                             </td>
-                            <td className="p-4 text-center whitespace-nowrap">
-                              <span className="font-bold text-sm text-slate-700 dark:text-slate-300">
-                                {ev.chance !== "-" ? (String(ev.chance).includes('%') ? ev.chance : `${ev.chance}%`) : "-"}
-                              </span>
-                            </td>
-                            <td className="p-4 whitespace-nowrap">
-                              {ev.mainPick ? (
-                                <div className="flex items-center gap-2">
-                                  <span className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 text-xs font-bold px-2 py-1 rounded border border-slate-200 dark:border-slate-700">
-                                    {ev.mainPick}
+                            <td className="p-4 whitespace-nowrap text-center">
+                              {ev.hasMainPickEvaluation ? (
+                                ev.isMainPickHit ? (
+                                  <span className="flex items-center justify-center gap-1 text-xs font-bold text-green-700 bg-green-100 dark:bg-green-900/40 dark:text-green-400 px-2 py-1 rounded-md mx-auto w-fit">
+                                    <CheckCircle2 className="w-3.5 h-3.5" /> Won
                                   </span>
-                                  {ev.hasMainPickEvaluation && (
-                                    ev.isMainPickHit ? (
-                                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                                    ) : (
-                                      <XCircle className="w-4 h-4 text-red-500" />
-                                    )
-                                  )}
-                                </div>
+                                ) : (
+                                  <span className="flex items-center justify-center gap-1 text-xs font-bold text-red-700 bg-red-100 dark:bg-red-900/40 dark:text-red-400 px-2 py-1 rounded-md mx-auto w-fit">
+                                    <XCircle className="w-3.5 h-3.5" /> Lost
+                                  </span>
+                                )
                               ) : (
                                 <span className="text-gray-400">-</span>
                               )}
-                            </td>
-                            <td className="p-4 whitespace-nowrap">
-                              {getStatusIcon(ev.is1x2Hit, ev.algo1X2Favored, ev.hasValidScore)}
-                            </td>
-                            <td className="p-4 whitespace-nowrap">
-                              {getStatusIcon(ev.isBttsHit, ev.algoBTTSFavored, ev.hasValidScore)}
-                            </td>
-                            <td className="p-4 whitespace-nowrap">
-                              {getStatusIcon(ev.isOu25Hit, ev.algoOU25Favored, ev.hasValidScore)}
                             </td>
                           </tr>
                         );
