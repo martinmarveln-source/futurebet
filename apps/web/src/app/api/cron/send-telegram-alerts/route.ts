@@ -33,21 +33,71 @@ function formatMatchAlert(match: any, index: number, total: number): string {
       .join("");
 
   const pickLabel = String(match.guide || match.pick || "").toUpperCase();
-  const chance = fmtPct(match.chance);
+  const chanceNum = Number(match.chance ?? 0);
+  const chancePct = chanceNum > 1 ? chanceNum : chanceNum * 100;
+  const chance = chancePct.toFixed(0);
+  
   const rating = fmtPct(match.rating);
   const league = match.league ? `${match.country} — ${match.league}` : match.country || "";
   const score = match.c_score || match.cScore || "";
   const scorePercent = match.model_cs_percent ?? match.modelCSPercent ?? "";
 
-  const hForm = formBar(match.h_recent ?? match.hRecent ?? "");
-  const aForm = formBar(match.a_recent ?? match.aRecent ?? "");
+  const hForm = String(match.h_recent ?? match.hRecent ?? "");
+  const aForm = String(match.a_recent ?? match.aRecent ?? "");
+  const hFormVisual = formBar(hForm);
+  const aFormVisual = formBar(aForm);
 
-  const hppg = Number(match.hppg ?? 0).toFixed(2);
-  const appg = Number(match.appg ?? 0).toFixed(2);
-  const hBtts = fmtPct(match.h_btts ?? match.hBtts);
-  const aBtts = fmtPct(match.a_btts ?? match.aBtts);
+  const hppg = Number(match.hppg ?? 0);
+  const appg = Number(match.appg ?? 0);
+  
+  const hBttsRaw = Number(match.h_btts ?? match.hBtts ?? 0);
+  const aBttsRaw = Number(match.a_btts ?? match.aBtts ?? 0);
+  const hBttsNum = hBttsRaw > 1 ? hBttsRaw : hBttsRaw * 100;
+  const aBttsNum = aBttsRaw > 1 ? aBttsRaw : aBttsRaw * 100;
+  const hBtts = hBttsNum.toFixed(0);
+  const aBtts = aBttsNum.toFixed(0);
+  
   const hOv2 = fmtPct(match.h_ov2 ?? match.hOv2);
   const aOv2 = fmtPct(match.a_ov2 ?? match.aOv2);
+
+  const odds = getOddsForPick(match.raw_data, pickLabel);
+  const oddsLabel = odds > 1.01 ? ` | 💰 Odds: ${odds.toFixed(2)}` : "";
+
+  // 🔥 1. +EV Mathematical Edge & Kelly Units
+  let edgeStr = "";
+  let unitStr = "";
+  if (odds > 1.01 && chancePct > 0) {
+    const prob = chancePct / 100;
+    const trueOdds = 1 / prob;
+    const edge = (prob * odds - 1) * 100;
+    
+    if (edge > 0) {
+      edgeStr = `\n🔥 *Algorithmic Edge: +${edge.toFixed(1)}% EV* (True Odds: ${trueOdds.toFixed(2)})`;
+      
+      // Fractional Kelly (0.25 multiplier for safety)
+      const b = odds - 1;
+      const q = 1 - prob;
+      const f = (b * prob - q) / b;
+      const kellyUnits = Math.max(0.1, f * 0.25 * 100); // converting fraction to "Units" out of 100 unit bankroll
+      unitStr = `\n💡 *Recommended Stake:* ${kellyUnits.toFixed(1)} Units`;
+    }
+  }
+
+  // 🔥 2. "AI Insight" Tactical Narrative
+  let insight = "";
+  if (hBttsNum >= 70 && aBttsNum >= 70) {
+    insight = "High shootout probability. Both teams structurally favor goals.";
+  } else if (hppg >= 2.0 && appg <= 1.0) {
+    insight = "Severe mismatch. Home attack vastly outperforms Away defense.";
+  } else if (appg >= 2.0 && hppg <= 1.0) {
+    insight = "Away side holds a massive tactical and form advantage.";
+  } else if (hForm.length >= 4 && !hForm.includes("L")) {
+    insight = "Home side is on a dominant unbeaten streak.";
+  } else if (aForm.length >= 4 && !aForm.includes("L")) {
+    insight = "Away side is extremely resilient and riding strong form.";
+  } else if (chancePct >= 80) {
+    insight = "Model displays supreme confidence in this structural matchup.";
+  }
 
   const lines = [];
   if (index === 1) {
@@ -60,19 +110,27 @@ function formatMatchAlert(match: any, index: number, total: number): string {
   if (league) lines.push(`🏆 ${league}`);
   if (match.match_time) lines.push(`🕐 Kickoff: ${match.match_time}`);
   lines.push("");
-  const odds = getOddsForPick(match.raw_data, pickLabel);
-  const oddsLabel = odds > 1 ? ` | 💰 Odds: ${odds.toFixed(2)}` : "";
 
   lines.push(`🎯 *Pick: ${pickLabel}*${oddsLabel}`);
   lines.push(`📊 Confidence: ${chance}% | ⭐ Rating: ${rating}%`);
+  
+  if (edgeStr) lines.push(edgeStr.trim());
+  if (unitStr) lines.push(unitStr.trim());
+  
   if (score) lines.push(`📉 Score Tip: ${score}${scorePercent ? ` (${fmtPct(scorePercent)}%)` : ""}`);
   lines.push("");
-  lines.push(`📈 PPG: ${hppg} vs ${appg}`);
+  lines.push(`📈 PPG: ${hppg.toFixed(2)} vs ${appg.toFixed(2)}`);
   lines.push(`💥 BTTS: ${hBtts}% vs ${aBtts}% | OV2.5: ${hOv2}% vs ${aOv2}%`);
-  if (hForm || aForm) {
-    lines.push(`⚡ Form: ${hForm || "—"} vs ${aForm || "—"}`);
+  if (hFormVisual || aFormVisual) {
+    lines.push(`⚡ Form: ${hFormVisual || "—"} vs ${aFormVisual || "—"}`);
   }
-  if (match.flag) lines.push(`${match.flag} Model aligned`);
+  
+  if (insight) {
+    lines.push(`\n🤖 *AI Insight:* _${insight}_`);
+  } else if (match.flag) {
+    lines.push(`\n🤖 *AI Insight:* _Model safely aligned with market logic._`);
+  }
+  
   lines.push("────────────────");
 
   return lines.join("\n");
