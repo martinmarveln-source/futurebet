@@ -17,6 +17,7 @@ import {
   ExternalLink,
   ChevronDown,
   Calculator,
+  Brain,
 } from "lucide-react";
 
 /* =========================
