@@ -109,12 +109,19 @@ export default function BetSlip({ darkMode = false }) {
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
-        const raw = localStorage.getItem("futurebet_tracking_wallet_v1");
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed?.balance && Number(parsed.balance) > 0) {
-            setBankroll(Number(parsed.balance));
-            setIsWalletSynced(true);
+        const visibleRaw = localStorage.getItem("futurebet_visible_balance");
+        if (visibleRaw && Number(visibleRaw) > 0) {
+          setBankroll(Number(visibleRaw));
+          setIsWalletSynced(true);
+        } else {
+          // Fallback to core wallet if visible balance not calculated yet
+          const raw = localStorage.getItem("futurebet_tracking_wallet_v1");
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed?.balance && Number(parsed.balance) > 0) {
+              setBankroll(Number(parsed.balance));
+              setIsWalletSynced(true);
+            }
           }
         }
       } catch (err) {}

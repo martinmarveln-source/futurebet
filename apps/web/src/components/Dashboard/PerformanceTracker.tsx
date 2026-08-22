@@ -731,6 +731,15 @@ export default function PerformanceTracker({ darkMode }) {
     };
   }, [tickets, ticketOddsMap, ticketStakeMap]);
 
+  // Sync visible balance for AI Staking
+  useEffect(() => {
+    if (typeof window !== "undefined" && stats.currentBalance) {
+      try {
+        localStorage.setItem("futurebet_visible_balance", stats.currentBalance.toString());
+      } catch (err) {}
+    }
+  }, [stats.currentBalance]);
+
   const chartData = useMemo(() => {
     const allTickets = Array.isArray(tickets) ? tickets : [];
     // Only use decided tickets for ROI charting
