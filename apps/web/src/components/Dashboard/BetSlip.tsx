@@ -104,6 +104,22 @@ export default function BetSlip({ darkMode = false }) {
   const [activeTab, setActiveTab] = useState("system"); // "system" | "ai"
   const [bankroll, setBankroll] = useState(10000);
   const [kellyMultiplier, setKellyMultiplier] = useState(0.25); // Fractional Kelly
+  const [isWalletSynced, setIsWalletSynced] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("futurebet_tracking_wallet_v1");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.balance && Number(parsed.balance) > 0) {
+            setBankroll(Number(parsed.balance));
+            setIsWalletSynced(true);
+          }
+        }
+      } catch (err) {}
+    }
+  }, []);
 
   const total = matches?.length || 0;
 
@@ -719,11 +735,21 @@ export default function BetSlip({ darkMode = false }) {
           {activeTab === "ai" && (
             <div className="mb-6 space-y-4">
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-purple-500">Total Bankroll (₦)</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-purple-500">Total Bankroll (₦)</label>
+                  {isWalletSynced && (
+                    <span className="text-[9px] font-bold text-emerald-500 flex items-center gap-1 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                      <Zap size={10} /> Synced to Wallet
+                    </span>
+                  )}
+                </div>
                 <input
                   type="number"
                   value={bankroll}
-                  onChange={(e) => setBankroll(Number(e.target.value) || 0)}
+                  onChange={(e) => {
+                    setBankroll(Number(e.target.value) || 0);
+                    setIsWalletSynced(false); // They edited it manually
+                  }}
                   className={cn(
                     "w-full px-4 py-3 rounded-2xl text-sm font-black outline-none transition-all",
                     darkMode ? "bg-black/50 text-white border border-white/10" : "bg-gray-50 border border-gray-200 text-gray-900"
