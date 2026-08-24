@@ -177,10 +177,12 @@ export default function BetSlip({ darkMode = false }) {
   const kellyBets = useMemo(() => {
     return validMatches.map((m) => {
       const odds = Number(m.odds);
-      const prob = Number(m.chance || 50) / 100;
+      const rawChance = String(m.chance || "50").replace(/[^0-9.]/g, "");
+      const prob = (Number(rawChance) || 50) / 100;
       const b = odds - 1;
       const q = 1 - prob;
-      const f = b > 0 ? (b * prob - q) / b : 0;
+      let f = b > 0 ? (b * prob - q) / b : 0;
+      if (!Number.isFinite(f)) f = 0;
       const kellyFraction = Math.max(0, f) * kellyMultiplier;
       const recommendedStake = bankroll * kellyFraction;
       const potentialReturn = recommendedStake * odds;
@@ -280,13 +282,22 @@ export default function BetSlip({ darkMode = false }) {
       );
       return;
     }
-    if (grandTotalStake <= 0) {
+    if (activeTab === "system" && grandTotalStake <= 0) {
       alert("Please enter a stake for at least one bet type.");
+      return;
+    }
+    if (activeTab === "ai" && totalKellyStake <= 0) {
+      alert("No positive EV bets found to track.");
       return;
     }
 
     setTracking(true);
-    const result = useBetslipStore.getState().trackThisBet(systemStakes);
+    let result;
+    if (activeTab === "ai") {
+      result = useBetslipStore.getState().trackKellyBets(kellyBets);
+    } else {
+      result = useBetslipStore.getState().trackThisBet(systemStakes);
+    }
     setTracking(false);
 
     if (!result?.ok) {
@@ -929,20 +940,20 @@ export default function BetSlip({ darkMode = false }) {
                   missingSelection ||
                   tracking ||
                   !isPro ||
-                  grandTotalStake === 0
+                  (activeTab === "system" ? grandTotalStake : totalKellyStake) === 0
                 }
                 className={cn(
                   "flex-1 py-3.5 rounded-2xl text-xs font-black transition-all active:scale-[0.98] flex items-center justify-center gap-2",
                   !isPro
                     ? "bg-gray-200 text-gray-500"
-                    : missingSelection || tracking || grandTotalStake === 0
+                    : missingSelection || tracking || (activeTab === "system" ? grandTotalStake : totalKellyStake) === 0
                     ? "bg-gray-400 text-white opacity-50 cursor-not-allowed"
                     : "bg-gray-900 hover:bg-black text-white"
                 )}
                 title={
                   !isPro
                     ? "Premium only"
-                    : grandTotalStake === 0
+                    : (activeTab === "system" ? grandTotalStake : totalKellyStake) === 0
                     ? "Enter stake to track"
                     : ""
                 }

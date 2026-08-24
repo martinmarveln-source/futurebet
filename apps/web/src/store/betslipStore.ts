@@ -623,10 +623,60 @@ const useBetslipStore = create(
 
         return {
           ok: true,
-          ticketId:
-            totalBetsGenerated > 1
-              ? `${totalBetsGenerated} System Tickets`
-              : lastTicketId,
+          ticketId: totalBetsGenerated === 1 ? lastTicketId : null,
+          totalBets: totalBetsGenerated,
+        };
+      },
+
+      trackKellyBets: (kellyBets = []) => {
+        const newTickets = [];
+        const createdAt = new Date().toISOString();
+
+        kellyBets.forEach((kb) => {
+          if (!Number.isFinite(kb.recommendedStake) || kb.recommendedStake <= 0) return;
+          
+          const mm = ensureMatchShape(kb);
+          const selection = {
+            match: normalizeName(mm.match),
+            league: mm.league || "",
+            country: mm.country || "",
+            match_date: mm.dateISO || "",
+            dateRaw: mm.dateRaw || "",
+            time: mm.time || "",
+            ftScore: mm.ftScore || "",
+            chance: mm.chance ?? null,
+            rating: mm.rating ?? null,
+            selectedMarket: mm.selectedMarket,
+            selectedOption: mm.selectedOption,
+            odds: mm.odds ?? null,
+            result: "pending",
+          };
+
+          const ticketId = makeTicketId();
+          newTickets.push({
+            id: ticketId,
+            stake: kb.recommendedStake,
+            status: "pending",
+            type: "Single",
+            total_odds: kb.odds,
+            created_at: createdAt,
+            updated_at: createdAt,
+            selections: [selection],
+          });
+        });
+
+        if (newTickets.length === 0) {
+          return { ok: false, reason: "empty", message: "No valid Kelly bets to track." };
+        }
+
+        set((state) => ({
+          tickets: [...newTickets, ...(state.tickets || [])],
+        }));
+
+        return {
+          ok: true,
+          ticketId: newTickets.length === 1 ? newTickets[0].id : null,
+          totalBets: newTickets.length,
         };
       },
 
