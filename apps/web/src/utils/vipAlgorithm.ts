@@ -199,45 +199,28 @@ export function computeDerivedPickFromStats({
     return valid[0];
   };
 
-  // 1. 1X2 Market
-  let top = getBestInGroup([
+  // Combine all markets into one array and find the best among all of them
+  const allOptions = [
+    // 1X2
     { market: "1X2", selection: "Home", pickLabel: "1X2 - Home", p: pHome, odds: Number(rawOdds?.home) || 0 },
     { market: "1X2", selection: "Draw", pickLabel: "1X2 - Draw", p: pDraw, odds: Number(rawOdds?.draw) || 0 },
-    { market: "1X2", selection: "Away", pickLabel: "1X2 - Away", p: pAway, odds: Number(rawOdds?.away) || 0 }
-  ]);
+    { market: "1X2", selection: "Away", pickLabel: "1X2 - Away", p: pAway, odds: Number(rawOdds?.away) || 0 },
+    // Double Chance
+    { market: "Double Chance", selection: "1X", pickLabel: "Double Chance - 1X", p: p1X, odds: dcOdds.h1x },
+    { market: "Double Chance", selection: "12", pickLabel: "Double Chance - 12", p: p12, odds: dcOdds.h12 },
+    { market: "Double Chance", selection: "X2", pickLabel: "Double Chance - X2", p: pX2, odds: dcOdds.hx2 },
+    // O/U 2.5
+    { market: "O/U 2.5", selection: "Over 2.5", pickLabel: "Over 2.5", p: pOver25, odds: Number(rawOdds?.over25) || 0 },
+    { market: "O/U 2.5", selection: "Under 2.5", pickLabel: "Under 2.5", p: pUnder25, odds: Number(rawOdds?.under25) || 0 },
+    // O/U 1.5
+    { market: "O/U 1.5", selection: "Over 1.5", pickLabel: "Over 1.5", p: pOver15, odds: Number(rawOdds?.over15) || 0 },
+    { market: "O/U 1.5", selection: "Under 1.5", pickLabel: "Under 1.5", p: pUnder15, odds: Number(rawOdds?.under15) || 0 },
+    // BTTS
+    { market: "BTTS", selection: "Yes", pickLabel: "BTTS - Yes", p: pBtts, odds: Number(rawOdds?.bttsYes) || 0 },
+    { market: "BTTS", selection: "No", pickLabel: "BTTS - No", p: pBttsNo, odds: Number(rawOdds?.bttsNo) || 0 }
+  ];
 
-  // 2. Double Chance
-  if (!top) {
-    top = getBestInGroup([
-      { market: "Double Chance", selection: "1X", pickLabel: "Double Chance - 1X", p: p1X, odds: dcOdds.h1x },
-      { market: "Double Chance", selection: "12", pickLabel: "Double Chance - 12", p: p12, odds: dcOdds.h12 },
-      { market: "Double Chance", selection: "X2", pickLabel: "Double Chance - X2", p: pX2, odds: dcOdds.hx2 }
-    ]);
-  }
-
-  // 3. Over/Under 2.5
-  if (!top) {
-    top = getBestInGroup([
-      { market: "O/U 2.5", selection: "Over 2.5", pickLabel: "Over 2.5", p: pOver25, odds: Number(rawOdds?.over25) || 0 },
-      { market: "O/U 2.5", selection: "Under 2.5", pickLabel: "Under 2.5", p: pUnder25, odds: Number(rawOdds?.under25) || 0 }
-    ]);
-  }
-
-  // 4. Over/Under 1.5
-  if (!top) {
-    top = getBestInGroup([
-      { market: "O/U 1.5", selection: "Over 1.5", pickLabel: "Over 1.5", p: pOver15, odds: Number(rawOdds?.over15) || 0 },
-      { market: "O/U 1.5", selection: "Under 1.5", pickLabel: "Under 1.5", p: pUnder15, odds: Number(rawOdds?.under15) || 0 }
-    ]);
-  }
-
-  // 5. BTTS
-  if (!top) {
-    top = getBestInGroup([
-      { market: "BTTS", selection: "Yes", pickLabel: "BTTS - Yes", p: pBtts, odds: Number(rawOdds?.bttsYes) || 0 },
-      { market: "BTTS", selection: "No", pickLabel: "BTTS - No", p: pBttsNo, odds: Number(rawOdds?.bttsNo) || 0 }
-    ]);
-  }
+  const top = getBestInGroup(allOptions);
 
   if (!top || top.p < 0.60) return null;
 

@@ -87,14 +87,17 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: "No upcoming high-value matches found today. Skipping push alerts." });
     }
 
-    // 2. Format the push payload (pick the top upcoming match)
-    const bestMatch = matches[0];
-    const pickLabel = bestMatch.guide;
-    const bestOdds = getOddsForPick(bestMatch.raw_data, pickLabel);
-    const bodyText = `${bestMatch.home_team} vs ${bestMatch.away_team}\nPick: ${pickLabel} (${bestOdds.toFixed(2)} Odds | ${bestMatch.chance}% Conf)\nUpcoming top picks: ${matches.length}`;
+    // 2. Format the push payload (list up to 3 matches)
+    const topMatches = matches.slice(0, 3);
+    const matchesText = topMatches.map(m => {
+      const odds = getOddsForPick(m.raw_data, m.guide);
+      return `${m.home_team} vs ${m.away_team} • ${m.guide} (${odds.toFixed(2)})`;
+    }).join("\n");
+    
+    const bodyText = `${matches.length} high-value picks found:\n${matchesText}${matches.length > 3 ? `\n+${matches.length - 3} more on the dashboard` : ''}`;
     
     const payload = JSON.stringify({
-      title: "🔥 High-Value Picks Detected!",
+      title: `🔥 ${matches.length} Premium Picks Available`,
       body: bodyText,
       url: "/",
     });

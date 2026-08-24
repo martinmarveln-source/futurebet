@@ -3,6 +3,22 @@
     {
       "path": "/api/cron/generate-vip-picks",
       "schedule": "0 10,14 * * *"
+    },
+    {
+      "path": "/api/cron/sync-matches",
+      "schedule": "0 */4 * * *"
+    },
+    {
+      "path": "/api/cron/send-telegram-alerts",
+      "schedule": "0 10,14,16,18 * * *"
+    },
+    {
+      "path": "/api/cron/sync-live-odds",
+      "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/cron/send-push-alerts",
+      "schedule": "0 10,14,16,18 * * *"
     }
   ]
 }
