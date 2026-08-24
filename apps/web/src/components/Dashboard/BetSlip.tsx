@@ -238,13 +238,13 @@ export default function BetSlip({ darkMode = false }) {
 
     setIsRouting(true);
 
-    const payloadStr = matches
+    const payloadStr = validMatches
       .map((m) => {
         const cleanMatch = encodeURIComponent(
-          m.match.replace(/\s+/g, "-").toLowerCase()
+          String(m.match).replace(/\s+/g, "-").toLowerCase()
         );
         const cleanMarket = encodeURIComponent(
-          m.selectedMarket.replace(/\s+/g, "").toLowerCase()
+          String(m.selectedMarket).replace(/\s+/g, "").toLowerCase()
         );
         return `${cleanMatch}_${cleanMarket}`;
       })
@@ -276,7 +276,7 @@ export default function BetSlip({ darkMode = false }) {
       alert("Your BetSlip is empty.");
       return;
     }
-    if (missingSelection) {
+    if (activeTab === "system" && missingSelection) {
       alert(
         "Some selections are missing Market/Option. Please select them first."
       );
@@ -318,7 +318,7 @@ export default function BetSlip({ darkMode = false }) {
 
   const handleShare = async () => {
     if (!total) return alert("Your BetSlip is empty.");
-    if (missingSelection)
+    if (activeTab === "system" && missingSelection)
       return alert("Complete all selections before sharing!");
 
     const lines = ["🔥 *MY FUTUREBET SYSTEM* 🔥", ""];
@@ -332,7 +332,9 @@ export default function BetSlip({ darkMode = false }) {
       return String(n).split('').map(d => emojis[parseInt(d, 10)]).join('');
     };
 
-    matches.forEach((m: any, i: number) => {
+    const targetMatches = activeTab === "ai" ? validMatches : matches;
+
+    targetMatches.forEach((m: any, i: number) => {
       lines.push(`${numToEmoji(i + 1)} ${m.match}`);
       
       let leagueStr = String(m.fullLeague || m.league || "League").trim();
@@ -922,13 +924,13 @@ export default function BetSlip({ darkMode = false }) {
             <div className="flex gap-3 w-full sm:w-1/2">
               <button
                 onClick={handleShare}
-                disabled={missingSelection}
+                disabled={activeTab === "system" && missingSelection}
                 className={cn(
                   "flex-1 py-3.5 rounded-2xl text-xs font-black transition-all active:scale-[0.98] flex items-center justify-center gap-2",
                   darkMode
                     ? "bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 text-gray-300"
                     : "bg-gray-100 border border-gray-200 hover:bg-gray-200 text-gray-700",
-                  missingSelection && "opacity-50 cursor-not-allowed"
+                  (activeTab === "system" && missingSelection) && "opacity-50 cursor-not-allowed"
                 )}
               >
                 <Share2 size={14} /> Share
@@ -937,23 +939,23 @@ export default function BetSlip({ darkMode = false }) {
               <button
                 onClick={handleTrack}
                 disabled={
-                  missingSelection ||
+                  (activeTab === "system" && missingSelection) ||
                   tracking ||
                   !isPro ||
-                  (activeTab === "system" ? grandTotalStake : totalKellyStake) === 0
+                  (activeTab === "system" ? grandTotalStake : totalKellyStake) <= 0.01
                 }
                 className={cn(
                   "flex-1 py-3.5 rounded-2xl text-xs font-black transition-all active:scale-[0.98] flex items-center justify-center gap-2",
                   !isPro
                     ? "bg-gray-200 text-gray-500"
-                    : missingSelection || tracking || (activeTab === "system" ? grandTotalStake : totalKellyStake) === 0
+                    : ((activeTab === "system" && missingSelection) || tracking || (activeTab === "system" ? grandTotalStake : totalKellyStake) <= 0.01)
                     ? "bg-gray-400 text-white opacity-50 cursor-not-allowed"
                     : "bg-gray-900 hover:bg-black text-white"
                 )}
                 title={
                   !isPro
                     ? "Premium only"
-                    : (activeTab === "system" ? grandTotalStake : totalKellyStake) === 0
+                    : (activeTab === "system" ? grandTotalStake : totalKellyStake) <= 0.01
                     ? "Enter stake to track"
                     : ""
                 }
