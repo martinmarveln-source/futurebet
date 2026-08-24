@@ -223,11 +223,11 @@ export const auth = betterAuth({
         if (newUserRes.rows.length > 0) {
           const newUserId = newUserRes.rows[0].id;
 
-          // Always grant 7-day trial and set referral_code
+          // Always grant 7-day full premium trial and set referral_code
           const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
           await pool.query(
-            'UPDATE auth_users SET referral_code = $1, is_restricted_trial = true, subscription_expires_at = $2 WHERE id = $3', 
-            [referralCode, expiresAt, newUserId]
+            'UPDATE auth_users SET referral_code = $1, subscription_status = $2, is_restricted_trial = false, subscription_expires_at = $3 WHERE id = $4', 
+            [referralCode, 'premium', expiresAt, newUserId]
           );
 
           if (referrerCode) {
