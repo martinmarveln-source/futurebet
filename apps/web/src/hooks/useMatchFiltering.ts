@@ -93,6 +93,10 @@ export function useMatchFiltering() {
           return rec?.valueEdge > 0;
         }
 
+        if (oddsFilter === "ev-system") {
+          return rec?.valueEdge >= 5.0 && rec?.prob >= 60 && Number(m.rating || 0) >= 65;
+        }
+
         const odds = rec?.realOdds || getOddsForMatch(m);
         if (!odds) return false;
 

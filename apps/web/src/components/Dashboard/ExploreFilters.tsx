@@ -249,6 +249,7 @@ export function ExploreFilters({
               <option value="2-2.99">2.00 – 2.99 (High Return)</option>
               <option value="3+">3.00+ (Extreme Edge)</option>
               <option value="value-edge">Positive Value Edge</option>
+              <option value="ev-system">EV System Match</option>
             </select>
             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
               ▼
