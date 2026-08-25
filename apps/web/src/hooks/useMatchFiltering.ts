@@ -2,6 +2,7 @@
 import { useMemo, useCallback } from "react";
 import { getOddsForMatch } from "@/utils/matchUtils";
 import { getRecommendedMarket } from "@/components/Dashboard/MatchCard";
+import { getOddsForPick } from "@/app/api/utils/oddsMath";
 
 export function useMatchFiltering() {
   const bandRank = useCallback(
@@ -95,6 +96,19 @@ export function useMatchFiltering() {
 
         if (oddsFilter === "ev-system") {
           return rec?.valueEdge >= 5.0 && rec?.prob >= 60 && Number(m.rating || 0) >= 65;
+        }
+
+        if (oddsFilter === "push-alerts") {
+          const guide = String(m?.pick || m?.guide || "");
+          const chance = Number(m?.chance || 0);
+          const rating = Number(m?.rating || 0);
+          
+          if (!guide || guide.toUpperCase() === "N/A") return false;
+          if (chance < 70 || rating < 60) return false;
+          
+          const rawData = m?.rawData || m;
+          const odds = getOddsForPick(rawData, guide);
+          return odds > 1.01;
         }
 
         const odds = rec?.realOdds || getOddsForMatch(m);
