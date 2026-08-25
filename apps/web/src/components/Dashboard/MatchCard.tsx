@@ -184,17 +184,22 @@ function getDbMarketName(pickStr) {
 
 // Derive Double Chance Odds from 1X2
 function getDoubleChanceOdds(match) {
-  if (match?.dc1X && match?.dc12 && match?.dcX2) {
+  const raw = match?.raw_data || match?.rawData || {};
+  const dc1X = match?.dc1X || raw.dc1X;
+  const dc12 = match?.dc12 || raw.dc12;
+  const dcX2 = match?.dcX2 || raw.dcX2;
+  
+  if (dc1X && dc12 && dcX2) {
     return {
-      h1x: Number(match.dc1X).toFixed(2),
-      h12: Number(match.dc12).toFixed(2),
-      hx2: Number(match.dcX2).toFixed(2),
+      h1x: Number(dc1X).toFixed(2),
+      h12: Number(dc12).toFixed(2),
+      hx2: Number(dcX2).toFixed(2),
     };
   }
 
-  const h = Number(match?.homeOdds);
-  const d = Number(match?.drawOdds);
-  const a = Number(match?.awayOdds);
+  const h = Number(match?.homeOdds || raw.homeOdds || raw.home_odds);
+  const d = Number(match?.drawOdds || raw.drawOdds || raw.draw_odds);
+  const a = Number(match?.awayOdds || raw.awayOdds || raw.away_odds);
 
   if (!h || !d || !a || h <= 1 || d <= 1 || a <= 1)
     return { h1x: null, h12: null, hx2: null };
@@ -207,6 +212,7 @@ function getDoubleChanceOdds(match) {
   const true1 = implied1 / margin;
   const trueX = impliedX / margin;
   const true2 = implied2 / margin;
+
 
   const dcMargin = 1.05;
 
@@ -284,24 +290,26 @@ function formatSelectionLabel(selection) {
 
 function resolveOddsForSelection(match, market, option) {
   if (!market) return null;
+  const raw = match?.raw_data || match?.rawData || {};
+  
   if (market === "BTTS")
-    return option === "Yes" ? match?.bttsYesOdds : match?.bttsNoOdds;
+    return option === "Yes" ? (match?.bttsYesOdds || raw.bttsYesOdds) : (match?.bttsNoOdds || raw.bttsNoOdds);
   if (market === "Over 2.5")
-    return option === "Yes" ? match?.o25Odds : match?.u25Odds;
+    return option === "Yes" ? (match?.o25Odds || raw.o25Odds) : (match?.u25Odds || raw.u25Odds);
   if (market === "Under 2.5")
-    return option === "Yes" ? match?.u25Odds : match?.o25Odds;
+    return option === "Yes" ? (match?.u25Odds || raw.u25Odds) : (match?.o25Odds || raw.o25Odds);
   if (market === "Over 1.5")
-    return option === "Yes" ? match?.o15Odds : match?.u15Odds;
+    return option === "Yes" ? (match?.o15Odds || raw.o15Odds) : (match?.u15Odds || raw.u15Odds);
   if (market === "Under 1.5")
-    return option === "Yes" ? match?.u15Odds : match?.o15Odds;
+    return option === "Yes" ? (match?.u15Odds || raw.u15Odds) : (match?.o15Odds || raw.o15Odds);
   if (market === "Over 3.5")
-    return option === "Yes" ? match?.o35Odds : match?.u35Odds;
+    return option === "Yes" ? (match?.o35Odds || raw.o35Odds) : (match?.u35Odds || raw.u35Odds);
   if (market === "Under 3.5")
-    return option === "Yes" ? match?.u35Odds : match?.o35Odds;
+    return option === "Yes" ? (match?.u35Odds || raw.u35Odds) : (match?.o35Odds || raw.o35Odds);
   if (market === "1X2") {
-    if (option === "Home") return match?.homeOdds;
-    if (option === "Draw") return match?.drawOdds;
-    if (option === "Away") return match?.awayOdds;
+    if (option === "Home") return (match?.homeOdds || raw.homeOdds || raw.home_odds);
+    if (option === "Draw") return (match?.drawOdds || raw.drawOdds || raw.draw_odds);
+    if (option === "Away") return (match?.awayOdds || raw.awayOdds || raw.away_odds);
   }
   if (market === "Double Chance") {
     const dcOdds = getDoubleChanceOdds(match);
