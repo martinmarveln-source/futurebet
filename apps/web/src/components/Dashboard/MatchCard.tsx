@@ -14,8 +14,6 @@ import {
   Sparkles,
   ShieldAlert,
   Timer,
-  Star,
-  CircleHelp,
   Share2,
   MoreHorizontal,
   Database,
@@ -31,8 +29,8 @@ import useUserPermissions from "@/hooks/useUserPermissions";
 import useUser from "@/utils/useUser";
 import { useQuery } from "@tanstack/react-query";
 import useBetslipStore, { getRealOdds } from "@/store/betslipStore";
-import { marketProb } from "@/utils/matchUtils";
-import { calculateValueEdge, getDoubleChanceOdds, resolveProbabilityForSelection } from "@/utils/pickEngine";
+
+
 import dynamic from "next/dynamic";
 const TeamComparisonModal = dynamic(() => import("./TeamComparisonModal"), { ssr: false });
 
@@ -109,6 +107,100 @@ function formatSelectionLabel(selection: any) {
     return selection.market;
   return `${selection.market} — ${selection.option}`;
 }
+
+function getPickStrength({ chance = 0, rating = 0, flag = "" }) {
+  const isFlagged = safeStr(flag) === "✅";
+  if (isFlagged && chance >= 75 && rating >= 65)
+    return { label: "Strong", kind: "success" };
+  if (chance >= 65 && rating >= 55) return { label: "Good", kind: "info" };
+  return { label: "Risky", kind: "danger" };
+}
+
+function getEdgeColor(edge: number | null | undefined) {
+  if (edge === null || edge === undefined) return "text-gray-400";
+  if (edge >= 12) return "text-green-600 font-black";
+  if (edge >= 6) return "text-green-500 font-bold";
+  if (edge >= 2) return "text-yellow-400 font-bold";
+  if (edge >= -2) return "text-orange-400";
+  return "text-red-500";
+}
+
+function calculateValueEdge(probability: number | null, odds: number | null) {
+  if (!probability || !odds || Number(odds) <= 1) return null;
+  const edge = (Number(probability) / 100 - 1 / Number(odds)) * 100;
+  return Math.round(edge * 10) / 10;
+}
+
+export function getDoubleChanceOdds(match: any) {
+  const raw = match?.raw_data || match?.rawData || {};
+  const dc1X = match?.dc1X || raw.dc1X;
+  const dc12 = match?.dc12 || raw.dc12;
+  const dcX2 = match?.dcX2 || raw.dcX2;
+  
+  if (dc1X && dc12 && dcX2) {
+    return {
+      h1x: Number(dc1X).toFixed(2),
+      h12: Number(dc12).toFixed(2),
+      hx2: Number(dcX2).toFixed(2),
+    };
+  }
+
+  const h = Number(match?.homeOdds || raw.homeOdds || raw.home_odds);
+  const d = Number(match?.drawOdds || raw.drawOdds || raw.draw_odds);
+  const a = Number(match?.awayOdds || raw.awayOdds || raw.away_odds);
+
+  if (!h || !d || !a || h <= 1 || d <= 1 || a <= 1)
+    return { h1x: null, h12: null, hx2: null };
+
+  const implied1 = 1 / h;
+  const impliedX = 1 / d;
+  const implied2 = 1 / a;
+
+  const margin = implied1 + impliedX + implied2;
+  const true1 = implied1 / margin;
+  const trueX = impliedX / margin;
+  const true2 = implied2 / margin;
+
+  const dcMargin = 1.05;
+
+  return {
+    h1x: (1 / ((true1 + trueX) * dcMargin)).toFixed(2),
+    h12: (1 / ((true1 + true2) * dcMargin)).toFixed(2),
+    hx2: (1 / ((trueX + true2) * dcMargin)).toFixed(2),
+  };
+}
+
+export function resolveProbabilityForSelection(match: any, market: string, option: string) {
+  if (!market) return 0;
+  if (market === "BTTS") return pct(option === "Yes" ? match?.gg : match?.ng);
+  if (market === "Over 2.5")
+    return pct(option === "Yes" ? match?.ov25 : match?.un25);
+  if (market === "Under 2.5")
+    return pct(option === "Yes" ? match?.un25 : match?.ov25);
+  if (market === "Over 1.5")
+    return marketProb(match, "Over 1.5", option);
+  if (market === "Under 1.5")
+    return marketProb(match, "Over 1.5", option === "Yes" ? "No" : "Yes");
+  if (market === "Over 3.5")
+    return pct(option === "Yes" ? match?.ov35 : match?.un35);
+  if (market === "Under 3.5")
+    return pct(option === "Yes" ? match?.un35 : match?.ov35);
+  if (market === "1X2") {
+    if (option === "Home") return pct(match?.homeWin);
+    if (option === "Draw") return pct(match?.draw);
+    if (option === "Away") return pct(match?.awayWin);
+  }
+  if (market === "Double Chance") {
+    if (option === "Home or Draw")
+      return pct(match?.homeWin) + pct(match?.draw);
+    if (option === "Home or Away")
+      return pct(match?.homeWin) + pct(match?.awayWin);
+    if (option === "Draw or Away")
+      return pct(match?.draw) + pct(match?.awayWin);
+  }
+  return 0;
+}
+
 
 function poissonProb(lambda: number, k: number): number {
   return (Math.exp(-lambda) * Math.pow(lambda, k)) / factorial(k);
@@ -377,7 +469,7 @@ function SmallStat({ k, v, darkMode, className }) {
           darkMode ? "text-white" : "text-gray-900"
         )}
       >
-        {v === null || v === undefined || v === "" ? "â€”" : v}
+        {v === null || v === undefined || v === "" ? "—" : v}
       </div>
     </div>
   );
@@ -525,7 +617,7 @@ function PrimaryMarketContext({
               {opt.label}
             </div>
             <div className="text-sm font-black tabular-nums">
-              {Number(opt.odds) > 1 ? Number(opt.odds).toFixed(2) : "â€”"}
+              {Number(opt.odds) > 1 ? Number(opt.odds).toFixed(2) : "—"}
             </div>
             {Number(opt.odds) > 1 && (
               <InlineEdgeVisualizer
@@ -703,7 +795,7 @@ function BetslipMarketModal({
                 </div>
               </div>
               <button
-                type="button" // ðŸ”¥ Explicit Type
+                type="button" // 🔥 Explicit Type
                 onClick={(e) => {
                   e.preventDefault();
                   onClose();
@@ -735,7 +827,7 @@ function BetslipMarketModal({
                     const isRec = recommended?.market === m.key;
                     return (
                       <button
-                        type="button" // ðŸ”¥ Explicit Type
+                        type="button" // 🔥 Explicit Type
                         key={m.key}
                         onClick={(e) => {
                           e.preventDefault();
@@ -814,7 +906,7 @@ function BetslipMarketModal({
                       const active = selectedOption === opt;
                       return (
                         <button
-                          type="button" // ðŸ”¥ Explicit Type
+                          type="button" // 🔥 Explicit Type
                           key={opt}
                           onClick={(e) => {
                             e.preventDefault();
@@ -849,7 +941,7 @@ function BetslipMarketModal({
               )}
             >
               <button
-                type="button" // ðŸ”¥ Explicit Type
+                type="button" // 🔥 Explicit Type
                 onClick={(e) => {
                   e.preventDefault();
                   onClose();
@@ -864,7 +956,7 @@ function BetslipMarketModal({
                 Cancel
               </button>
               <button
-                type="button" // ðŸ”¥ Explicit Type
+                type="button" // 🔥 Explicit Type
                 onClick={handleConfirm}
                 disabled={kickoffPassed || !canConfirm}
                 className={cn(
@@ -888,7 +980,7 @@ function BetslipMarketModal({
 }
 
 function VisualFormGuide({ formStr }) {
-  if (!formStr) return <span className="text-gray-500 text-xs">â€”</span>;
+  if (!formStr) return <span className="text-gray-500 text-xs">—</span>;
   const matches = String(formStr)
     .toUpperCase()
     .replace(/[^WDL]/g, "")
@@ -1186,7 +1278,7 @@ export function LiveSteamIndicator({ matchName, selection, darkMode }) {
 ============================================================================= */
 export function calculateHistWinRateForMatch(match: any, archiveData: any[]) {
   if (!archiveData.length || !match?.chance || !match?.rating) {
-    return { winRate: null, sampleSize: 0, label: "â€”", totalWins: 0, rate: -1, count: 0 };
+    return { winRate: null, sampleSize: 0, label: "—", totalWins: 0, rate: -1, count: 0 };
   }
 
   const matchChance = Number(match.chance);
@@ -1286,7 +1378,7 @@ export function calculateHistWinRateForMatch(match: any, archiveData: any[]) {
   const leagueRate = totalLeague > 0 ? (leagueWins / totalLeague) * 100 : null;
 
   const total = matchedRows.length;
-  if (total === 0) return { winRate: null, sampleSize: 0, label: "â€”", totalWins: 0, rate: -1, count: 0, leagueRate, totalLeague, leagueWins };
+  if (total === 0) return { winRate: null, sampleSize: 0, label: "—", totalWins: 0, rate: -1, count: 0, leagueRate, totalLeague, leagueWins };
 
   const wins = matchedRows.filter((r: any) => String(r.result || "").toUpperCase().trim() === "W").length;
   const rate = (wins / total) * 100;
@@ -1406,10 +1498,10 @@ export default function MatchCard({
     match?.market || match?.marketLabel || match?.tipMarket || "";
   const csChance = match?.modelCSPercent || match?.scorelineCSPercent;
   const csChanceText = csChance ? ` (${Math.round(Number(String(csChance).replace(/%/g, '')))}%)` : "";
-  const rawPredictedScore = `${match?.cScore || match?.predictedScore || "â€”"}${csChanceText}`;
+  const rawPredictedScore = `${match?.cScore || match?.predictedScore || "—"}${csChanceText}`;
   const predictedScore = canSeePredictedScore
     ? rawPredictedScore
-    : "ðŸ”’ Silver+";
+    : "🔒 Silver+";
 
   const extendedOvers = useMemo(() => {
     const ov25 = pct(match?.ov25);
@@ -1596,7 +1688,7 @@ export default function MatchCard({
           : null;
 
       if (computedOdds === null || computedOdds === undefined) {
-        toast.error("âš ï¸ Exact odds are currently unavailable for this selection. This match cannot be added to the betslip.");
+        toast.error("⚠️ Exact odds are currently unavailable for this selection. This match cannot be added to the betslip.");
         return;
       }
 
@@ -1626,7 +1718,7 @@ export default function MatchCard({
     e.preventDefault();
     if (!canSeeAdvancedData) {
       toast.error(
-        "ðŸ”’ Premium Feature: Upgrade to Pro to share elite VIP slips and unlock exact market odds!"
+        "🔒 Premium Feature: Upgrade to Pro to share elite VIP slips and unlock exact market odds!"
       );
       window.dispatchEvent(new CustomEvent("futurebet:trigger-premium"));
       return;
@@ -1726,7 +1818,7 @@ export default function MatchCard({
   );
 
   const riskLine = useMemo(() => {
-    if (!canSeeAdvancedData) return "ðŸ”’ Silver+ shows deeper risk context.";
+    if (!canSeeAdvancedData) return "🔒 Silver+ shows deeper risk context.";
     if (pickStrength?.label === "Strong")
       return "Low volatility: strong alignment.";
     if (pickStrength?.label === "Good")
@@ -1887,7 +1979,7 @@ export default function MatchCard({
   const rawFtScore = match?.ft_score || match?.raw_data?.ftScore || match?.ftScore;
   const globalFtScore = rawFtScore && rawFtScore !== "#N/A" ? rawFtScore : null;
   const actualMarket = recommended ? recommended.market : (marketText || "");
-  const actualSelection = recommended ? recommended.selection : (pickText || "");
+  const actualSelection = recommended ? recommended.option : (pickText || "");
   const wonStatus = checkIfPickWon(globalFtScore, actualMarket, actualSelection);
 
   return (
@@ -1947,7 +2039,7 @@ export default function MatchCard({
                 </span>
                 <span className={pill(darkMode, "default")}>
                   <Timer size={14} />
-                  {safeStr(match?.date) || "â€”"} â€¢ {safeStr(match?.time) || "â€”"}
+                  {safeStr(match?.date) || "—"} • {safeStr(match?.time) || "—"}
                 </span>
                 {canSeeAdvancedData && pickStrength ? (
                   <span className={pill(darkMode, pickStrength.kind)}>
@@ -2144,7 +2236,7 @@ export default function MatchCard({
                         {(valueTag === "Value" || valueTag === "Solid") &&
                         !canSeeAdvancedData ? (
                           <span className="flex items-center gap-1.5">
-                            {recommended?.market || "Match Market"} â€¢
+                            {recommended?.market || "Match Market"} •
                             <span className="blur-[4px] select-none opacity-50">
                               Hidden
                             </span>
@@ -2152,7 +2244,7 @@ export default function MatchCard({
                               className="text-[10px] bg-amber-500/20 text-amber-500 px-2 py-0.5 rounded-md flex items-center gap-1 cursor-pointer"
                               onClick={() =>
                                 toast.error(
-                                  "ðŸ”’ Upgrade to Pro to unlock our highest value AI predictions!"
+                                  "🔒 Upgrade to Pro to unlock our highest value AI predictions!"
                                 )
                               }
                             >
@@ -2177,7 +2269,7 @@ export default function MatchCard({
                             High Volatility - No Safe Pick
                           </span>
                         ) : (
-                          "â€”"
+                          "—"
                         )}
                       </span>
 
@@ -2192,7 +2284,7 @@ export default function MatchCard({
                             className="ml-1 inline-flex items-center gap-1 cursor-pointer"
                             onClick={() =>
                               toast.error(
-                                "ðŸ”’ Upgrade to Pro to see exact market odds!"
+                                "🔒 Upgrade to Pro to see exact market odds!"
                               )
                             }
                           >
@@ -2209,7 +2301,7 @@ export default function MatchCard({
 
                     <div className="mt-3 flex flex-wrap gap-2">
                       <span className={pill(darkMode, "violet")}>
-                        VIP {vipScore} â€¢ {valueTag}
+                        VIP {vipScore} • {valueTag}
                       </span>
                       {recommended && recommended.prob > 0 ? (
                         <span className={pill(darkMode, "info")}>
@@ -2234,7 +2326,7 @@ export default function MatchCard({
                               getEdgeColor(valueEdge)
                             )}
                           >
-                            ðŸ”¥ {valueEdge > 0 ? "+" : ""}
+                            🔥 {valueEdge > 0 ? "+" : ""}
                             {valueEdge}% Value Edge
                           </span>
                         ) : (
@@ -2242,11 +2334,11 @@ export default function MatchCard({
                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border border-amber-500/30 bg-amber-500/10 text-amber-500 cursor-pointer"
                             onClick={() =>
                               toast.error(
-                                "ðŸ”’ Upgrade to Pro to see exact Value Edge percentages!"
+                                "🔒 Upgrade to Pro to see exact Value Edge percentages!"
                               )
                             }
                           >
-                            ðŸ”¥ Value Edge Detected{" "}
+                            🔥 Value Edge Detected{" "}
                             <Lock size={12} className="ml-0.5" />
                           </span>
                         ))}
@@ -2269,7 +2361,7 @@ export default function MatchCard({
                       />
                     )}
 
-                    {/* === 3. NEW 1X2 MARKET GRID â€” only shown when real odds exist === */}
+                    {/* === 3. NEW 1X2 MARKET GRID — only shown when real odds exist === */}
                     {(odds1X2.home > 0 || odds1X2.draw > 0 || odds1X2.away > 0) && (
                     <div
                       className={cn(
@@ -2318,14 +2410,14 @@ export default function MatchCard({
                             >
                               {odds1X2?.home > 0
                                 ? odds1X2.home.toFixed(2)
-                                : "â€”"}
+                                : "—"}
                             </span>
                           ) : (
                             <span
                               className="flex items-center gap-1 cursor-pointer mt-0.5"
                               onClick={() =>
                                 toast.error(
-                                  "ðŸ”’ Upgrade to Pro to see exact live odds!"
+                                  "🔒 Upgrade to Pro to see exact live odds!"
                                 )
                               }
                             >
@@ -2360,14 +2452,14 @@ export default function MatchCard({
                             >
                               {odds1X2?.draw > 0
                                 ? odds1X2.draw.toFixed(2)
-                                : "â€”"}
+                                : "—"}
                             </span>
                           ) : (
                             <span
                               className="flex items-center gap-1 cursor-pointer mt-0.5"
                               onClick={() =>
                                 toast.error(
-                                  "ðŸ”’ Upgrade to Pro to see exact live odds!"
+                                  "🔒 Upgrade to Pro to see exact live odds!"
                                 )
                               }
                             >
@@ -2402,14 +2494,14 @@ export default function MatchCard({
                             >
                               {odds1X2?.away > 0
                                 ? odds1X2.away.toFixed(2)
-                                : "â€”"}
+                                : "—"}
                             </span>
                           ) : (
                             <span
                               className="flex items-center gap-1 cursor-pointer mt-0.5"
                               onClick={() =>
                                 toast.error(
-                                  "ðŸ”’ Upgrade to Pro to see exact live odds!"
+                                  "🔒 Upgrade to Pro to see exact live odds!"
                                 )
                               }
                             >
@@ -2680,7 +2772,7 @@ export default function MatchCard({
               </div>
             </div>
 
-            {/* ðŸ”¥ RIGHT COLUMN: 6 Stats Grid + New Dynamic Market Context Box */}
+            {/* 🔥 RIGHT COLUMN: 6 Stats Grid + New Dynamic Market Context Box */}
             <div className="w-full lg:max-w-[340px] flex flex-col gap-3 shrink-0">
               <div className="grid grid-cols-2 gap-2">
                 <SmallStat
@@ -2707,7 +2799,7 @@ export default function MatchCard({
                       mlStats.winRate !== null ? (
                         <span className="text-emerald-500 font-extrabold">{mlStats.label}</span>
                       ) : (
-                        "â€”"
+                        "—"
                       )
                     ) : (
                       <span className="flex items-center gap-1.5 cursor-pointer text-amber-500 text-sm w-full" onClick={() => window.location.href = "#"}>
@@ -2734,13 +2826,13 @@ export default function MatchCard({
                 />
                 <SmallStat
                   k="League"
-                  v={safeStr(match?.fullLeague || match?.league) || "â€”"}
+                  v={safeStr(match?.fullLeague || match?.league) || "—"}
                   darkMode={darkMode}
                   className="col-span-2 text-xs"
                 />
               </div>
 
-              {/* ðŸ”¥ NEW DYNAMIC MARKET CONTEXT */}
+              {/* 🔥 NEW DYNAMIC MARKET CONTEXT */}
               <PrimaryMarketContext
                 match={match}
                 selection={activeSelection}
@@ -2749,7 +2841,7 @@ export default function MatchCard({
                 dcOdds={dcOdds}
               />
               
-              {/* ðŸ”¥ AI TRUST INDEX (LEAGUE ROI) */}
+              {/* 🔥 AI TRUST INDEX (LEAGUE ROI) */}
               {(isAdmin || isPremium || isSilver) && mlStats.leagueRate !== null && mlStats.totalLeague > 0 && (
                 <div className={cn(
                   "mt-1 p-3 rounded-xl border flex items-start gap-3",
@@ -3235,7 +3327,7 @@ export default function MatchCard({
                         darkMode ? "text-gray-300" : "text-gray-600"
                       )}
                     >
-                      ðŸ”’ Silver+ users see deeper market context and exact value
+                      🔒 Silver+ users see deeper market context and exact value
                       edge calculations here.
                     </div>
                   )}
@@ -3294,7 +3386,7 @@ export default function MatchCard({
                           <div className="rounded-xl border p-2 text-center bg-green-500/10 border-green-400/30">
                             <div className="text-[10px] opacity-70">Market</div>
                             <div className="text-sm font-extrabold">
-                              {intelligence?.recommendation?.market || "â€”"}
+                              {intelligence?.recommendation?.market || "—"}
                             </div>
                           </div>
                           <div className="rounded-xl border p-2 text-center bg-blue-500/10 border-blue-400/30">
@@ -3302,7 +3394,7 @@ export default function MatchCard({
                               Selection
                             </div>
                             <div className="text-sm font-extrabold">
-                              {intelligence?.recommendation?.selection || "â€”"}
+                              {intelligence?.recommendation?.selection || "—"}
                             </div>
                           </div>
                           <div className="rounded-xl border p-2 text-center bg-purple-500/10 border-purple-400/30">
@@ -3310,7 +3402,7 @@ export default function MatchCard({
                               Confidence
                             </div>
                             <div className="text-sm font-extrabold">
-                              {intelligence?.recommendation?.confidence ?? "â€”"}
+                              {intelligence?.recommendation?.confidence ?? "—"}
                               {intelligence?.recommendation?.confidence !==
                               undefined
                                 ? "%"
@@ -3324,7 +3416,7 @@ export default function MatchCard({
                               Stake Tier
                             </div>
                             <div className="text-sm font-extrabold">
-                              {intelligence?.recommendation?.stakeTier || "â€”"}
+                              {intelligence?.recommendation?.stakeTier || "—"}
                             </div>
                           </div>
                         </div>
@@ -3339,7 +3431,7 @@ export default function MatchCard({
                             <div className="relative">
                               <div className="rounded-2xl border p-3 bg-green-500/10 border-green-400/30">
                                 <div className="flex items-center gap-2 text-sm font-extrabold text-green-500">
-                                  ðŸ”¥ Market Value Detected
+                                  🔥 Market Value Detected
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
                                   <div className="rounded-lg border p-2 text-center bg-white/5">
@@ -3348,7 +3440,7 @@ export default function MatchCard({
                                     </div>
                                     <div className="font-bold">
                                       {intelligence?.recommendation
-                                        ?.confidence ?? "â€”"}
+                                        ?.confidence ?? "—"}
                                       {intelligence?.recommendation
                                         ?.confidence !== undefined
                                         ? "%"
@@ -3362,7 +3454,7 @@ export default function MatchCard({
                                     <div className="font-bold">
                                       {pickOdds
                                         ? `${Math.round((1 / pickOdds) * 100)}%`
-                                        : "â€”"}
+                                        : "—"}
                                     </div>
                                   </div>
                                   <div className="rounded-lg border p-2 text-center bg-white/5">
@@ -3373,7 +3465,7 @@ export default function MatchCard({
                                       {intelligence?.recommendation
                                         ?.expectedValue !== undefined
                                         ? `+${intelligence.recommendation.expectedValue}%`
-                                        : "â€”"}
+                                        : "—"}
                                     </div>
                                   </div>
                                 </div>
@@ -3386,7 +3478,7 @@ export default function MatchCard({
                                 Model Trust
                               </div>
                               <div className="text-sm font-extrabold">
-                                {intelligence?.modelTrust ?? "â€”"}
+                                {intelligence?.modelTrust ?? "—"}
                                 {intelligence?.modelTrust !== undefined
                                   ? "%"
                                   : ""}
@@ -3397,7 +3489,7 @@ export default function MatchCard({
                                 Edge Tier
                               </div>
                               <div className="text-sm font-extrabold">
-                                {intelligence?.edgeTier || "â€”"}
+                                {intelligence?.edgeTier || "—"}
                               </div>
                             </div>
                             <div className="rounded-xl border p-2 text-center bg-orange-500/10 border-orange-400/30">
@@ -3405,7 +3497,7 @@ export default function MatchCard({
                                 Volatility
                               </div>
                               <div className="text-sm font-extrabold">
-                                {intelligence?.volatility || "â€”"}
+                                {intelligence?.volatility || "—"}
                               </div>
                             </div>
                           </div>
@@ -3425,38 +3517,38 @@ export default function MatchCard({
                                 : "border-blue-200 bg-blue-50 text-blue-700"
                             )}
                           >
-                            {intelligence?.confidence || "â€”"} Confidence â€¢{" "}
-                            {intelligence?.primaryEdge || "â€”"}
+                            {intelligence?.confidence || "—"} Confidence •{" "}
+                            {intelligence?.primaryEdge || "—"}
                           </div>
                           <InsightBlock
                             title="Match Overview"
                             darkMode={darkMode}
                           >
-                            {intelligence?.narratives?.overview || "â€”"}
+                            {intelligence?.narratives?.overview || "—"}
                           </InsightBlock>
                           <InsightBlock
                             title="Tactical & Statistical Edge"
                             darkMode={darkMode}
                           >
-                            {intelligence?.narratives?.tactical || "â€”"}
+                            {intelligence?.narratives?.tactical || "—"}
                           </InsightBlock>
                           <InsightBlock
                             title="Market Alignment"
                             darkMode={darkMode}
                           >
-                            {intelligence?.narratives?.marketAlignment || "â€”"}
+                            {intelligence?.narratives?.marketAlignment || "—"}
                           </InsightBlock>
                           <InsightBlock
                             title="Goal Environment Projection"
                             darkMode={darkMode}
                           >
-                            {intelligence?.narratives?.goalProjection || "â€”"}
+                            {intelligence?.narratives?.goalProjection || "—"}
                           </InsightBlock>
                           <InsightBlock
                             title="Risk Exposure Report"
                             darkMode={darkMode}
                           >
-                            {intelligence?.narratives?.riskReport || "â€”"}
+                            {intelligence?.narratives?.riskReport || "—"}
                           </InsightBlock>
                         </div>
                       </div>
