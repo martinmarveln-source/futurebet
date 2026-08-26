@@ -32,6 +32,7 @@ import useUser from "@/utils/useUser";
 import { useQuery } from "@tanstack/react-query";
 import useBetslipStore, { getRealOdds } from "@/store/betslipStore";
 import { marketProb } from "@/utils/matchUtils";
+import { calculateValueEdge, getDoubleChanceOdds, resolveProbabilityForSelection } from "@/utils/pickEngine";
 import dynamic from "next/dynamic";
 const TeamComparisonModal = dynamic(() => import("./TeamComparisonModal"), { ssr: false });
 
@@ -59,6 +60,23 @@ function factorial(n: number): number {
   for (let i = 2; i <= n; i++) result *= i;
   return result;
 }
+
+const clamp = (n: number, a = 0, b = 100) => Math.max(a, Math.min(b, n));
+const toNum = (v: any) => {
+  if (v === null || v === undefined) return 0;
+  const n = Number(String(v).replace("%", "").trim());
+  return Number.isFinite(n) ? n : 0;
+};
+const pct = (v: any) => Math.round(toNum(v));
+const avg = (...values: any[]) => {
+  const flat = values.flat(Infinity).map(toNum).filter(Number.isFinite);
+  return flat.length ? flat.reduce((a, b) => a + b, 0) / flat.length : 0;
+};
+const formatML = (val: any) => {
+  const num = Number(val || 0);
+  if (!num) return null;
+  return num <= 1 ? (num * 100).toFixed(1) : num.toFixed(1);
+};
 
 const safeStr = (v: any) =>
   v === null || v === undefined || v === 0 || v === "0" ? "" : String(v).trim();

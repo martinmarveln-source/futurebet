@@ -1,0 +1,101 @@
+﻿
+function renderFormattedText(text: any) {
+  if (typeof text !== "string") return text;
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={i} className="font-extrabold">{part.slice(2, -2)}</strong>;
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
+function InsightBlock({ title, children, darkMode }) {
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border p-4 text-sm leading-7",
+        darkMode ? "border-white/10 bg-white/5" : "border-gray-200 bg-white"
+      )}
+    >
+      <div className="font-extrabold mb-2 text-xs opacity-70">{title}</div>
+      {renderFormattedText(children)}
+    </div>
+  );
+}
+
+function Meter({
+  label,
+  value,
+  colorClass = "from-amber-500 to-yellow-300",
+  darkMode,
+}) {
+  const v = clamp(pct(value));
+  return (
+    <div className="w-full">
+      <div className="flex items-center justify-between text-xs mb-1">
+        <span className={darkMode ? "text-gray-300" : "text-gray-600"}>
+          {label}
+        </span>
+        <span className="font-extrabold">{v}%</span>
+      </div>
+      <div
+        className={cn(
+          "h-2 rounded-full overflow-hidden",
+          darkMode ? "bg-white/10" : "bg-gray-200"
+        )}
+      >
+        <div
+          className={cn("h-full bg-gradient-to-r", colorClass)}
+          style={{ width: `${v}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function SmallStat({ k, v, darkMode, className }) {
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border p-3 flex flex-col justify-between h-full",
+        darkMode ? "border-white/10 bg-white/5" : "border-gray-200 bg-white",
+        className
+      )}
+    >
+      <div
+        className={cn(
+          "text-[11px] font-semibold mb-2",
+          darkMode ? "text-gray-400" : "text-gray-500"
+        )}
+      >
+        {k}
+      </div>
+      <div
+        className={cn(
+          "mt-1 text-sm font-extrabold w-full",
+          darkMode ? "text-white" : "text-gray-900"
+        )}
+      >
+        {v === null || v === undefined || v === "" ? "├óΓé¼ΓÇ¥" : v}
+      </div>
+    </div>
+  );
+}
+
+function InlineEdgeVisualizer({ prob, odds, darkMode, compact = false }) {
+  const edge = calculateValueEdge(prob, odds);
+  if (!edge || edge <= 0) return null;
+
+  return (
+    <div
+      className={cn(
+        "mt-2 pt-2 border-t flex items-center justify-center sm:justify-between flex-wrap gap-1",
+        darkMode ? "border-white/10" : "border-gray-100"
+      )}
+    >
+      {!compact && (
+        <span
+          className={cn(
+            "text-[8px] font-black uppercase tracking-widest",
+            darkMode ? "text-emerald-400/80" : "text-emerald-600/80"

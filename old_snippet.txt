@@ -1,0 +1,111 @@
+﻿        archiveData.push(rowObj);
+      }
+      return archiveData;
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
+/* =============================================================================
+  Helpers 
+============================================================================= */
+function cn(...c) {
+  return c.filter(Boolean).join(" ");
+}
+
+const pill = (darkMode, kind = "default") => {
+  const base =
+    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border backdrop-blur";
+  const map = {
+    default: darkMode
+      ? "border-white/10 bg-white/5 text-gray-100"
+      : "border-gray-200 bg-white text-gray-800",
+    premium: darkMode
+      ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
+      : "border-amber-200 bg-amber-50 text-amber-800",
+    info: darkMode
+      ? "border-blue-400/25 bg-blue-500/10 text-blue-200"
+      : "border-blue-200 bg-blue-50 text-blue-700",
+    success: darkMode
+      ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-200"
+      : "border-emerald-200 bg-emerald-50 text-emerald-700",
+    danger: darkMode
+      ? "border-rose-400/25 bg-rose-500/10 text-rose-200"
+      : "border-rose-200 bg-rose-50 text-rose-700",
+    violet: darkMode
+      ? "border-violet-400/25 bg-violet-500/10 text-violet-200"
+      : "border-violet-200 bg-violet-50 text-violet-700",
+  };
+  return `${base} ${map[kind] || map.default}`;
+};
+
+const Card = memo(function Card({ darkMode, children, accent, isSystemMatch }) {
+  return (
+    <article
+      className={cn(
+        "relative overflow-hidden rounded-3xl border p-4 sm:p-5 transition-all duration-300 active:scale-[0.98]",
+        "shadow-sm hover:shadow-xl hover:-translate-y-1",
+        darkMode
+          ? "bg-gradient-to-b from-white/[0.06] to-white/[0.03]"
+          : "bg-white",
+        isSystemMatch
+          ? darkMode
+            ? "border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.15)]"
+            : "border-amber-400 shadow-amber-500/20 ring-1 ring-amber-400"
+          : darkMode
+          ? "border-white/10"
+          : "border-gray-200"
+      )}
+      style={
+        accent && !isSystemMatch
+          ? { borderLeft: `5px solid ${accent}` }
+          : undefined
+      }
+    >
+      {isSystemMatch && (
+        <div
+          className={cn(
+            "absolute inset-0 pointer-events-none opacity-[0.03] dark:opacity-[0.05] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]",
+            darkMode ? "bg-amber-400" : "bg-amber-500"
+          )}
+        />
+      )}
+      <div
+        className={cn(
+          "pointer-events-none absolute -top-28 left-1/2 h-48 w-[520px] -translate-x-1/2 rounded-full blur-3xl opacity-60",
+          darkMode
+            ? "bg-gradient-to-r from-indigo-500/10 via-cyan-500/10 to-amber-500/10"
+            : "bg-gradient-to-r from-indigo-200/40 via-cyan-200/40 to-amber-200/40"
+        )}
+      />
+      {children}
+    </article>
+  );
+});
+
+const Section = memo(function Section({ darkMode, title, icon, children }) {
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border p-4",
+        darkMode ? "border-white/10 bg-black/20" : "border-gray-200 bg-gray-50"
+      )}
+    >
+      <div className="flex items-center gap-2 mb-3">
+        {icon && (
+          <span
+            className={cn(
+              "h-8 w-8 rounded-2xl flex items-center justify-center ring-1",
+              darkMode ? "bg-white/5 ring-white/10" : "bg-white ring-gray-200"
+            )}
+          >
+            {icon}
+          </span>
+        )}
+        <div className="text-sm font-extrabold">{title}</div>
+      </div>
+      {children}
+    </div>
+  );
+});
+
