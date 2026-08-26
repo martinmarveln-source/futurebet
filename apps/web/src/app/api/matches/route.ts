@@ -2,6 +2,7 @@
 import sql from "@/app/api/utils/sql";
 import { auth } from "@/auth";
 import { computeIntelligence } from "@/utils/intelligenceEngine";
+import { getRecommendedMarket, parsePredictedScore, getOddsForRecommendation } from "@/utils/pickEngine";
 
 /* -------------------------------------------------------------------------- */
 /*                                  CACHE                                     */
@@ -1333,10 +1334,19 @@ export async function GET(request) {
     ) {
       const base = await fetchMatchesFromSheet(includeAll);
 
-      const enrichedMatches = base.matches.map((m) => ({
-        ...m,
-        intelligence: computeIntelligence(m, "admin"),
-      }));
+      const enrichedMatches = base.matches.map((m) => {
+        const recommended = getRecommendedMarket(m);
+        const predictedScore = parsePredictedScore(m?.cScore || m?.predictedScore);
+        const pickOdds = recommended ? getOddsForRecommendation(m, recommended, m?.pick || m?.guide || "") : null;
+        return {
+          ...m,
+          recommended,
+          predictedScore,
+          pickOdds,
+          valueEdge: recommended?.valueEdge,
+          intelligence: computeIntelligence(m, "admin"),
+        };
+      });
 
       payload = {
         matches: enrichedMatches,
@@ -1367,6 +1377,11 @@ export async function GET(request) {
           delete newMatch.fairOdds;
           delete newMatch.premiumScore;
           delete newMatch.alignmentScore;
+          delete newMatch.recommended;
+          delete newMatch.predictedScore;
+          delete newMatch.cScore;
+          delete newMatch.pickOdds;
+          delete newMatch.valueEdge;
         }
 
         // Both Free and Silver shouldn't see FT score (only Premium/Admin)

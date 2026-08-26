@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useMemo, useCallback } from "react";
 import { getOddsForMatch } from "@/utils/matchUtils";
-import { getRecommendedMarket } from "@/components/Dashboard/MatchCard";
+
 import { getOddsForPick } from "@/app/api/utils/oddsMath";
 
 export function useMatchFiltering() {
@@ -88,7 +88,7 @@ export function useMatchFiltering() {
 
     if (oddsFilter !== "all") {
       list = list.filter((m) => {
-        const rec = getRecommendedMarket(m);
+        const rec = m?.recommended;
         
         if (oddsFilter === "value-edge") {
           return rec?.valueEdge > 0;

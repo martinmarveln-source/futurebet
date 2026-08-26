@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format, subDays } from "date-fns";
 import { ChevronLeft, Calendar as CalendarIcon, Loader2, Lock, CheckCircle2, XCircle, MinusCircle, Trophy, Activity, Target } from "lucide-react";
 import Link from "next/link";
-import { getRecommendedMarket } from "@/components/Dashboard/MatchCard";
+import { getRecommendedMarket } from "@/utils/pickEngine";
 
 export default function ArchivePage() {
   const [selectedDate, setSelectedDate] = useState<Date>(subDays(new Date(), 1));
