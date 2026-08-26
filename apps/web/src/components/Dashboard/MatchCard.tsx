@@ -60,6 +60,38 @@ function factorial(n: number): number {
   return result;
 }
 
+const safeStr = (v: any) =>
+  v === null || v === undefined || v === 0 || v === "0" ? "" : String(v).trim();
+
+function getDbMarketName(pickStr: string) {
+  const rawMarket = String(pickStr || "").trim().toUpperCase();
+  if (rawMarket === "HOME WIN" || rawMarket === "HOME" || rawMarket === "1" || rawMarket.includes("HOME")) return "HOME";
+  if (rawMarket === "AWAY WIN" || rawMarket === "AWAY" || rawMarket === "2" || rawMarket.includes("AWAY")) return "AWAY";
+  if (rawMarket === "DRAW" || rawMarket === "X") return "DRAW";
+  if (rawMarket === "GG" || rawMarket === "BTTS - YES" || rawMarket === "BTTS YES" || rawMarket.includes("GG") || rawMarket.includes("YES")) return "GG";
+  if (rawMarket === "NG" || rawMarket === "BTTS - NO" || rawMarket === "BTTS NO" || rawMarket.includes("NG") || rawMarket.includes("NO")) return "NG";
+  if (rawMarket === "OV2.5" || rawMarket === "OV.2.5" || rawMarket === "OVER 2.5" || rawMarket === "OVER2.5" || rawMarket === "OV" || rawMarket.includes("OV") || rawMarket.includes("OVER")) return "OV";
+  if (rawMarket === "UN2.5" || rawMarket === "UN.2.5" || rawMarket === "UNDER 2.5" || rawMarket === "UNDER2.5" || rawMarket === "UN" || rawMarket.includes("UN") || rawMarket.includes("UNDER")) return "UN";
+  return rawMarket;
+}
+
+function formatSelectionLabel(selection: any) {
+  if (!selection) return "—";
+  if (selection.label) return selection.label;
+  if (
+    [
+      "Over 1.5",
+      "Over 2.5",
+      "Over 3.5",
+      "Under 1.5",
+      "Under 2.5",
+      "Under 3.5",
+    ].includes(selection.market)
+  )
+    return selection.market;
+  return `${selection.market} — ${selection.option}`;
+}
+
 function poissonProb(lambda: number, k: number): number {
   return (Math.exp(-lambda) * Math.pow(lambda, k)) / factorial(k);
 }
