@@ -33,19 +33,19 @@ export default function StatsCards({ matchesData, filteredMatches, darkMode }) {
   });
 
   return (
-    <div
-      className={cx(
-        "flex items-center justify-between sm:justify-start gap-4 sm:gap-8 px-5 sm:px-8 py-3.5 sm:py-4 rounded-[20px] border mb-5 shadow-sm overflow-x-auto scrollbar-hide backdrop-blur-xl transition-all duration-300",
-        darkMode
-          ? "bg-white/5 border-white/10 shadow-black/20"
-          : "bg-white/60 border-slate-200/60 shadow-slate-200/50"
-      )}
-    >
+    <div className="flex flex-wrap items-center gap-3 mb-5">
       {/* Item 1: Total */}
-      <div className="flex flex-col justify-center shrink-0">
+      <div
+        className={cx(
+          "flex items-center gap-2 px-4 py-2 rounded-full border shadow-sm backdrop-blur-md transition-colors",
+          darkMode
+            ? "bg-slate-800/60 border-slate-700/60"
+            : "bg-white/80 border-slate-200"
+        )}
+      >
         <span
           className={cx(
-            "text-[10px] font-extrabold uppercase tracking-widest mb-1",
+            "text-[10px] font-extrabold uppercase tracking-widest",
             darkMode ? "text-slate-400" : "text-slate-500"
           )}
         >
@@ -53,7 +53,7 @@ export default function StatsCards({ matchesData, filteredMatches, darkMode }) {
         </span>
         <span
           className={cx(
-            "text-base sm:text-lg font-black tabular-nums leading-none",
+            "text-sm font-black tabular-nums",
             darkMode ? "text-white" : "text-slate-900"
           )}
         >
@@ -61,113 +61,101 @@ export default function StatsCards({ matchesData, filteredMatches, darkMode }) {
         </span>
       </div>
 
+      {/* Item 2: Filtered */}
       <div
         className={cx(
-          "w-px h-8 shrink-0",
-          darkMode ? "bg-white/10" : "bg-slate-200"
+          "flex items-center gap-2 px-4 py-2 rounded-full border shadow-sm backdrop-blur-md transition-colors",
+          darkMode
+            ? "bg-blue-900/30 border-blue-800/50"
+            : "bg-blue-50 border-blue-200"
         )}
-      />
-
-      {/* Item 2: Filtered */}
-      <div className="flex flex-col justify-center shrink-0">
+      >
         <span
           className={cx(
-            "text-[10px] font-extrabold uppercase tracking-widest mb-1",
-            darkMode ? "text-slate-400" : "text-slate-500"
+            "text-[10px] font-extrabold uppercase tracking-widest",
+            darkMode ? "text-blue-400" : "text-blue-600"
           )}
         >
           Filtered
         </span>
         <span
           className={cx(
-            "text-base sm:text-lg font-black tabular-nums leading-none",
-            darkMode ? "text-white" : "text-slate-900"
+            "text-sm font-black tabular-nums",
+            darkMode ? "text-blue-200" : "text-blue-900"
           )}
         >
           {filtered}
         </span>
       </div>
 
+      {/* Item 3: Avg Chance */}
       <div
         className={cx(
-          "w-px h-8 shrink-0",
-          darkMode ? "bg-white/10" : "bg-slate-200"
+          "flex items-center gap-2 px-4 py-2 rounded-full border shadow-sm backdrop-blur-md transition-colors",
+          darkMode
+            ? "bg-emerald-900/30 border-emerald-800/50"
+            : "bg-emerald-50 border-emerald-200"
         )}
-      />
-
-      {/* Item 3: Avg Chance */}
-      <div className="flex flex-col justify-center shrink-0">
+      >
         <span
           className={cx(
-            "text-[10px] font-extrabold uppercase tracking-widest mb-1",
-            darkMode ? "text-slate-400" : "text-slate-500"
+            "text-[10px] font-extrabold uppercase tracking-widest",
+            darkMode ? "text-emerald-400" : "text-emerald-600"
           )}
         >
           Avg Chance
         </span>
         <span
           className={cx(
-            "text-base sm:text-lg font-black tabular-nums leading-none",
-            darkMode ? "text-emerald-400" : "text-emerald-600"
+            "text-sm font-black tabular-nums",
+            darkMode ? "text-emerald-200" : "text-emerald-900"
           )}
         >
           {avgChance}%
         </span>
       </div>
 
+      {/* Item 4: Avg Rating */}
       <div
         className={cx(
-          "w-px h-8 shrink-0",
-          darkMode ? "bg-white/10" : "bg-slate-200"
+          "flex items-center gap-2 px-4 py-2 rounded-full border shadow-sm backdrop-blur-md transition-colors",
+          darkMode
+            ? "bg-indigo-900/30 border-indigo-800/50"
+            : "bg-indigo-50 border-indigo-200"
         )}
-      />
-
-      {/* Item 4: Avg Rating */}
-      <div className="flex flex-col justify-center shrink-0">
+      >
         <span
           className={cx(
-            "text-[10px] font-extrabold uppercase tracking-widest mb-1",
-            darkMode ? "text-slate-400" : "text-slate-500"
+            "text-[10px] font-extrabold uppercase tracking-widest",
+            darkMode ? "text-indigo-400" : "text-indigo-600"
           )}
         >
           Avg Rating
         </span>
         <span
           className={cx(
-            "text-base sm:text-lg font-black tabular-nums leading-none",
-            darkMode ? "text-blue-400" : "text-blue-600"
+            "text-sm font-black tabular-nums",
+            darkMode ? "text-indigo-200" : "text-indigo-900"
           )}
         >
           {avgRating}
         </span>
       </div>
 
+      {/* Item 5: Premium Targets */}
       <div
         className={cx(
-          "w-px h-8 shrink-0 hidden sm:block",
-          darkMode ? "bg-white/10" : "bg-slate-200"
+          "flex items-center gap-2 px-4 py-2 rounded-full border shadow-[0_0_15px_rgba(245,158,11,0.15)] backdrop-blur-md transition-all",
+          darkMode
+            ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+            : "bg-amber-50 border-amber-300 text-amber-700"
         )}
-      />
-
-      {/* Item 5: Premium Targets */}
-      <div className="flex flex-col justify-center shrink-0">
-        <span
-          className={cx(
-            "text-[10px] font-extrabold uppercase tracking-widest mb-1",
-            darkMode ? "text-amber-500/80" : "text-amber-600/80"
-          )}
-        >
+      >
+        <Zap size={14} className={darkMode ? "fill-amber-400" : "fill-amber-500"} />
+        <span className="text-[10px] font-extrabold uppercase tracking-widest">
           +EV Targets
         </span>
-        <span
-          className={cx(
-            "flex items-center gap-1.5 text-base sm:text-lg font-black tabular-nums leading-none",
-            darkMode ? "text-amber-400" : "text-amber-600"
-          )}
-        >
-          <Zap size={16} className="fill-current" />
-          {premiumCount}
-        </span>
+        <span className="text-sm font-black tabular-nums">{premiumCount}</span>
       </div>
     </div>
   );

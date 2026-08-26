@@ -488,6 +488,28 @@ export default function FutureBetDashboard() {
     isAdmin,
   ]);
 
+  
+  const clearanceBadgeColors = useMemo(() => {
+    if (isAdmin) {
+      return darkMode
+        ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
+        : "bg-purple-50 text-purple-600 border border-purple-200";
+    }
+    if (isPremium) {
+      return darkMode
+        ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+        : "bg-amber-50 text-amber-600 border border-amber-200";
+    }
+    if (isSilver) {
+      return darkMode
+        ? "bg-slate-300/10 text-slate-300 border border-slate-300/20"
+        : "bg-slate-100 text-slate-600 border border-slate-300";
+    }
+    return darkMode
+      ? "bg-gray-500/10 text-gray-400 border border-gray-500/20"
+      : "bg-gray-50 text-gray-500 border border-gray-200";
+  }, [isAdmin, isPremium, isSilver, darkMode]);
+
   const accountBadge = useMemo(() => {
     if (isAdmin) return "Admin";
     if (isPremium) return "Premium";
@@ -614,21 +636,11 @@ export default function FutureBetDashboard() {
                   </span>
                 </div>
                 <h1 className="sr-only">Futurebet - AI Football Predictions & VIP Betting Analytics</h1>
-                <h2
-                  className={cn(
-                    "text-3xl sm:text-4xl font-black tracking-tighter uppercase",
-                    darkMode ? "text-white" : "text-slate-900"
-                  )}
-                >
-                  {activeTabMeta.title}
+                <h2 className={cn("text-3xl sm:text-4xl font-black tracking-tighter uppercase", darkMode ? "text-white" : "text-slate-900")}>
+                  COMMAND CENTER
                 </h2>
-                <p
-                  className={cn(
-                    "mt-2 max-w-xl text-sm font-semibold",
-                    darkMode ? "text-slate-300" : "text-slate-600"
-                  )}
-                >
-                  {activeTabMeta.subtitle}
+                <p className={cn("mt-2 max-w-xl text-sm font-semibold", darkMode ? "text-slate-300" : "text-slate-600")}>
+                  Real-time algorithmic match intelligence.
                 </p>
               </div>
 
@@ -679,9 +691,7 @@ export default function FutureBetDashboard() {
                     <div
                       className={cn(
                         "h-10 w-10 rounded-2xl flex items-center justify-center shadow-inner",
-                        darkMode
-                          ? "bg-violet-500/10 text-violet-400 border border-violet-500/20"
-                          : "bg-violet-50 text-violet-600 border border-violet-200"
+                        clearanceBadgeColors
                       )}
                     >
                       <Shield size={18} />

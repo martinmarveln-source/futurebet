@@ -25,6 +25,7 @@ export function ExploreFilters({
   filterPanelProps,
   sortBy,
   setSortBy,
+  noBorder,
 }) {
   const handleChanceChange = (val) => {
     let num = Number(val);
@@ -43,11 +44,12 @@ export function ExploreFilters({
   return (
     <div
       className={cn(
-        // 🔥 FIX: Added 'relative' and 'z-50' to ensure menus stay on top of the banner
-        "relative z-50 rounded-[32px] border p-4 sm:p-5 mb-6 shadow-sm transition-all",
-        darkMode
-          ? "bg-white/[0.02] border-white/5 backdrop-blur-xl"
-          : "bg-white/80 border-gray-200 backdrop-blur-xl"
+        "relative z-50 p-4 sm:p-5 transition-all",
+        noBorder
+          ? "bg-transparent"
+          : darkMode
+          ? "rounded-[32px] border border-white/5 bg-white/[0.02] shadow-sm mb-6 backdrop-blur-xl"
+          : "rounded-[32px] border border-gray-200 bg-white/80 shadow-sm mb-6 backdrop-blur-xl"
       )}
     >
       {/* Toolstrip Header */}
@@ -227,8 +229,8 @@ export function ExploreFilters({
               <option value="withOdds">With Odds</option>
             </select>
             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
-              ▼
-            </div>
+                  ▼
+                </div>
           </div>
 
           <div className="relative w-full sm:w-[160px]">
@@ -244,17 +246,17 @@ export function ExploreFilters({
               )}
             >
               <option value="all">Any Odds</option>
-              <option value="1.1-1.49">1.10 – 1.49 (Ultra Safe)</option>
-              <option value="1.5-1.99">1.50 – 1.99 (Solid Value)</option>
-              <option value="2-2.99">2.00 – 2.99 (High Return)</option>
+              <option value="1.1-1.49">1.10 — 1.49 (Ultra Safe)</option>
+              <option value="1.5-1.99">1.50 — 1.99 (Solid Value)</option>
+              <option value="2-2.99">2.00 — 2.99 (High Return)</option>
               <option value="3+">3.00+ (Extreme Edge)</option>
               <option value="value-edge">Positive Value Edge</option>
               <option value="ev-system">EV System Match</option>
               <option value="push-alerts">Push/Telegram Alerts</option>
             </select>
             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
-              ▼
-            </div>
+                  ▼
+                </div>
           </div>
         </div>
       </div>
