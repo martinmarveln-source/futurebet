@@ -51,7 +51,7 @@ export function ExploreTab({
 
       <div
         className={cn(
-          "rounded-[24px] border mb-6 flex flex-col overflow-hidden transition-all duration-300",
+          "rounded-[24px] border mb-6 flex flex-col transition-all duration-300 relative",
           darkMode ? "bg-[#0b1120] border-white/10" : "bg-white border-gray-200"
         )}
       >
