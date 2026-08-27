@@ -88,11 +88,11 @@ export async function GET(request: Request) {
     };
 
     // Helper to get top 15 teams
-    const getTop15 = (getValue: (t: any) => number, isAsc: boolean = false) => {
+    const getTop15 = (getValue: (t: any) => number, isAsc: boolean = false, gpOverride?: (t: any) => number) => {
       return [...validTeams]
         .sort((a, b) => isAsc ? getValue(a) - getValue(b) : getValue(b) - getValue(a))
         .slice(0, 15)
-        .map(t => ({ team: t.team, league: t.league, country: t.country, value: getValue(t), gp: getGp(t) }));
+        .map(t => ({ team: t.team, league: t.league, country: t.country, value: getValue(t), gp: gpOverride ? gpOverride(t) : getGp(t) }));
     };
 
     const teamData = {
@@ -111,6 +111,10 @@ export async function GET(request: Request) {
       cleanSheet: getTop15(t => getStat(t, 'CS')),
       bestHome: getTop15(t => parsePct(t.market_stats.Home_Win)),
       worstHome: getTop15(t => parsePct(t.market_stats.Home_Win), true), // Ascending
+      hgsO15: getTop15(t => parsePct(t.market_stats.HGS_Over_15 ?? t.market_stats["HGS_Over_1.5"]), false, t => parseInt(t.market_stats.GP_HOME || '0', 10) || 0),
+      hgcO15: getTop15(t => parsePct(t.market_stats.HGC_Over_15 ?? t.market_stats["HGC_Over_1.5"]), false, t => parseInt(t.market_stats.GP_HOME || '0', 10) || 0),
+      agsO15: getTop15(t => parsePct(t.market_stats.AGS_Over_15 ?? t.market_stats["AGS_Over_1.5"]), false, t => parseInt(t.market_stats.GP_AWAY || '0', 10) || 0),
+      agcO15: getTop15(t => parsePct(t.market_stats.AGC_Over_15 ?? t.market_stats["AGC_Over_1.5"]), false, t => parseInt(t.market_stats.GP_AWAY || '0', 10) || 0),
     };
 
     // Calculate League Insights by grouping
@@ -139,6 +143,10 @@ export async function GET(request: Request) {
           u35: lTeams.reduce((sum, t) => sum + getInverse(t, 'O35'), 0) / lTeams.length,
           o45: lTeams.reduce((sum, t) => sum + getStat(t, 'O45'), 0) / lTeams.length,
           u45: lTeams.reduce((sum, t) => sum + getInverse(t, 'O45'), 0) / lTeams.length,
+          hgsO15: lTeams.reduce((sum, t) => sum + parsePct(t.market_stats.HGS_Over_15 ?? t.market_stats["HGS_Over_1.5"]), 0) / lTeams.length,
+          hgcO15: lTeams.reduce((sum, t) => sum + parsePct(t.market_stats.HGC_Over_15 ?? t.market_stats["HGC_Over_1.5"]), 0) / lTeams.length,
+          agsO15: lTeams.reduce((sum, t) => sum + parsePct(t.market_stats.AGS_Over_15 ?? t.market_stats["AGS_Over_1.5"]), 0) / lTeams.length,
+          agcO15: lTeams.reduce((sum, t) => sum + parsePct(t.market_stats.AGC_Over_15 ?? t.market_stats["AGC_Over_1.5"]), 0) / lTeams.length,
         };
       });
 
@@ -160,6 +168,10 @@ export async function GET(request: Request) {
       u35: getTop15Leagues('u35'),
       o45: getTop15Leagues('o45'),
       u45: getTop15Leagues('u45'),
+      hgsO15: getTop15Leagues('hgsO15'),
+      hgcO15: getTop15Leagues('hgcO15'),
+      agsO15: getTop15Leagues('agsO15'),
+      agcO15: getTop15Leagues('agcO15'),
     };
 
     return NextResponse.json({
