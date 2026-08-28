@@ -618,6 +618,7 @@ async function buildPicksData() {
           rating,
           vipScore,
           routeLinks,
+          raw: match,
         });
       }
 
