@@ -202,10 +202,9 @@ export default function BetSlip({ darkMode = false }) {
   // 🔥 UX FIX: Dedicated button for quick Singles
   const handleQuickStakeSingles = (amt) => {
     if (validMatches.length > 0) {
-      setSystemStakes((prev) => ({
-        ...prev,
+      setSystemStakes({
         [1]: amt,
-      }));
+      });
     }
   };
 
@@ -213,10 +212,9 @@ export default function BetSlip({ darkMode = false }) {
   const handleQuickStakeAll = (amt) => {
     const n = validMatches.length;
     if (n > 0) {
-      setSystemStakes((prev) => ({
-        ...prev,
+      setSystemStakes({
         [n]: amt,
-      }));
+      });
     }
   };
 
