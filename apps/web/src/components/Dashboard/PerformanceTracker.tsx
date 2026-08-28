@@ -9,7 +9,7 @@ import {
   fairOddsFromChance, 
   formatNaira 
 } from "@/utils/matchUtils";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import {
   Target,
   DollarSign,
@@ -634,7 +634,8 @@ export default function PerformanceTracker({ darkMode }) {
   }, [performanceData?.tickets, localTrackedTickets]);
 
   const visibleTickets = showAllTickets ? tickets : tickets.slice(0, 5);
-  const [syncingIds, setSyncingIds] = useState({});
+  const syncingRefs = useRef({});
+  const [syncAlerts, setSyncAlerts] = useState({});
 
   // Syncer runs through the local tickets sequentially
   useEffect(() => {
@@ -644,18 +645,20 @@ export default function PerformanceTracker({ darkMode }) {
       for (const t of locals) {
         const id = t?.ticket_id;
         if (!id) continue;
-        if (syncingIds[id]) continue;
+        if (syncingRefs.current[id]) continue; // Prevent race conditions synchronously
+        
         const stakeNow = sanitizeStake(getEffectiveStake(t));
         if (!stakeNow) continue;
         if (!canAffordStake(stakeNow)) {
-          if (!syncingIds[`alert_${id}`]) {
-            setSyncingIds((p) => ({ ...p, [`alert_${id}`]: true }));
+          if (!syncAlerts[`alert_${id}`]) {
+            setSyncAlerts((p) => ({ ...p, [`alert_${id}`]: true }));
             alert("Your Balance is lower than your Stake");
           }
           continue;
         }
+        
         try {
-          setSyncingIds((p) => ({ ...p, [id]: true }));
+          syncingRefs.current[id] = true;
           await createTicketCloudMutation.mutateAsync({
             ticketCode: id,
             matches: t.selections || [],
@@ -666,8 +669,7 @@ export default function PerformanceTracker({ darkMode }) {
           deleteLocalTicket(id);
         } catch (e) {
           console.error(e);
-        } finally {
-          setSyncingIds((p) => ({ ...p, [id]: false }));
+          syncingRefs.current[id] = false; // Only allow retry on failure
         }
       }
     };
