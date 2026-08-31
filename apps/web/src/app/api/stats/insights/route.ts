@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     
     // Always fetch upcoming matches to display predictions/odds
     const allUpcomingMatches = await sql`
-      SELECT home_team, away_team, league, raw_data 
+      SELECT home_team, away_team, league, raw_data, match_date, match_time 
       FROM matches_cache 
       WHERE match_date >= ${today}::date
         AND raw_data IS NOT NULL
@@ -43,10 +43,10 @@ export async function GET(request: Request) {
       }
 
       if (h && !nextMatchMap.has(h)) {
-        nextMatchMap.set(h, { opponent: m.away_team, isHome: true, raw });
+        nextMatchMap.set(h, { opponent: m.away_team, isHome: true, raw, date: m.match_date, time: m.match_time });
       }
       if (a && !nextMatchMap.has(a)) {
-        nextMatchMap.set(a, { opponent: m.home_team, isHome: false, raw });
+        nextMatchMap.set(a, { opponent: m.home_team, isHome: false, raw, date: m.match_date, time: m.match_time });
       }
     }
 
@@ -131,9 +131,13 @@ export async function GET(request: Request) {
         let prediction = null;
         let odds = null;
         let nextOpponent = null;
+        let nextDate = null;
+        let nextTime = null;
 
         if (nextMatchInfo && baseStatKey) {
           nextOpponent = nextMatchInfo.opponent;
+          nextDate = nextMatchInfo.date;
+          nextTime = nextMatchInfo.time;
           const oppName = nextOpponent.trim().toLowerCase();
           const oppTeamObj = validTeams.find(vt => vt.team?.trim().toLowerCase() === oppName) 
                           || teams.find(vt => vt.team?.trim().toLowerCase() === oppName);
@@ -179,6 +183,8 @@ export async function GET(request: Request) {
           value: getValue(t), 
           gp: gpOverride ? gpOverride(t) : getGp(t),
           nextOpponent,
+          nextDate,
+          nextTime,
           opponentStatValue,
           opponentGp,
           prediction,

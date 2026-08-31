@@ -175,68 +175,101 @@ export default function InsightsPage() {
                   </div>
                   <h2 className="text-lg font-bold text-white leading-tight">{sec.title}</h2>
                 </div>
-                <div className="space-y-2 flex-grow">
-                  {items.map((item: any, idx: number) => {
-                    const hasNextMatch = viewType === 'team' && item.nextOpponent;
-                    
-                    const content = (
-                      <div className="grid grid-cols-[16px_1fr_auto_auto_auto] items-center gap-2 w-full">
-                        {/* Rank */}
-                        <span className="text-xs font-bold text-slate-500 text-center">{idx + 1}</span>
-
-                        {/* Team Info */}
-                        <div className="min-w-0 flex flex-col">
-                          <div className="truncate">
-                            <span className="font-bold text-white text-[13px]">{viewType === 'team' ? item.team : item.league}</span>
-                            {hasNextMatch && (
-                              <span className="text-slate-400 text-[11px] ml-1.5 hidden sm:inline">
-                                vs <span className="text-slate-300">{item.nextOpponent}</span>
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[9px] text-slate-500 uppercase tracking-wider truncate">
-                            {item.country} {viewType === 'team' ? `| ${item.league}` : ''}
-                            {hasNextMatch && (
-                              <span className="sm:hidden ml-1 text-slate-600">| vs {item.nextOpponent}</span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Column 1: Current Form */}
-                        <div className={`font-black text-[11px] w-[65px] text-right ${sec.color} truncate`}>
-                          {item.gp ? `${Math.round((item.value / 100) * item.gp)}/${item.gp} (${Math.round(item.value)}%)` : `${Math.round(item.value)}%`}
-                        </div>
+                <div className="flex-grow overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-800 text-[10px] text-slate-500 uppercase tracking-wider">
+                        <th className="py-2 px-2 font-semibold">SN</th>
+                        <th className="py-2 px-2 font-semibold min-w-[150px]">{viewType === 'team' ? 'Team' : 'League'}</th>
+                        <th className="py-2 px-2 font-semibold text-center">GP</th>
+                        <th className="py-2 px-2 font-semibold text-center">%</th>
+                        {viewType === 'team' && (
+                          <>
+                            <th className="py-2 px-2 font-semibold min-w-[100px]">Next Match</th>
+                            <th className="py-2 px-2 font-semibold min-w-[120px]">Against</th>
+                            <th className="py-2 px-2 font-semibold text-center">Prediction</th>
+                            <th className="py-2 px-2 font-semibold text-center">Odds</th>
+                          </>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/50">
+                      {items.map((item: any, idx: number) => {
+                        const hasNextMatch = viewType === 'team' && item.nextOpponent;
                         
-                        {/* Column 2: Prediction Avg */}
-                        <div className="w-[35px] text-right flex justify-end">
-                          {hasNextMatch && item.prediction !== null && !isNaN(item.prediction) ? (
-                            <span className="text-blue-400 text-[11px] font-bold bg-blue-500/10 px-1 py-0.5 rounded" title="Combined Venue Average Prediction">
-                              {Math.round(item.prediction)}%
-                            </span>
-                          ) : null}
-                        </div>
+                        // Format date if available
+                        let matchDateStr = "-";
+                        if (hasNextMatch && item.nextDate) {
+                          try {
+                            const d = new Date(item.nextDate);
+                            matchDateStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                            if (item.nextTime) {
+                               const timeParts = item.nextTime.split(':');
+                               if (timeParts.length >= 2) matchDateStr += ` ${timeParts[0]}:${timeParts[1]}`;
+                            }
+                          } catch (e) {}
+                        }
+                        
+                        const val = Math.round(item.value);
 
-                        {/* Column 3: Odds */}
-                        <div className="w-[35px] text-right flex justify-end">
-                          {hasNextMatch && item.odds !== null && Number(item.odds) > 0 ? (
-                            <span className="text-emerald-400 text-[11px] font-bold bg-emerald-500/10 px-1 py-0.5 rounded" title="Market Odds">
-                              {Number(item.odds).toFixed(2)}
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
-                    );
-
-                    return viewType === 'team' ? (
-                      <Link href={`/stats/team/${encodeURIComponent(item.team)}?league=${encodeURIComponent(item.league)}&country=${encodeURIComponent(item.country)}`} key={idx} className="flex p-2.5 rounded-lg bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors w-full">
-                        {content}
-                      </Link>
-                    ) : (
-                      <Link href={`/stats/league/${encodeURIComponent(item.league)}?country=${encodeURIComponent(item.country)}`} key={idx} className="flex p-2.5 rounded-lg bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors w-full">
-                        {content}
-                      </Link>
-                    )
-                  })}
+                        return (
+                          <tr key={idx} className="hover:bg-slate-800/30 transition-colors group">
+                            <td className="py-2.5 px-2 text-xs font-bold text-slate-500">
+                              {idx + 1}
+                            </td>
+                            <td className="py-2.5 px-2">
+                              {viewType === 'team' ? (
+                                <Link href={`/stats/team/${encodeURIComponent(item.team)}?league=${encodeURIComponent(item.league)}&country=${encodeURIComponent(item.country)}`} className="block truncate hover:text-blue-400">
+                                  <div className="font-bold text-white text-[13px]">{item.team}</div>
+                                  <div className="text-[9px] text-slate-500 uppercase tracking-wider truncate">{item.country} | {item.league}</div>
+                                </Link>
+                              ) : (
+                                <Link href={`/stats/league/${encodeURIComponent(item.league)}?country=${encodeURIComponent(item.country)}`} className="block truncate hover:text-blue-400">
+                                  <div className="font-bold text-white text-[13px]">{item.league}</div>
+                                  <div className="text-[9px] text-slate-500 uppercase tracking-wider truncate">{item.country}</div>
+                                </Link>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-2 text-center text-[12px] text-slate-300 font-medium">
+                              {item.gp ? `${Math.round((item.value / 100) * item.gp)}/${item.gp}` : '-'}
+                            </td>
+                            <td className={`py-2.5 px-2 text-center text-[12px] font-black ${sec.color}`}>
+                              {val}%
+                            </td>
+                            
+                            {viewType === 'team' && (
+                              <>
+                                <td className="py-2.5 px-2 text-[11px] text-slate-400 whitespace-nowrap">
+                                  {matchDateStr}
+                                </td>
+                                <td className="py-2.5 px-2 text-[12px] text-slate-300 truncate max-w-[120px]" title={item.nextOpponent}>
+                                  {hasNextMatch ? item.nextOpponent : '-'}
+                                </td>
+                                <td className="py-2.5 px-2 text-center">
+                                  {hasNextMatch && item.prediction !== null && !isNaN(item.prediction) ? (
+                                    <span className="text-blue-400 text-[11px] font-bold bg-blue-500/10 px-1.5 py-0.5 rounded inline-block min-w-[36px]">
+                                      {Math.round(item.prediction)}%
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-600 text-[11px]">-</span>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-2 text-center">
+                                  {hasNextMatch && item.odds !== null && Number(item.odds) > 0 ? (
+                                    <span className="text-emerald-400 text-[11px] font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded inline-block min-w-[36px]">
+                                      {Number(item.odds).toFixed(2)}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-600 text-[11px]">-</span>
+                                  )}
+                                </td>
+                              </>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             );
