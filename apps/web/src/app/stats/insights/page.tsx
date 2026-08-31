@@ -160,7 +160,7 @@ export default function InsightsPage() {
         <div className="relative min-h-[400px]">
           {isLocked && <PremiumOverlay message="Premium Insights Locked" />}
           
-          <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 ${isLocked ? 'opacity-20 pointer-events-none filter blur-[2px]' : ''}`}>
+          <div className={`grid grid-cols-1 xl:grid-cols-2 gap-6 ${isLocked ? 'opacity-20 pointer-events-none filter blur-[2px]' : ''}`}>
             {sections.map(sec => {
               const Icon = sec.icon;
               // If locked, render some dummy data to make the background blur look realistic
