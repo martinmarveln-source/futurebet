@@ -177,31 +177,59 @@ export default function InsightsPage() {
                 </div>
                 <div className="space-y-2 flex-grow">
                   {items.map((item: any, idx: number) => {
+                    const hasNextMatch = viewType === 'team' && item.nextOpponent;
+                    
                     const content = (
-                      <>
+                      <div className="flex items-center justify-between w-full gap-2">
+                        {/* Left Side: Rank, Team, Opponent, League */}
                         <div className="flex items-center gap-3 overflow-hidden">
                           <span className="text-xs font-bold text-slate-500 w-4 flex-shrink-0">{idx + 1}</span>
                           <div className="truncate">
-                            <div className="font-bold text-white text-sm truncate hover:text-blue-400 transition-colors">
-                              {viewType === 'team' ? item.team : item.league}
+                            <div className="flex items-baseline gap-1.5 font-bold text-white text-sm truncate hover:text-blue-400 transition-colors">
+                              <span>{viewType === 'team' ? item.team : item.league}</span>
+                              {hasNextMatch && (
+                                <span className="text-[10px] text-slate-400 font-normal truncate hidden sm:inline" title="Next Opponent Stat">
+                                  vs {item.nextOpponent} <span className="opacity-60">({item.opponentGp}g, {Math.round(item.opponentStatValue)}%)</span>
+                                </span>
+                              )}
                             </div>
-                            <div className="text-[10px] text-slate-400 uppercase tracking-wider truncate">
-                              {item.country} {viewType === 'team' ? `• ${item.league}` : ''}
+                            <div className="text-[10px] text-slate-400 uppercase tracking-wider truncate flex items-center gap-1">
+                              {item.country} {viewType === 'team' ? `| ${item.league}` : ''}
+                              {/* Mobile fallback for opponent info */}
+                              {hasNextMatch && (
+                                <span className="text-[9px] text-slate-500 font-normal truncate sm:hidden">
+                                  | vs {item.nextOpponent}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
-                        <div className={`font-black text-[13px] flex-shrink-0 text-right ${sec.color}`}>
-                          {item.gp ? `${Math.round((item.value / 100) * item.gp)}/${item.gp} (${Math.round(item.value)}%)` : `${Math.round(item.value)}%`}
+
+                        {/* Right Side: Stats, Prediction, Odds */}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className={`font-black text-[13px] text-right ${sec.color}`}>
+                            {item.gp ? `${Math.round((item.value / 100) * item.gp)}/${item.gp} (${Math.round(item.value)}%)` : `${Math.round(item.value)}%`}
+                          </div>
+                          {hasNextMatch && item.prediction !== null && (
+                            <div className="text-blue-400 text-[11px] font-bold bg-blue-500/10 px-1.5 py-0.5 rounded" title="Combined Venue Average Prediction">
+                              {Math.round(item.prediction)}%
+                            </div>
+                          )}
+                          {hasNextMatch && item.odds !== null && (
+                            <div className="text-emerald-400 text-[11px] font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded" title="Market Odds">
+                              {Number(item.odds).toFixed(2)}
+                            </div>
+                          )}
                         </div>
-                      </>
+                      </div>
                     );
 
                     return viewType === 'team' ? (
-                      <Link href={`/stats/team/${encodeURIComponent(item.team)}?league=${encodeURIComponent(item.league)}&country=${encodeURIComponent(item.country)}`} key={idx} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors">
+                      <Link href={`/stats/team/${encodeURIComponent(item.team)}?league=${encodeURIComponent(item.league)}&country=${encodeURIComponent(item.country)}`} key={idx} className="flex p-2.5 rounded-lg bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors w-full">
                         {content}
                       </Link>
                     ) : (
-                      <Link href={`/stats/league/${encodeURIComponent(item.league)}?country=${encodeURIComponent(item.country)}`} key={idx} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors">
+                      <Link href={`/stats/league/${encodeURIComponent(item.league)}?country=${encodeURIComponent(item.country)}`} key={idx} className="flex p-2.5 rounded-lg bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors w-full">
                         {content}
                       </Link>
                     )

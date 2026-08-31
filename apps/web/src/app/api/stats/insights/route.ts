@@ -20,9 +20,38 @@ export async function GET(request: Request) {
 
     const rows = await sql`SELECT * FROM league_table_cache`;
 
+    const today = new Date().toISOString().split("T")[0];
+    
+    // Always fetch upcoming matches to display predictions/odds
+    const allUpcomingMatches = await sql`
+      SELECT home_team, away_team, league, raw_data 
+      FROM matches_cache 
+      WHERE match_date >= ${today}::date
+        AND raw_data IS NOT NULL
+      ORDER BY match_date ASC, match_time ASC
+    `;
+
+    // Map each team to their immediate next match
+    const nextMatchMap = new Map();
+    for (const m of allUpcomingMatches) {
+      const h = m.home_team?.trim().toLowerCase();
+      const a = m.away_team?.trim().toLowerCase();
+      
+      let raw = m.raw_data;
+      if (typeof raw === "string") {
+        try { raw = JSON.parse(raw); } catch (e) { raw = {}; }
+      }
+
+      if (h && !nextMatchMap.has(h)) {
+        nextMatchMap.set(h, { opponent: m.away_team, isHome: true, raw });
+      }
+      if (a && !nextMatchMap.has(a)) {
+        nextMatchMap.set(a, { opponent: m.home_team, isHome: false, raw });
+      }
+    }
+
     let dateFilterSet: Set<string> | null = null;
     if (startDate || endDate) {
-      const today = new Date().toISOString().split("T")[0];
       const start = startDate || today;
       const end = endDate || '2099-12-31';
       
@@ -44,7 +73,7 @@ export async function GET(request: Request) {
       }
     }
 
-    const teams = rows.map(r => {
+    const teams = rows.map((r: any) => {
       let ms = r.market_stats;
       if (typeof ms === "string" && ms) {
         try { ms = JSON.parse(ms); } catch (e) {}
@@ -88,33 +117,96 @@ export async function GET(request: Request) {
     };
 
     // Helper to get top 15 teams
-    const getTop15 = (getValue: (t: any) => number, isAsc: boolean = false, gpOverride?: (t: any) => number) => {
-      return [...validTeams]
+    const getTop15 = (getValue: (t: any) => number, isAsc: boolean = false, gpOverride?: (t: any) => number, marketKey?: string, baseStatKey?: string) => {
+      const top15 = [...validTeams]
         .sort((a, b) => isAsc ? getValue(a) - getValue(b) : getValue(b) - getValue(a))
-        .slice(0, 15)
-        .map(t => ({ team: t.team, league: t.league, country: t.country, value: getValue(t), gp: gpOverride ? gpOverride(t) : getGp(t) }));
+        .slice(0, 15);
+
+      return top15.map(t => {
+        const tName = t.team?.trim().toLowerCase();
+        const nextMatchInfo = nextMatchMap.get(tName);
+        
+        let opponentStatValue = null;
+        let opponentGp = null;
+        let prediction = null;
+        let odds = null;
+        let nextOpponent = null;
+
+        if (nextMatchInfo && baseStatKey) {
+          nextOpponent = nextMatchInfo.opponent;
+          const oppName = nextOpponent.trim().toLowerCase();
+          const oppTeamObj = validTeams.find(vt => vt.team?.trim().toLowerCase() === oppName) 
+                          || teams.find(vt => vt.team?.trim().toLowerCase() === oppName);
+          
+          if (oppTeamObj) {
+            const teamVenueKey = nextMatchInfo.isHome ? '_HOME' : '_AWAY';
+            const oppVenueKey = nextMatchInfo.isHome ? '_AWAY' : '_HOME';
+            
+            let tVal, oVal;
+            
+            if (baseStatKey.includes('HGS') || baseStatKey.includes('HGC') || baseStatKey.includes('AGS') || baseStatKey.includes('AGC')) {
+               tVal = getValue(t);
+               oVal = getValue(oppTeamObj);
+            } else {
+               const rawTeamVal = parsePct(t.market_stats[`${baseStatKey}${teamVenueKey}`]);
+               const rawOppVal = parsePct(oppTeamObj.market_stats[`${baseStatKey}${oppVenueKey}`]);
+               
+               const isInverse = marketKey?.startsWith('U') || marketKey?.startsWith('N');
+               
+               tVal = isInverse ? 100 - rawTeamVal : rawTeamVal;
+               oVal = isInverse ? 100 - rawOppVal : rawOppVal;
+            }
+
+            opponentStatValue = oVal;
+            prediction = (tVal + oVal) / 2;
+            opponentGp = parseInt(oppTeamObj.market_stats[nextMatchInfo.isHome ? 'GP_AWAY' : 'GP_HOME'] || '0', 10) || 0;
+          }
+
+          if (marketKey) {
+            const raw = nextMatchInfo.raw;
+            if (marketKey === 'BTTS' || marketKey === 'NBTTS') odds = raw.bttsOdds;
+            else if (marketKey === 'O15' || marketKey === 'U15') odds = raw.o15Odds;
+            else if (marketKey === 'O25' || marketKey === 'U25') odds = raw.o25Odds;
+            else if (marketKey === 'O35' || marketKey === 'U35') odds = raw.o35Odds;
+            else if (marketKey === 'O45' || marketKey === 'U45') odds = raw.o45Odds;
+          }
+        }
+
+        return { 
+          team: t.team, 
+          league: t.league, 
+          country: t.country, 
+          value: getValue(t), 
+          gp: gpOverride ? gpOverride(t) : getGp(t),
+          nextOpponent,
+          opponentStatValue,
+          opponentGp,
+          prediction,
+          odds
+        };
+      });
     };
 
     const teamData = {
-      btts: getTop15(t => getStat(t, 'BTTS')),
-      nbtts: getTop15(t => getInverse(t, 'BTTS')),
-      o15: getTop15(t => getStat(t, 'O15')),
-      u15: getTop15(t => getInverse(t, 'O15')),
-      o25: getTop15(t => getStat(t, 'O25')),
-      u25: getTop15(t => getInverse(t, 'O25')),
-      o35: getTop15(t => getStat(t, 'O35')),
-      u35: getTop15(t => getInverse(t, 'O35')),
-      o45: getTop15(t => getStat(t, 'O45')),
-      u45: getTop15(t => getInverse(t, 'O45')),
-      fts: getTop15(t => getStat(t, 'FTS')),
-      nfts: getTop15(t => getInverse(t, 'FTS')),
-      cleanSheet: getTop15(t => getStat(t, 'CS')),
-      bestHome: getTop15(t => parsePct(t.market_stats.Home_Win)),
-      worstHome: getTop15(t => parsePct(t.market_stats.Home_Win), true), // Ascending
-      hgsO15: getTop15(t => parsePct(t.market_stats.HGS_Over_15 ?? t.market_stats["HGS_Over_1.5"]), false, t => parseInt(t.market_stats.GP_HOME || '0', 10) || 0),
-      hgcO15: getTop15(t => parsePct(t.market_stats.HGC_Over_15 ?? t.market_stats["HGC_Over_1.5"]), false, t => parseInt(t.market_stats.GP_HOME || '0', 10) || 0),
-      agsO15: getTop15(t => parsePct(t.market_stats.AGS_Over_15 ?? t.market_stats["AGS_Over_1.5"]), false, t => parseInt(t.market_stats.GP_AWAY || '0', 10) || 0),
-      agcO15: getTop15(t => parsePct(t.market_stats.AGC_Over_15 ?? t.market_stats["AGC_Over_1.5"]), false, t => parseInt(t.market_stats.GP_AWAY || '0', 10) || 0),
+      btts: getTop15(t => getStat(t, 'BTTS'), false, undefined, 'BTTS', 'BTTS'),
+      nbtts: getTop15(t => getInverse(t, 'BTTS'), false, undefined, 'NBTTS', 'BTTS'),
+      o15: getTop15(t => getStat(t, 'O15'), false, undefined, 'O15', 'O15'),
+      u15: getTop15(t => getInverse(t, 'O15'), false, undefined, 'U15', 'O15'),
+      o25: getTop15(t => getStat(t, 'O25'), false, undefined, 'O25', 'O25'),
+      u25: getTop15(t => getInverse(t, 'O25'), false, undefined, 'U25', 'O25'),
+      o35: getTop15(t => getStat(t, 'O35'), false, undefined, 'O35', 'O35'),
+      u35: getTop15(t => getInverse(t, 'O35'), false, undefined, 'U35', 'O35'),
+      o45: getTop15(t => getStat(t, 'O45'), false, undefined, 'O45', 'O45'),
+      u45: getTop15(t => getInverse(t, 'O45'), false, undefined, 'U45', 'O45'),
+      fts: getTop15(t => getStat(t, 'FTS'), false, undefined, undefined, 'FTS'),
+      nfts: getTop15(t => getInverse(t, 'FTS'), false, undefined, undefined, 'FTS'),
+      cleanSheet: getTop15(t => getStat(t, 'CS'), false, undefined, undefined, 'CS'),
+      bestHome: getTop15(t => parsePct(t.market_stats.Home_Win), false, undefined, undefined, 'Home_Win'),
+      worstHome: getTop15(t => parsePct(t.market_stats.Home_Win), true, undefined, undefined, 'Home_Win'), // Ascending
+      hgsO15: getTop15(t => parsePct(t.market_stats.HGS_Over_15 ?? t.market_stats["HGS_Over_1.5"]), false, t => parseInt(t.market_stats.GP_HOME || '0', 10) || 0, 'O15', 'HGS_Over_15'),
+      hgcO15: getTop15(t => parsePct(t.market_stats.HGC_Over_15 ?? t.market_stats["HGC_Over_1.5"]), false, t => parseInt(t.market_stats.GP_HOME || '0', 10) || 0, 'O15', 'HGC_Over_15'),
+      agsO15: getTop15(t => parsePct(t.market_stats.AGS_Over_15 ?? t.market_stats["AGS_Over_1.5"]), false, t => parseInt(t.market_stats.GP_AWAY || '0', 10) || 0, 'O15', 'AGS_Over_15'),
+      agcO15: getTop15(t => parsePct(t.market_stats.AGC_Over_15 ?? t.market_stats["AGC_Over_1.5"]), false, t => parseInt(t.market_stats.GP_AWAY || '0', 10) || 0, 'O15', 'AGC_Over_15'),
     };
 
     // Calculate League Insights by grouping
