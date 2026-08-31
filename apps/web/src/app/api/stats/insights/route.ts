@@ -18,52 +18,12 @@ export async function GET(request: Request) {
     const startDate = searchParams.get("startDate") || "";
     const endDate = searchParams.get("endDate") || "";
 
-    
     const rows = await sql`SELECT * FROM league_table_cache`;
-
-    const today = new Date().toISOString().split("T")[0];
-    
-    // Always fetch upcoming matches to display predictions/odds
-    const allUpcomingMatches = await sql`
-      SELECT home_team, away_team, league, raw_data 
-      FROM matches_cache 
-      WHERE match_date >= ${today}::date
-        AND raw_data IS NOT NULL
-      ORDER BY match_date ASC, match_time ASC
-    `;
-
-    // Map each team to their immediate next match
-    const nextMatchMap = new Map();
-    for (const m of allUpcomingMatches) {
-      const h = m.home_team?.trim().toLowerCase();
-      const a = m.away_team?.trim().toLowerCase();
-      
-      let raw = m.raw_data;
-      if (typeof raw === "string") {
-        try { raw = JSON.parse(raw); } catch (e) { raw = {}; }
-      }
-
-      if (h && !nextMatchMap.has(h)) {
-        nextMatchMap.set(h, { opponent: m.away_team, isHome: true, raw });
-      }
-      if (a && !nextMatchMap.has(a)) {
-        nextMatchMap.set(a, { opponent: m.home_team, isHome: false, raw });
-      }
-    }
 
     let dateFilterSet: Set<string> | null = null;
     if (startDate || endDate) {
+      const today = new Date().toISOString().split("T")[0];
       const start = startDate || today;
-      const end = endDate || '2099-12-31';
-      
-      const matches = await sql`
-        SELECT home_team, away_team, league 
-        FROM matches_cache 
-        WHERE match_date >= ${start}::date 
-          AND match_date <= ${end}::date
-          AND raw_data IS NOT NULL
-      `;
-
       const end = endDate || '2099-12-31';
       
       const matches = await sql`
@@ -128,84 +88,11 @@ export async function GET(request: Request) {
     };
 
     // Helper to get top 15 teams
-    const getTop15 = (getValue: (t: any) => number, isAsc: boolean = false, gpOverride?: (t: any) => number, marketKey?: string, baseStatKey?: string) => {
-      const top15 = [...validTeams]
+    const getTop15 = (getValue: (t: any) => number, isAsc: boolean = false, gpOverride?: (t: any) => number) => {
+      return [...validTeams]
         .sort((a, b) => isAsc ? getValue(a) - getValue(b) : getValue(b) - getValue(a))
-        .slice(0, 15);
-
-      return top15.map(t => {
-        const tName = t.team?.trim().toLowerCase();
-        const nextMatchInfo = nextMatchMap.get(tName);
-        
-        let opponentStatValue = null;
-        let opponentGp = null;
-        let prediction = null;
-        let odds = null;
-        let nextOpponent = null;
-
-        if (nextMatchInfo && baseStatKey) {
-          nextOpponent = nextMatchInfo.opponent;
-          const oppName = nextOpponent.trim().toLowerCase();
-          const oppTeamObj = validTeams.find(vt => vt.team?.trim().toLowerCase() === oppName) 
-                          || teams.find(vt => vt.team?.trim().toLowerCase() === oppName);
-          
-          if (oppTeamObj) {
-            // Venue-specific logic for predictions:
-            // If team is Home, they use HOME stats, opponent uses AWAY stats.
-            const teamVenueKey = nextMatchInfo.isHome ? '_HOME' : '_AWAY';
-            const oppVenueKey = nextMatchInfo.isHome ? '_AWAY' : '_HOME';
-            
-            // Note: HGS/HGC/AGS/AGC are complex since they already imply venue, but for standard markets like O15, BTTS:
-            let tVal, oVal;
-            
-            if (baseStatKey.includes('HGS') || baseStatKey.includes('HGC') || baseStatKey.includes('AGS') || baseStatKey.includes('AGC')) {
-               // For derived venue stats, we just use the raw getValue because they don't have _HOME/_AWAY suffixes in market_stats easily
-               tVal = getValue(t);
-               oVal = getValue(oppTeamObj);
-            } else {
-               // Standard markets (BTTS, O15, etc.)
-               // The getStat logic normally uses keySuffix (from the current split filter). We override it here:
-               const rawTeamVal = parsePct(t.market_stats[`${baseStatKey}${teamVenueKey}`]);
-               const rawOppVal = parsePct(oppTeamObj.market_stats[`${baseStatKey}${oppVenueKey}`]);
-               
-               // If market is inverse (like Under 1.5, NBTTS), we invert it.
-               // We infer inverse if marketKey starts with 'U' (like U15) or 'N' (like NBTTS).
-               const isInverse = marketKey?.startsWith('U') || marketKey?.startsWith('N');
-               
-               tVal = isInverse ? 100 - rawTeamVal : rawTeamVal;
-               oVal = isInverse ? 100 - rawOppVal : rawOppVal;
-            }
-
-            opponentStatValue = oVal;
-            prediction = (tVal + oVal) / 2;
-            
-            // Get opponent GP for that venue
-            opponentGp = parseInt(oppTeamObj.market_stats[nextMatchInfo.isHome ? 'GP_AWAY' : 'GP_HOME'] || '0', 10) || 0;
-          }
-
-          if (marketKey) {
-            const raw = nextMatchInfo.raw;
-            if (marketKey === 'BTTS' || marketKey === 'NBTTS') odds = raw.bttsOdds;
-            else if (marketKey === 'O15' || marketKey === 'U15') odds = raw.o15Odds;
-            else if (marketKey === 'O25' || marketKey === 'U25') odds = raw.o25Odds;
-            else if (marketKey === 'O35' || marketKey === 'U35') odds = raw.o35Odds;
-            else if (marketKey === 'O45' || marketKey === 'U45') odds = raw.o45Odds;
-          }
-        }
-
-        return { 
-          team: t.team, 
-          league: t.league, 
-          country: t.country, 
-          value: getValue(t), 
-          gp: gpOverride ? gpOverride(t) : getGp(t),
-          nextOpponent,
-          opponentStatValue,
-          opponentGp,
-          prediction,
-          odds
-        };
-      });
+        .slice(0, 15)
+        .map(t => ({ team: t.team, league: t.league, country: t.country, value: getValue(t), gp: gpOverride ? gpOverride(t) : getGp(t) }));
     };
 
     const teamData = {
