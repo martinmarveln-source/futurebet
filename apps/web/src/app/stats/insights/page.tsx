@@ -59,6 +59,8 @@ export default function InsightsPage() {
     { key: "cleanSheet", title: "Best Clean Sheet", icon: Shield, color: "text-indigo-400" },
     { key: "bestHome", title: "Strongest Home", icon: Home, color: "text-green-400" },
     { key: "worstHome", title: "Worst Home", icon: Home, color: "text-rose-500" },
+    { key: "homeDraw", title: "Highest Home Draw", icon: Activity, color: "text-slate-400" },
+    { key: "awayDraw", title: "Highest Away Draw", icon: Activity, color: "text-slate-400" },
   ];
 
   const currentData = viewType === 'team' ? data?.team : data?.league;

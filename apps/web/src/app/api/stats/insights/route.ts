@@ -143,26 +143,102 @@ export async function GET(request: Request) {
                           || teams.find(vt => vt.team?.trim().toLowerCase() === oppName);
           
           if (oppTeamObj) {
-            const teamVenueKey = nextMatchInfo.isHome ? '_HOME' : '_AWAY';
-            const oppVenueKey = nextMatchInfo.isHome ? '_AWAY' : '_HOME';
+            let tVal = NaN;
+            let oVal = NaN;
+            let calcPred = true;
+
+            const isTeamHome = nextMatchInfo.isHome;
             
-            let tVal, oVal;
-            
-            if (baseStatKey.includes('HGS') || baseStatKey.includes('HGC') || baseStatKey.includes('AGS') || baseStatKey.includes('AGC')) {
-               tVal = getValue(t);
-               oVal = getValue(oppTeamObj);
-            } else {
-               const rawTeamVal = parsePct(t.market_stats[`${baseStatKey}${teamVenueKey}`]);
-               const rawOppVal = parsePct(oppTeamObj.market_stats[`${baseStatKey}${oppVenueKey}`]);
-               
-               const isInverse = marketKey?.startsWith('U') || marketKey?.startsWith('N');
-               
-               tVal = isInverse ? 100 - rawTeamVal : rawTeamVal;
-               oVal = isInverse ? 100 - rawOppVal : rawOppVal;
+            // Handle context-specific stats (Home/Away only)
+            if (baseStatKey === 'Home_Win' || baseStatKey === 'Worst_Home') {
+              if (!isTeamHome) calcPred = false;
+              else {
+                tVal = parsePct(t.market_stats.Home_Win);
+                oVal = parsePct(oppTeamObj.market_stats.AWAY_LOST);
+              }
+            } else if (baseStatKey === 'Away_Win' || baseStatKey === 'Worst_Away') {
+              if (isTeamHome) calcPred = false;
+              else {
+                tVal = parsePct(t.market_stats.Away_Win);
+                oVal = parsePct(oppTeamObj.market_stats.HOME_LOST);
+              }
+            } else if (baseStatKey === 'HOME_DRAW') {
+              if (!isTeamHome) calcPred = false;
+              else {
+                tVal = parsePct(t.market_stats.HOME_DRAW);
+                oVal = parsePct(oppTeamObj.market_stats.AWAY_DRAW);
+              }
+            } else if (baseStatKey === 'AWAY_DRAW') {
+              if (isTeamHome) calcPred = false;
+              else {
+                tVal = parsePct(t.market_stats.AWAY_DRAW);
+                oVal = parsePct(oppTeamObj.market_stats.HOME_DRAW);
+              }
+            } else if (baseStatKey && baseStatKey.includes('HGS')) {
+              if (!isTeamHome) calcPred = false;
+              else {
+                const oppKey = baseStatKey.replace('HGS', 'AGC');
+                tVal = parsePct(t.market_stats[baseStatKey] ?? t.market_stats[baseStatKey.replace('_15', '_1.5')]);
+                oVal = parsePct(oppTeamObj.market_stats[oppKey] ?? oppTeamObj.market_stats[oppKey.replace('_15', '_1.5')]);
+              }
+            } else if (baseStatKey && baseStatKey.includes('HGC')) {
+              if (!isTeamHome) calcPred = false;
+              else {
+                const oppKey = baseStatKey.replace('HGC', 'AGS');
+                tVal = parsePct(t.market_stats[baseStatKey] ?? t.market_stats[baseStatKey.replace('_15', '_1.5')]);
+                oVal = parsePct(oppTeamObj.market_stats[oppKey] ?? oppTeamObj.market_stats[oppKey.replace('_15', '_1.5')]);
+              }
+            } else if (baseStatKey && baseStatKey.includes('AGS')) {
+              if (isTeamHome) calcPred = false;
+              else {
+                const oppKey = baseStatKey.replace('AGS', 'HGC');
+                tVal = parsePct(t.market_stats[baseStatKey] ?? t.market_stats[baseStatKey.replace('_15', '_1.5')]);
+                oVal = parsePct(oppTeamObj.market_stats[oppKey] ?? oppTeamObj.market_stats[oppKey.replace('_15', '_1.5')]);
+              }
+            } else if (baseStatKey && baseStatKey.includes('AGC')) {
+              if (isTeamHome) calcPred = false;
+              else {
+                const oppKey = baseStatKey.replace('AGC', 'HGS');
+                tVal = parsePct(t.market_stats[baseStatKey] ?? t.market_stats[baseStatKey.replace('_15', '_1.5')]);
+                oVal = parsePct(oppTeamObj.market_stats[oppKey] ?? oppTeamObj.market_stats[oppKey.replace('_15', '_1.5')]);
+              }
+            } else if (baseStatKey === 'FTS' || baseStatKey === 'CS') {
+              const teamVenueKey = isTeamHome ? '_HOME' : '_AWAY';
+              const oppVenueKey = isTeamHome ? '_AWAY' : '_HOME';
+              const isInverse = marketKey?.startsWith('N');
+              
+              if (baseStatKey === 'FTS') {
+                 tVal = parsePct(t.market_stats[`FTS${teamVenueKey}`]);
+                 oVal = parsePct(oppTeamObj.market_stats[`CS${oppVenueKey}`]);
+              } else {
+                 tVal = parsePct(t.market_stats[`CS${teamVenueKey}`]);
+                 oVal = parsePct(oppTeamObj.market_stats[`FTS${oppVenueKey}`]);
+              }
+              if (isInverse) {
+                tVal = 100 - tVal;
+                oVal = 100 - oVal;
+              }
+            } else if (baseStatKey) {
+              // Standard Over/Under, BTTS
+              const teamVenueKey = isTeamHome ? '_HOME' : '_AWAY';
+              const oppVenueKey = isTeamHome ? '_AWAY' : '_HOME';
+              
+              const rawTeamVal = parsePct(t.market_stats[`${baseStatKey}${teamVenueKey}`]);
+              const rawOppVal = parsePct(oppTeamObj.market_stats[`${baseStatKey}${oppVenueKey}`]);
+              
+              const isInverse = marketKey?.startsWith('U') || marketKey?.startsWith('N');
+              
+              tVal = isInverse ? 100 - rawTeamVal : rawTeamVal;
+              oVal = isInverse ? 100 - rawOppVal : rawOppVal;
             }
 
-            opponentStatValue = oVal;
-            prediction = (tVal + oVal) / 2;
+            if (calcPred && !isNaN(tVal) && !isNaN(oVal)) {
+              opponentStatValue = oVal;
+              prediction = (tVal + oVal) / 2;
+            } else {
+              opponentStatValue = NaN;
+              prediction = NaN;
+            }
             opponentGp = parseInt(oppTeamObj.market_stats[nextMatchInfo.isHome ? 'GP_AWAY' : 'GP_HOME'] || '0', 10) || 0;
           }
 
@@ -213,6 +289,8 @@ export async function GET(request: Request) {
       hgcO15: getTop15(t => parsePct(t.market_stats.HGC_Over_15 ?? t.market_stats["HGC_Over_1.5"]), false, t => parseInt(t.market_stats.GP_HOME || '0', 10) || 0, 'O15', 'HGC_Over_15'),
       agsO15: getTop15(t => parsePct(t.market_stats.AGS_Over_15 ?? t.market_stats["AGS_Over_1.5"]), false, t => parseInt(t.market_stats.GP_AWAY || '0', 10) || 0, 'O15', 'AGS_Over_15'),
       agcO15: getTop15(t => parsePct(t.market_stats.AGC_Over_15 ?? t.market_stats["AGC_Over_1.5"]), false, t => parseInt(t.market_stats.GP_AWAY || '0', 10) || 0, 'O15', 'AGC_Over_15'),
+      homeDraw: getTop15(t => parsePct(t.market_stats.HOME_DRAW), false, t => parseInt(t.market_stats.GP_HOME || '0', 10) || 0, undefined, 'HOME_DRAW'),
+      awayDraw: getTop15(t => parsePct(t.market_stats.AWAY_DRAW), false, t => parseInt(t.market_stats.GP_AWAY || '0', 10) || 0, undefined, 'AWAY_DRAW'),
     };
 
     // Calculate League Insights by grouping
@@ -245,6 +323,8 @@ export async function GET(request: Request) {
           hgcO15: lTeams.reduce((sum, t) => sum + parsePct(t.market_stats.HGC_Over_15 ?? t.market_stats["HGC_Over_1.5"]), 0) / lTeams.length,
           agsO15: lTeams.reduce((sum, t) => sum + parsePct(t.market_stats.AGS_Over_15 ?? t.market_stats["AGS_Over_1.5"]), 0) / lTeams.length,
           agcO15: lTeams.reduce((sum, t) => sum + parsePct(t.market_stats.AGC_Over_15 ?? t.market_stats["AGC_Over_1.5"]), 0) / lTeams.length,
+            homeDraw: lTeams.reduce((sum, t) => sum + parsePct(t.market_stats.HOME_DRAW), 0) / lTeams.length,
+            awayDraw: lTeams.reduce((sum, t) => sum + parsePct(t.market_stats.AWAY_DRAW), 0) / lTeams.length,
         };
       });
 
@@ -270,6 +350,8 @@ export async function GET(request: Request) {
       hgcO15: getTop15Leagues('hgcO15'),
       agsO15: getTop15Leagues('agsO15'),
       agcO15: getTop15Leagues('agcO15'),
+      homeDraw: getTop15Leagues('homeDraw'),
+      awayDraw: getTop15Leagues('awayDraw'),
     };
 
     return NextResponse.json({
