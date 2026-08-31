@@ -180,46 +180,49 @@ export default function InsightsPage() {
                     const hasNextMatch = viewType === 'team' && item.nextOpponent;
                     
                     const content = (
-                      <div className="flex items-center justify-between w-full gap-2">
-                        {/* Left Side: Rank, Team, Opponent, League */}
-                        <div className="flex items-center gap-3 overflow-hidden">
-                          <span className="text-xs font-bold text-slate-500 w-4 flex-shrink-0">{idx + 1}</span>
+                      <div className="grid grid-cols-[16px_1fr_auto_auto_auto] items-center gap-2 w-full">
+                        {/* Rank */}
+                        <span className="text-xs font-bold text-slate-500 text-center">{idx + 1}</span>
+
+                        {/* Team Info */}
+                        <div className="min-w-0 flex flex-col">
                           <div className="truncate">
-                            <div className="flex items-baseline gap-1.5 font-bold text-white text-sm truncate hover:text-blue-400 transition-colors">
-                              <span>{viewType === 'team' ? item.team : item.league}</span>
-                              {hasNextMatch && (
-                                <span className="text-[10px] text-slate-400 font-normal truncate hidden sm:inline" title="Next Opponent Stat">
-                                  vs {item.nextOpponent} <span className="opacity-60">({item.opponentGp}g, {Math.round(item.opponentStatValue)}%)</span>
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-[10px] text-slate-400 uppercase tracking-wider truncate flex items-center gap-1">
-                              {item.country} {viewType === 'team' ? `| ${item.league}` : ''}
-                              {/* Mobile fallback for opponent info */}
-                              {hasNextMatch && (
-                                <span className="text-[9px] text-slate-500 font-normal truncate sm:hidden">
-                                  | vs {item.nextOpponent}
-                                </span>
-                              )}
-                            </div>
+                            <span className="font-bold text-white text-[13px]">{viewType === 'team' ? item.team : item.league}</span>
+                            {hasNextMatch && (
+                              <span className="text-slate-400 text-[11px] ml-1.5 hidden sm:inline">
+                                vs <span className="text-slate-300">{item.nextOpponent}</span>
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[9px] text-slate-500 uppercase tracking-wider truncate">
+                            {item.country} {viewType === 'team' ? `| ${item.league}` : ''}
+                            {hasNextMatch && (
+                              <span className="sm:hidden ml-1 text-slate-600">| vs {item.nextOpponent}</span>
+                            )}
                           </div>
                         </div>
 
-                        {/* Right Side: Stats, Prediction, Odds */}
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <div className={`font-black text-[13px] text-right ${sec.color}`}>
-                            {item.gp ? `${Math.round((item.value / 100) * item.gp)}/${item.gp} (${Math.round(item.value)}%)` : `${Math.round(item.value)}%`}
-                          </div>
-                          {hasNextMatch && item.prediction !== null && (
-                            <div className="text-blue-400 text-[11px] font-bold bg-blue-500/10 px-1.5 py-0.5 rounded" title="Combined Venue Average Prediction">
+                        {/* Column 1: Current Form */}
+                        <div className={`font-black text-[11px] w-[65px] text-right ${sec.color} truncate`}>
+                          {item.gp ? `${Math.round((item.value / 100) * item.gp)}/${item.gp} (${Math.round(item.value)}%)` : `${Math.round(item.value)}%`}
+                        </div>
+                        
+                        {/* Column 2: Prediction Avg */}
+                        <div className="w-[35px] text-right flex justify-end">
+                          {hasNextMatch && item.prediction !== null && !isNaN(item.prediction) ? (
+                            <span className="text-blue-400 text-[11px] font-bold bg-blue-500/10 px-1 py-0.5 rounded" title="Combined Venue Average Prediction">
                               {Math.round(item.prediction)}%
-                            </div>
-                          )}
-                          {hasNextMatch && item.odds !== null && (
-                            <div className="text-emerald-400 text-[11px] font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded" title="Market Odds">
+                            </span>
+                          ) : null}
+                        </div>
+
+                        {/* Column 3: Odds */}
+                        <div className="w-[35px] text-right flex justify-end">
+                          {hasNextMatch && item.odds !== null && Number(item.odds) > 0 ? (
+                            <span className="text-emerald-400 text-[11px] font-bold bg-emerald-500/10 px-1 py-0.5 rounded" title="Market Odds">
                               {Number(item.odds).toFixed(2)}
-                            </div>
-                          )}
+                            </span>
+                          ) : null}
                         </div>
                       </div>
                     );
