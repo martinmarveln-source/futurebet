@@ -59,6 +59,8 @@ export default function InsightsPage() {
     { key: "cleanSheet", title: "Best Clean Sheet", icon: Shield, color: "text-indigo-400" },
     { key: "bestHome", title: "Strongest Home", icon: Home, color: "text-green-400" },
     { key: "worstHome", title: "Worst Home", icon: Home, color: "text-rose-500" },
+    { key: "bestAway", title: "Strongest Away", icon: Globe, color: "text-green-500" },
+    { key: "worstAway", title: "Worst Away", icon: Globe, color: "text-rose-600" },
     { key: "homeDraw", title: "Highest Home Draw", icon: Activity, color: "text-slate-400" },
     { key: "awayDraw", title: "Highest Away Draw", icon: Activity, color: "text-slate-400" },
   ];
@@ -187,9 +189,10 @@ export default function InsightsPage() {
                         <th className="py-2 px-2 font-semibold text-center">%</th>
                         {viewType === 'team' && (
                           <>
-                            <th className="py-2 px-2 font-semibold min-w-[100px]">Next Match</th>
+                            <th className="py-2 px-2 font-semibold min-w-[90px]">Next Match</th>
                             <th className="py-2 px-2 font-semibold min-w-[120px]">Against</th>
                             <th className="py-2 px-2 font-semibold text-center">Prediction</th>
+                            <th className="py-2 px-2 font-semibold text-center">Confidence</th>
                             <th className="py-2 px-2 font-semibold text-center">Odds</th>
                           </>
                         )}
@@ -198,27 +201,37 @@ export default function InsightsPage() {
                     <tbody className="divide-y divide-slate-800/50">
                       {items.map((item: any, idx: number) => {
                         const hasNextMatch = viewType === 'team' && item.nextOpponent;
-                        
-                        // Format date if available
+
+                        // Format date — now comes as "YYYY-MM-DD" straight from sheet
                         let matchDateStr = "-";
                         if (hasNextMatch && item.nextDate) {
                           try {
-                            const d = new Date(item.nextDate);
-                            matchDateStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-                            if (item.nextTime) {
-                               const timeParts = item.nextTime.split(':');
-                               if (timeParts.length >= 2) matchDateStr += ` ${timeParts[0]}:${timeParts[1]}`;
-                            }
-                          } catch (e) {}
+                            // Parse as UTC to avoid timezone shift
+                            const [y, m, d] = item.nextDate.split('-').map(Number);
+                            const dt = new Date(Date.UTC(y, m - 1, d));
+                            matchDateStr = dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                          } catch (_) {}
                         }
-                        
+
+                        // H / A venue badge
+                        const venueBadge = hasNextMatch
+                          ? (item.isHome
+                              ? <span className="ml-1 text-[9px] font-black text-emerald-400 bg-emerald-500/10 px-1 py-0.5 rounded">H</span>
+                              : <span className="ml-1 text-[9px] font-black text-amber-400 bg-amber-500/10 px-1 py-0.5 rounded">A</span>)
+                          : null;
+
+                        // Confidence badge colour
+                        const conf = item.confidence;
+                        const confColor = conf == null ? "" :
+                          conf >= 80 ? "text-emerald-400 bg-emerald-500/10" :
+                          conf >= 60 ? "text-amber-400 bg-amber-500/10" :
+                                       "text-red-400 bg-red-500/10";
+
                         const val = Math.round(item.value);
 
                         return (
                           <tr key={idx} className="hover:bg-slate-800/30 transition-colors group">
-                            <td className="py-2.5 px-2 text-xs font-bold text-slate-500">
-                              {idx + 1}
-                            </td>
+                            <td className="py-2.5 px-2 text-xs font-bold text-slate-500">{idx + 1}</td>
                             <td className="py-2.5 px-2">
                               {viewType === 'team' ? (
                                 <Link href={`/stats/team/${encodeURIComponent(item.team)}?league=${encodeURIComponent(item.league)}&country=${encodeURIComponent(item.country)}`} className="block truncate hover:text-blue-400">
@@ -238,11 +251,14 @@ export default function InsightsPage() {
                             <td className={`py-2.5 px-2 text-center text-[12px] font-black ${sec.color}`}>
                               {val}%
                             </td>
-                            
+
                             {viewType === 'team' && (
                               <>
                                 <td className="py-2.5 px-2 text-[11px] text-slate-400 whitespace-nowrap">
-                                  {matchDateStr}
+                                  <span className="inline-flex items-center gap-0.5">
+                                    {matchDateStr !== '-' ? matchDateStr : '-'}
+                                    {venueBadge}
+                                  </span>
                                 </td>
                                 <td className="py-2.5 px-2 text-[12px] text-slate-300 truncate max-w-[120px]" title={item.nextOpponent}>
                                   {hasNextMatch ? item.nextOpponent : '-'}
@@ -251,6 +267,15 @@ export default function InsightsPage() {
                                   {hasNextMatch && item.prediction !== null && !isNaN(item.prediction) ? (
                                     <span className="text-blue-400 text-[11px] font-bold bg-blue-500/10 px-1.5 py-0.5 rounded inline-block min-w-[36px]">
                                       {Math.round(item.prediction)}%
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-600 text-[11px]">-</span>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-2 text-center">
+                                  {hasNextMatch && conf != null ? (
+                                    <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded inline-block min-w-[36px] ${confColor}`}>
+                                      {conf}
                                     </span>
                                   ) : (
                                     <span className="text-slate-600 text-[11px]">-</span>

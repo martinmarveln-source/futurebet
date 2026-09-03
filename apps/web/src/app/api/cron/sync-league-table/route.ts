@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
 import sql from "../../utils/sql";
 
+// Convert Google Sheets / Excel serial date number to "YYYY-MM-DD"
+// Serial 0 = 1899-12-30 in Google Sheets (Lotus 1-2-3 epoch)
+function excelDateToISO(serial: any): string {
+  const n = Number(serial);
+  if (!serial || isNaN(n) || n <= 0) return "";
+  const d = new Date(Date.UTC(1899, 11, 30) + n * 86400000);
+  return d.toISOString().split("T")[0];
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const secret = searchParams.get('secret') || request.headers.get('Authorization');
@@ -114,7 +123,8 @@ export async function GET(request: Request) {
             // [44]=XGA_ALL  [45]=XGA_HOME  [46]=XGA_AWAY
             // [47]=FTS_ALL  [48]=FTS_HOME  [49]=FTS_AWAY
             // [50]=HGS_Over_1.5  [51]=HGC_Over_1.5  [52]=AGS_Over_1.5  [53]=AGC_Over_1.5
-            // [54]=RANK  [55]=Overall_Form  [56]=Home_Form  [57]=Away_Form  ← NEW
+            // [54]=RANK  [55]=Overall_Form  [56]=Home_Form  [57]=Away_Form
+            // [58]=NEXT_H_Game_Against  [59]=Next_H_Game_Date  [60]=NEXT_A_Game_Against  [61]=Next_A_Game_Date
 
             const market_stats = JSON.stringify({
               PPG_Home:    clean(r.c?.[13]?.v),
@@ -140,11 +150,16 @@ export async function GET(request: Request) {
               HGC_Over_15: clean(r.c?.[51]?.v),
               AGS_Over_15: clean(r.c?.[52]?.v),
               AGC_Over_15: clean(r.c?.[53]?.v),
-              // ─── NEW columns ───
+              // ─── Form & Rank columns ───
               RANK:         clean(r.c?.[54]?.v),
               Overall_Form: clean(r.c?.[55]?.v),
               Home_Form:    clean(r.c?.[56]?.v),
               Away_Form:    clean(r.c?.[57]?.v),
+              // ─── Next match columns (directly from sheet) ───
+              NEXT_H_Game_Against: clean(r.c?.[58]?.v),
+              Next_H_Game_Date:    excelDateToISO(r.c?.[59]?.v),
+              NEXT_A_Game_Against: clean(r.c?.[60]?.v),
+              Next_A_Game_Date:    excelDateToISO(r.c?.[61]?.v),
             });
 
             await sql`
@@ -185,7 +200,7 @@ export async function GET(request: Request) {
       success: true,
       inserted,
       errors,
-      message: `Successfully synchronized ${inserted} teams. New columns: RANK, Overall_Form, Home_Form, Away_Form.`
+      message: `Successfully synchronized ${inserted} teams. Includes next-match data from sheet (NEXT_H_Game_Against, Next_H_Game_Date, NEXT_A_Game_Against, Next_A_Game_Date).`
     });
 
   } catch (error: any) {
