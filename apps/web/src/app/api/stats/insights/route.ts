@@ -49,6 +49,8 @@ export async function GET(request: Request) {
     const split     = searchParams.get("split")     || "overall";
     const startDate = searchParams.get("startDate") || "";
     const endDate   = searchParams.get("endDate")   || "";
+    const minPrediction = parseInt(searchParams.get("minPrediction") || "0", 10);
+    const minConfidence = parseInt(searchParams.get("minConfidence") || "0", 10);
 
     // 1. Fetch all teams
     const rows = await sql`SELECT * FROM league_table_cache`;
@@ -113,6 +115,10 @@ export async function GET(request: Request) {
       parseInt(t.gp || "0", 10) || 0;
 
     // 6. Build top-15 for teams
+    const teamDict = new Map<string, any>();
+    for (const t of teams) {
+      teamDict.set(t.team?.trim().toLowerCase(), t);
+    }
     const getTop15 = (
       getValue:    (t: any) => number,
       isAsc:       boolean = false,
@@ -120,11 +126,7 @@ export async function GET(request: Request) {
       marketKey?:  string,
       baseStatKey?: string
     ) => {
-      const top15 = [...validTeams]
-        .sort((a: any, b: any) => isAsc ? getValue(a) - getValue(b) : getValue(b) - getValue(a))
-        .slice(0, 15);
-
-      return top15.map((t: any) => {
+      const mapped = validTeams.map((t: any) => {
         const ms = t.market_stats;
 
         const nextMatch = pickSoonestGame(
@@ -150,8 +152,7 @@ export async function GET(request: Request) {
           nextDate     = nextMatch.date;
           isHome       = nextMatch.isHome;
           const oppName    = nextOpponent.trim().toLowerCase();
-          const oppTeamObj: any = validTeams.find((vt: any) => vt.team?.trim().toLowerCase() === oppName)
-                             || teams.find((vt: any) => vt.team?.trim().toLowerCase() === oppName);
+          const oppTeamObj: any = teamDict.get(oppName);
 
           if (oppTeamObj && baseStatKey) {
             let tVal = NaN, oVal = NaN, calcPred = true;
@@ -249,6 +250,24 @@ export async function GET(request: Request) {
           opponentStatValue, opponentGp, prediction, confidence, odds,
         };
       });
+
+      const filtered = mapped.filter((item: any) => {
+        if (minPrediction > 0) {
+          if (item.prediction == null || isNaN(item.prediction) || Math.round(item.prediction) < minPrediction) {
+            return false;
+          }
+        }
+        if (minConfidence > 0) {
+          if (item.confidence == null || item.confidence < minConfidence) {
+            return false;
+          }
+        }
+        return true;
+      });
+
+      filtered.sort((a: any, b: any) => isAsc ? a.value - b.value : b.value - a.value);
+
+      return filtered.slice(0, 15);
     };
 
     // 7. Team data

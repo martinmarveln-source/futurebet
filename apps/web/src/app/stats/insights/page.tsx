@@ -14,6 +14,8 @@ export default function InsightsPage() {
   const [isLocked, setIsLocked] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [minPrediction, setMinPrediction] = useState(0);
+  const [minConfidence, setMinConfidence] = useState(0);
 
   useEffect(() => {
     setLoading(true);
@@ -25,6 +27,8 @@ export default function InsightsPage() {
     });
     if (startDate) params.append("startDate", startDate);
     if (endDate) params.append("endDate", endDate);
+    if (minPrediction > 0) params.append("minPrediction", minPrediction.toString());
+    if (minConfidence > 0) params.append("minConfidence", minConfidence.toString());
 
     fetch(`/api/stats/insights?${params.toString()}`)
       .then(res => res.json())
@@ -37,7 +41,7 @@ export default function InsightsPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [minGames, split, startDate, endDate]);
+  }, [minGames, split, startDate, endDate, minPrediction, minConfidence, viewType]);
 
   const sections = [
     { key: "btts", title: "Best BTTS", icon: Target, color: "text-amber-400" },
@@ -153,6 +157,40 @@ export default function InsightsPage() {
                 className="bg-slate-800 border-none text-xs text-white rounded p-1 focus:ring-1 focus:ring-blue-500"
               />
             </div>
+            
+            {/* Prediction Filter */}
+            {viewType === 'team' && (
+              <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg">
+                <span className="text-xs font-bold text-slate-400">Prediction:</span>
+                <select 
+                  value={minPrediction} 
+                  onChange={(e) => setMinPrediction(Number(e.target.value))}
+                  className="bg-transparent text-white text-sm focus:outline-none font-bold appearance-none cursor-pointer"
+                >
+                  <option value={0} className="bg-slate-900">Any %</option>
+                  {[60, 70, 80, 90].map(num => (
+                    <option key={num} value={num} className="bg-slate-900">{num}%+</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Confidence Filter */}
+            {viewType === 'team' && (
+              <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg">
+                <span className="text-xs font-bold text-slate-400">Confidence:</span>
+                <select 
+                  value={minConfidence} 
+                  onChange={(e) => setMinConfidence(Number(e.target.value))}
+                  className="bg-transparent text-white text-sm focus:outline-none font-bold appearance-none cursor-pointer"
+                >
+                  <option value={0} className="bg-slate-900">Any</option>
+                  {[50, 60, 70, 80].map(num => (
+                    <option key={num} value={num} className="bg-slate-900">{num}+</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         </div>
 
