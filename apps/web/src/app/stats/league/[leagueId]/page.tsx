@@ -81,7 +81,10 @@ export default function LeaguePageInner({ params }: { params: Promise<{ leagueId
   const searchParams = useSearchParams();
   const country = searchParams.get("country") || "";
 
+  
   const [overview, setOverview] = useState<any>(null);
+  const [lastUpdated, setLastUpdated] = useState<string>("");
+
   const [table, setTable] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [nextMatches, setNextMatches] = useState<Record<string, any>>({});
@@ -108,6 +111,7 @@ export default function LeaguePageInner({ params }: { params: Promise<{ leagueId
         if (ovJson.success) {
           setOverview(ovJson.overview);
           setIsPremium(ovJson.isPremium);
+          if (ovJson.last_updated) setLastUpdated(ovJson.last_updated);
         }
         if (tableJson.success) setTable(tableJson.table);
       } finally { setLoading(false); }
@@ -191,11 +195,22 @@ export default function LeaguePageInner({ params }: { params: Promise<{ leagueId
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-3">
           <div>
+            
             <div className="flex items-center gap-2 text-xs text-slate-500 mb-1 uppercase tracking-widest">
               <span>{country}</span>
               {country && <span>•</span>}
               <span>2026/27</span>
+              {lastUpdated && (
+                <>
+                  <span>•</span>
+                  <span className="text-slate-600 flex items-center gap-1" title="Data last synchronized from Google Sheets">
+                    <Activity className="w-3 h-3 text-slate-500" />
+                    Updated: {new Date(lastUpdated).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </>
+              )}
             </div>
+
             <h1 className="text-3xl font-black flex items-center gap-3 text-white">
               <Trophy className="w-8 h-8 text-yellow-500" />
               {leagueId}

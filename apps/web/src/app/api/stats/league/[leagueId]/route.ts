@@ -18,7 +18,7 @@ export async function GET(
 
     // Fetch all teams in this league from league_table_cache
     const teamRows = await sql`
-      SELECT gp, gs, gc, market_stats
+      SELECT gp, gs, gc, market_stats, updated_at
       FROM league_table_cache
       WHERE REPLACE(LOWER(league), ' ', '-') = REPLACE(LOWER(${decodedLeagueId}), ' ', '-')
         AND market_stats IS NOT NULL
@@ -30,7 +30,8 @@ export async function GET(
         isPremium,
         league: decodedLeagueId,
         season,
-        overview: {
+        last_updated: teamRows[0]?.updated_at || null,
+      overview: {
           matches_played: 0, goals_per_game: "0.00",
           btts_percent: "0.0", over_15_percent: "0.0",
           over_25_percent: "0.0", over_35_percent: "0.0",

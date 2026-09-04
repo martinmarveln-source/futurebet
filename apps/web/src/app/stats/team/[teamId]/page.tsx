@@ -226,6 +226,11 @@ function TeamPageInner({ params }: { params: Promise<{ teamId: string }> }) {
   const ms = stats?.market_stats ?? null;
   const fixtures = stats?.fixtures ?? { home: null, away: null };
 
+  const lastUpdatedStr = stats?.updated_at 
+    ? new Date(stats.updated_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) 
+    : "";
+
+
   return (
     <div className="min-h-screen bg-[#030712] text-slate-200">
       <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
@@ -249,6 +254,15 @@ function TeamPageInner({ params }: { params: Promise<{ teamId: string }> }) {
                 <span className="text-blue-400">{league}</span>
                 <span>•</span>
                 <span>2026/27</span>
+                {lastUpdatedStr && (
+                  <>
+                    <span>•</span>
+                    <span className="text-slate-600 flex items-center gap-1" title="Data last synchronized from Google Sheets">
+                      <Zap className="w-3 h-3 text-slate-500" />
+                      Updated: {lastUpdatedStr}
+                    </span>
+                  </>
+                )}
               </div>
               <h1 className="text-3xl sm:text-4xl font-black flex items-center gap-3 text-white leading-tight">
                 <Shield className="w-9 h-9 text-indigo-500 shrink-0" />

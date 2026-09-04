@@ -102,14 +102,14 @@ export async function GET(
     let generalStatsRows;
     if (league) {
       generalStatsRows = await sql`
-        SELECT * FROM league_table_cache
+        SELECT *, updated_at FROM league_table_cache
         WHERE REPLACE(LOWER(team), ' ', '-') = REPLACE(LOWER(${decodedTeamId}), ' ', '-')
           AND REPLACE(LOWER(league), ' ', '-') = REPLACE(LOWER(${league}), ' ', '-')
         LIMIT 1
       `;
     } else {
       generalStatsRows = await sql`
-        SELECT * FROM league_table_cache
+        SELECT *, updated_at FROM league_table_cache
         WHERE REPLACE(LOWER(team), ' ', '-') = REPLACE(LOWER(${decodedTeamId}), ' ', '-')
         LIMIT 1
       `;
@@ -263,6 +263,7 @@ export async function GET(
     const responseData: any = {
       team: decodedTeamId,
       season,
+      updated_at: generalStatsRows?.[0]?.updated_at || null,
       general: { gp: 0, wins: 0, draws: 0, losses: 0, points: 0, ppg: 0 },
       goals: { scored: 0, conceded: 0, gf_per_game: 0, ga_per_game: 0 },
       home_away: { home: { gp: 0, wins: 0, gf_per_game: 0 }, away: { gp: 0, wins: 0, gf_per_game: 0 } },
