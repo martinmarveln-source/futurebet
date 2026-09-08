@@ -29,6 +29,7 @@ const COL = {
   o05Odds: 85, u05Odds: 86, o15Odds: 87, u15Odds: 88,
   o25Odds: 89, u25Odds: 90, o35Odds: 91, u35Odds: 92,
   o45Odds: 93, u45Odds: 94,
+  bttsOdds: 95, bttsNoOdds: 96,
 };
 
 function toNum(v: any): number {
