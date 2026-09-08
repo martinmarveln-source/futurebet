@@ -191,7 +191,7 @@ export async function GET(
           isHome: true,
           markets: { btts: pred.btts, o15: pred.o15, o25: pred.o25, teamWin: pred.teamWin },
           confidences: pred.confidences,
-          odds: { btts: rawOdds.bttsOdds, o15: rawOdds.o15Odds, o25: rawOdds.o25Odds },
+          odds: { btts: rawOdds.bttsYesOdds || rawOdds.bttsOdds, o15: rawOdds.o15Odds, o25: rawOdds.o25Odds },
         };
       } else {
         homeFixture = {
@@ -200,7 +200,7 @@ export async function GET(
           isHome: true,
           markets: { btts: null, o15: null, o25: null, teamWin: null },
           confidences: { btts: null, o15: null, o25: null, teamWin: null },
-          odds: { btts: rawOdds.bttsOdds, o15: rawOdds.o15Odds, o25: rawOdds.o25Odds },
+          odds: { btts: rawOdds.bttsYesOdds || rawOdds.bttsOdds, o15: rawOdds.o15Odds, o25: rawOdds.o25Odds },
         };
       }
     }
@@ -245,7 +245,7 @@ export async function GET(
           isHome: false,
           markets: { btts: pred.btts, o15: pred.o15, o25: pred.o25, teamWin: pred.teamWin },
           confidences: pred.confidences,
-          odds: { btts: rawOdds.bttsOdds, o15: rawOdds.o15Odds, o25: rawOdds.o25Odds },
+          odds: { btts: rawOdds.bttsYesOdds || rawOdds.bttsOdds, o15: rawOdds.o15Odds, o25: rawOdds.o25Odds },
         };
       } else {
         awayFixture = {
@@ -254,7 +254,7 @@ export async function GET(
           isHome: false,
           markets: { btts: null, o15: null, o25: null, teamWin: null },
           confidences: { btts: null, o15: null, o25: null, teamWin: null },
-          odds: { btts: rawOdds.bttsOdds, o15: rawOdds.o15Odds, o25: rawOdds.o25Odds },
+          odds: { btts: rawOdds.bttsYesOdds || rawOdds.bttsOdds, o15: rawOdds.o15Odds, o25: rawOdds.o25Odds },
         };
       }
     }

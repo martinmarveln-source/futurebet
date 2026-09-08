@@ -232,7 +232,8 @@ export async function GET(request: Request) {
               const hLc = isHome ? t.team?.trim().toLowerCase() : oppName;
               const aLc = isHome ? oppName : t.team?.trim().toLowerCase();
               const ro  = oddsMap.get(`${hLc}|${aLc}`) || {};
-              if (marketKey === "BTTS" || marketKey === "NBTTS")    odds = ro.bttsOdds;
+              if (marketKey === "BTTS") odds = ro.bttsYesOdds || ro.bttsOdds;
+              else if (marketKey === "NBTTS") odds = ro.bttsNoOdds;
               else if (marketKey === "O15" || marketKey === "U15")  odds = ro.o15Odds;
               else if (marketKey === "O25" || marketKey === "U25")  odds = ro.o25Odds;
               else if (marketKey === "O35" || marketKey === "U35")  odds = ro.o35Odds;
