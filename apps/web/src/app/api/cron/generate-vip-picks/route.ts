@@ -325,7 +325,16 @@ async function buildPicksData(minChance, minRating, minRecents) {
       selection,
       vals: marketSignalVals,
     });
-    const vipScore = Math.round(0.55 * confidence + 0.45 * algRating);
+
+    // Upgraded vipScore: weights EV-based score (evScore) more heavily when available
+    const evScore = Number.isFinite(derived.evScore) ? derived.evScore : 0;
+    const ev   = Number.isFinite(derived.ev) ? derived.ev : null;
+    const edge = Number.isFinite(derived.edge) ? derived.edge : null;
+    const isValueBet = ev !== null && ev > 0;
+    const vipScore = isValueBet
+      ? Math.round(0.40 * confidence + 0.35 * algRating + 0.25 * Math.min(evScore * 100, 100))
+      : Math.round(0.55 * confidence + 0.45 * algRating);
+
     const derivedOdds = derived.odds;
     const ftScoreVal = val(r, col.ftScore);
     const hasOutcome = ftScoreVal && (ftScoreVal.includes("-") || ftScoreVal.includes(":"));
@@ -355,6 +364,9 @@ async function buildPicksData(minChance, minRating, minRecents) {
       rating: Math.round(algRating),
       vipScore,
       odds: derivedOdds,
+      ev,
+      edge,
+      isValueBet,
       rawOdds,
       marketSignal,
       recent: { homeCount: hRecentCount, awayCount: aRecentCount },
@@ -447,7 +459,7 @@ export async function GET(req: Request) {
       }
     }
 
-    const minChance = 65;
+    const minChance = 62;  // Lowered from 65 — EV filter handles quality, not raw probability gate
     const minRating = 55;
     const minRecents = 0;
 

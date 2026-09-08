@@ -641,6 +641,12 @@ const VipPickCard = React.memo(function VipPickCard({
                 Odds {p.odds ? p.odds.toFixed(2) : "—"}
               </Pill>
 
+              {p.raw?.isValueBet && p.raw?.ev != null && (
+                <Pill darkMode={darkMode} tone="green">
+                  ⚡ +EV {(Number(p.raw.ev) * 100).toFixed(1)}%
+                </Pill>
+              )}
+
               <Pill darkMode={darkMode} tone="purple">
                 {p.market || "VIP"}
               </Pill>

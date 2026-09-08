@@ -131,6 +131,68 @@ export function getDoubleChanceOdds(rawOdds: any) {
   };
 }
 
+/**
+ * ─── VALUE BET SELECTOR ──────────────────────────────────────────────────────
+ * 
+ * Finds the best pick using Expected Value (+EV) scoring.
+ * 
+ * For each option:
+ *   impliedProb = 1 / bookmakerOdds    (bookie's view, de-vigged below)
+ *   edge        = ourProb - impliedProb (our edge over bookie)
+ *   ev          = ourProb * odds - 1   (expected profit per £1 staked)
+ *   score       = 0.40*ourProb + 0.35*edge + 0.25*ev
+ *
+ * Priority:
+ *   1. +EV picks (ev > 0 AND ourProb >= 0.58) — sorted by score
+ *   2. Fallback: no +EV found → highest-probability pick (ourProb >= 0.72 only)
+ */
+function getBestEVOption(options: any[]): any | null {
+  const MIN_ODDS = 1.34;
+
+  // Only consider options with valid bookmaker odds
+  const withOdds = options.filter(
+    (o) => o && Number.isFinite(o.odds) && o.odds >= MIN_ODDS
+  );
+
+  if (withOdds.length === 0) return null;
+
+  // De-vig the bookmaker's implied probability for 1X2 markets
+  // For non-1X2 we use the raw implied probability (sufficient approximation)
+  const scored = withOdds.map((o) => {
+    const ourProb = Number(o.p) || 0;
+    const odds = Number(o.odds);
+    const impliedProb = 1 / odds;   // Raw implied (bookie includes margin)
+
+    // Edge: how much more confident we are than the bookie
+    const edge = ourProb - impliedProb;
+
+    // Expected value: positive means value bet
+    const ev = ourProb * odds - 1;
+
+    // Composite score — EV and edge weighted heavily to find bookie mistakes
+    const evScore = 0.40 * ourProb + 0.35 * Math.max(edge, -0.5) + 0.25 * Math.max(ev, -1);
+
+    return { ...o, edge, ev, evScore, impliedProb };
+  });
+
+  // ── PASS 1: Positive EV picks ──────────────────────────────────────────────
+  const evPicks = scored.filter((o) => o.ev > 0 && o.p >= 0.58);
+  if (evPicks.length > 0) {
+    evPicks.sort((a, b) => b.evScore - a.evScore);
+    return evPicks[0];
+  }
+
+  // ── PASS 2: Fallback — very high confidence even without EV ───────────────
+  // (Option A: ourProb >= 0.80 qualifies regardless of EV)
+  const highConfidence = scored.filter((o) => o.p >= 0.80);
+  if (highConfidence.length > 0) {
+    highConfidence.sort((a, b) => b.evScore - a.evScore);
+    return highConfidence[0];
+  }
+
+  return null;
+}
+
 export function computeDerivedPickFromStats({
   hgs,
   hgc,
@@ -192,14 +254,7 @@ export function computeDerivedPickFromStats({
 
   const dcOdds = getDoubleChanceOdds(rawOdds);
 
-  const getBestInGroup = (options: any[]) => {
-    const valid = options.filter(o => o && Number.isFinite(o.odds) && o.odds >= 1.34);
-    if (valid.length === 0) return null;
-    valid.sort((a, b) => b.p - a.p);
-    return valid[0];
-  };
-
-  // Combine all markets into one array and find the best among all of them
+  // All market options
   const allOptions = [
     // 1X2
     { market: "1X2", selection: "Home", pickLabel: "1X2 - Home", p: pHome, odds: Number(rawOdds?.home) || 0 },
@@ -220,9 +275,10 @@ export function computeDerivedPickFromStats({
     { market: "BTTS", selection: "No", pickLabel: "BTTS - No", p: pBttsNo, odds: Number(rawOdds?.bttsNo) || 0 }
   ];
 
-  const top = getBestInGroup(allOptions);
+  const top = getBestEVOption(allOptions);
 
-  if (!top || top.p < 0.60) return null;
+  // Reject if no qualifying pick found
+  if (!top) return null;
 
   return {
     ...top,
@@ -248,17 +304,20 @@ export function checkIfPickWon(ftScore: string | null | undefined, market: strin
   // Normalize ':' to '-' since some sources use '2:1' and others use '2-1'
   const normalizedScore = String(ftScore).replace(':', '-');
   if (!normalizedScore.includes("-")) return null;
-  const [h, a] = normalizedScore.split("-").map(Number);
+
+  const [hStr, aStr] = normalizedScore.split("-");
+  const h = parseInt(hStr, 10);
+  const a = parseInt(aStr, 10);
   if (isNaN(h) || isNaN(a)) return null;
 
   if (market === "1X2") {
     if (selection === "Home") return h > a;
-    if (selection === "Away") return a > h;
     if (selection === "Draw") return h === a;
+    if (selection === "Away") return a > h;
   }
   if (market === "O/U 2.5" || market === "Over/Under") {
-    if (selection === "Over 2.5" || selection === "Over") return h + a > 2;
-    if (selection === "Under 2.5" || selection === "Under") return h + a < 3;
+    if (selection === "Over 2.5") return h + a > 2;
+    if (selection === "Under 2.5") return h + a < 3;
   }
   if (market === "O/U 1.5") {
     if (selection === "Over 1.5") return h + a > 1;
@@ -269,11 +328,14 @@ export function checkIfPickWon(ftScore: string | null | undefined, market: strin
     if (selection === "No") return h === 0 || a === 0;
   }
   if (market === "Double Chance") {
-    if (selection === "1X" || selection === "Home or Draw") return h >= a;
-    if (selection === "12" || selection === "Home or Away") return h !== a;
-    if (selection === "X2" || selection === "Draw or Away" || selection === "Away or Draw") return a >= h;
+    if (selection === "1X") return h >= a;
+    if (selection === "12") return h !== a;
+    if (selection === "X2") return a >= h;
   }
-
   return null;
 }
 
+// Keep alias for backward compatibility
+export function getBestInGroup(options: any[]) {
+  return getBestEVOption(options);
+}
