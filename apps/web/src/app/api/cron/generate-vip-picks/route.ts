@@ -227,7 +227,8 @@ async function buildPicksData(minChance, minRating, minRecents) {
     awayOdds: "awayOdds",
     o25Odds: "o25Odds",
     u25Odds: "u25Odds",
-    bttsYesOdds: "bttsYesOdds", // Just in case, the standard is usually "ggOdds" or similar, but we'll use fallback logic below
+    bttsYesOdds: "bttsYesOdds",
+    bttsNoOdds: "bttsNoOdds",
     ftScore: "ftScore",
   };
 
@@ -279,7 +280,7 @@ async function buildPicksData(minChance, minRating, minRecents) {
       over15: num(val(r, "o15Odds")),
       under15: num(val(r, "u15Odds")),
       bttsYes: num(val(r, col.bttsYesOdds)) || num(val(r, "btts_yes_odds")),
-      bttsNo: num(val(r, "bttsNoOdds")) || num(val(r, "btts_no_odds")),
+      bttsNo: num(val(r, col.bttsNoOdds)) || num(val(r, "btts_no_odds")),
     };
 
     const derived = computeDerivedPickFromStats({

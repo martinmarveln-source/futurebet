@@ -59,6 +59,10 @@ export const HomePickRow = memo(function HomePickRow({
     realOdds = useBetslipStore.getState().computeOddsForSelection(m, market, option);
   } else if (marketLabel === "Over 2.5") {
     realOdds = useBetslipStore.getState().computeOddsForSelection(m, "Over 2.5", "Yes");
+  } else if (marketLabel === "BTTS - Yes" || marketLabel === "BTTS YES") {
+    realOdds = useBetslipStore.getState().computeOddsForSelection(m, "BTTS", "Yes");
+  } else if (marketLabel === "BTTS - No" || marketLabel === "BTTS NO") {
+    realOdds = useBetslipStore.getState().computeOddsForSelection(m, "BTTS", "No");
   }
 
   const noRealOdds = realOdds === null || realOdds === undefined || realOdds === 0;
