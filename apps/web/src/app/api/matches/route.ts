@@ -130,6 +130,8 @@ const COLUMNS = {
   u35Odds: 92,
   o45Odds: 93,
   u45Odds: 94,
+  bttsYesOdds: 95,
+  bttsNoOdds: 96,
 };
 
 /* -------------------------------------------------------------------------- */
@@ -578,6 +580,8 @@ function mapSheetRowToMatch(row) {
     u35Odds: toNumber(row[COLUMNS.u35Odds]),
     o45Odds: toNumber(row[COLUMNS.o45Odds]),
     u45Odds: toNumber(row[COLUMNS.u45Odds]),
+    bttsYesOdds: toNumber(row[COLUMNS.bttsYesOdds]),
+    bttsNoOdds:  toNumber(row[COLUMNS.bttsNoOdds]),
 
     fullLeague: `${row[COLUMNS.country] || ""} - ${
       row[COLUMNS.league] || ""
