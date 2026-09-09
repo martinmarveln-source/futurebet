@@ -38,9 +38,10 @@ export function ExploreTab({
   matchesError,
   selectedDate,
   hasKickoffPassed,
+  activeMarket,
+  setActiveMarket,
 }) {
-  const [activeMarket, setActiveMarket] = useState("");
-
+  
   return (
     // FIX 1: Wrap in a div instead of a fragment.
     // This gives the browser a stable DOM node to track during re-renders.

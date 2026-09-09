@@ -251,6 +251,8 @@ export default function FutureBetDashboard() {
     savePreferencesMutation,
     filteredMatches,
     uniqueLeagues,
+    activeMarket,
+    setActiveMarket,
   } = useDashboard();
 
   useEffect(() => {
@@ -286,6 +288,13 @@ export default function FutureBetDashboard() {
 
   const [compareMatch, setCompareMatch] = useState(null);
   const [showAutoPick, setShowAutoPick] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== "explore") {
+      setActiveMarket("");
+    }
+  }, [activeTab, setActiveMarket]);
+
 
   const rawMatches = Array.isArray(matchesData?.matches)
     ? matchesData.matches
@@ -880,7 +889,9 @@ export default function FutureBetDashboard() {
                     setStrengthOnly={setStrengthOnly}
                     ratingBand={ratingBand}
                     setRatingBand={setRatingBand}
-                    oddsMode={oddsMode}
+                      activeMarket={activeMarket}
+                      setActiveMarket={setActiveMarket}
+                      oddsMode={oddsMode}
                     setOddsMode={setOddsMode}
                     oddsFilter={oddsFilter}
                     setOddsFilter={setOddsFilter}

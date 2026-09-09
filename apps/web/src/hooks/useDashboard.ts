@@ -18,6 +18,7 @@ function getDbMarketName(pickStr) {
 }
 
 import { calculateHistWinRateForMatch } from "@/components/Dashboard/MatchCard";
+import { computeMarketViewPick } from "@/utils/marketViewAlgorithm";
 
 export default function useDashboard() {
   const { data: sessionData, isPending: isSessionPending } = useSession();
@@ -60,6 +61,7 @@ export default function useDashboard() {
   const [chanceThreshold, setChanceThreshold] = useState(50);
   const [ratingThreshold, setRatingThreshold] = useState(10);
   const [csThreshold, setCsThreshold] = useState(0);
+  const [activeMarket, setActiveMarket] = useState("");
   const [kickoffFilter, setKickoffFilter] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -167,6 +169,7 @@ export default function useDashboard() {
       chanceThreshold,
       ratingThreshold,
       savePreferencesMutation,
+      activeMarket,
     ]
   );
 
@@ -198,12 +201,17 @@ export default function useDashboard() {
       if (kickoffFilter === "upcoming" && isPassed) return false;
 
       // Handle both decimal (0.75) and percentage (75) formats for chance, rating, and CS
-      const chancePercent =
-        match.chance > 1 ? match.chance : match.chance * 100;
-      const ratingPercent =
-        match.rating > 1 ? match.rating : match.rating * 100;
-      const csPercent =
-        match.modelCSPercent > 1 ? match.modelCSPercent : (match.modelCSPercent || 0) * 100;
+      let chancePercent = match.chance > 1 ? match.chance : match.chance * 100;
+      let ratingPercent = match.rating > 1 ? match.rating : match.rating * 100;
+      let csPercent = match.modelCSPercent > 1 ? match.modelCSPercent : (match.modelCSPercent || 0) * 100;
+
+      if (activeMarket && activeMarket !== "") {
+        const mvp = computeMarketViewPick(match, activeMarket);
+        if (mvp) {
+          chancePercent = mvp.prob;
+          ratingPercent = Math.min(100, Math.max(0, mvp.rating || 0));
+        }
+      }
 
       if (chancePercent < chanceThreshold || ratingPercent < ratingThreshold || csPercent < csThreshold)
         return false;
