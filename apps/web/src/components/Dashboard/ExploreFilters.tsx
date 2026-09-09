@@ -4,6 +4,8 @@ import { cn } from "@/utils/matchUtils";
 import Controls from "@/components/Dashboard/Controls";
 import { Lock, X, Sliders } from "lucide-react";
 import { MARKET_OPTIONS } from "@/utils/marketViewAlgorithm";
+import useUserPermissions from "@/hooks/useUserPermissions";
+import { toast } from "react-hot-toast";
 
 export function ExploreFilters({
   isPro,
@@ -43,6 +45,8 @@ export function ExploreFilters({
   };
 
   const { kickoffFilter, setKickoffFilter } = filterPanelProps || {};
+  const { isAdmin, isPremium } = useUserPermissions();
+  const hasMarketViewAccess = isAdmin || isPremium;
 
   return (
     <div
@@ -67,7 +71,15 @@ export function ExploreFilters({
               <button
                 key={key}
                 type="button"
-                onClick={() => setActiveMarket(key)}
+                onClick={() => {
+                  if (key === "") {
+                    setActiveMarket(key);
+                  } else if (!hasMarketViewAccess) {
+                    toast.error("🔒 Upgrade to Premium to unlock Market View predictions!");
+                  } else {
+                    setActiveMarket(key);
+                  }
+                }}
                 className={cn(
                   "px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider border transition-all active:scale-[0.98]",
                   activeMarket === key
@@ -76,10 +88,14 @@ export function ExploreFilters({
                       : "bg-blue-600 border-blue-600 text-white shadow-sm"
                     : darkMode
                     ? "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200"
-                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900",
+                  !hasMarketViewAccess && key !== "" && "opacity-60 cursor-not-allowed hover:bg-transparent"
                 )}
               >
-                {label}
+                <div className="flex items-center gap-1.5">
+                  {label}
+                  {!hasMarketViewAccess && key !== "" && <Lock size={10} className="opacity-70" />}
+                </div>
               </button>
             ))}
           </div>
