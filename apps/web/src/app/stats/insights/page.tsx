@@ -16,6 +16,7 @@ export default function InsightsPage() {
   const [endDate, setEndDate] = useState("");
   const [minPrediction, setMinPrediction] = useState(0);
   const [minConfidence, setMinConfidence] = useState(0);
+  const [showWithOddsOnly, setShowWithOddsOnly] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -29,6 +30,7 @@ export default function InsightsPage() {
     if (endDate) params.append("endDate", endDate);
     if (minPrediction > 0) params.append("minPrediction", minPrediction.toString());
     if (minConfidence > 0) params.append("minConfidence", minConfidence.toString());
+    if (showWithOddsOnly) params.append("showWithOddsOnly", "true");
 
     fetch(`/api/stats/insights?${params.toString()}`)
       .then(res => res.json())
@@ -41,7 +43,7 @@ export default function InsightsPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [minGames, split, startDate, endDate, minPrediction, minConfidence, viewType]);
+  }, [minGames, split, startDate, endDate, minPrediction, minConfidence, viewType, showWithOddsOnly]);
 
   const sections = [
     { key: "btts", title: "Best BTTS", icon: Target, color: "text-amber-400" },
@@ -124,6 +126,16 @@ export default function InsightsPage() {
               <button onClick={() => setSplit('overall')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${split === 'overall' ? 'bg-slate-700 text-white' : 'text-slate-400'}`}>Overall</button>
               <button onClick={() => setSplit('home')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${split === 'home' ? 'bg-slate-700 text-white' : 'text-slate-400'}`}>Home</button>
               <button onClick={() => setSplit('away')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${split === 'away' ? 'bg-slate-700 text-white' : 'text-slate-400'}`}>Away</button>
+            </div>
+
+            {/* Show Odds Toggle */}
+            <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg p-1">
+              <button 
+                onClick={() => setShowWithOddsOnly(!showWithOddsOnly)} 
+                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${showWithOddsOnly ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                {showWithOddsOnly ? 'Matches with Odds' : 'All Matches'}
+              </button>
             </div>
 
             {/* Min Games Filter */}

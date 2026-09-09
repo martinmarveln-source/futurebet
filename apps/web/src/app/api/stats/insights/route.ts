@@ -51,6 +51,7 @@ export async function GET(request: Request) {
     const endDate   = searchParams.get("endDate")   || "";
     const minPrediction = parseInt(searchParams.get("minPrediction") || "0", 10);
     const minConfidence = parseInt(searchParams.get("minConfidence") || "0", 10);
+    const showWithOddsOnly = searchParams.get("showWithOddsOnly") === "true";
 
     // 1. Fetch all teams
     const rows = await sql`SELECT * FROM league_table_cache`;
@@ -262,6 +263,12 @@ export async function GET(request: Request) {
       const filtered = mapped.filter((item: any) => {
         if (item.gp < minGames) {
           return false;
+        }
+        if (showWithOddsOnly) {
+          const oddsVal = parseFloat(item.odds);
+          if (!item.odds || isNaN(oddsVal) || oddsVal <= 1.0) {
+            return false;
+          }
         }
         if (minPrediction > 0) {
           if (item.prediction == null || isNaN(item.prediction) || Math.round(item.prediction) < minPrediction) {
