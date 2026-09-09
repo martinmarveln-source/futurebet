@@ -5,7 +5,7 @@ import Controls from "@/components/Dashboard/Controls";
 import { Lock, X, Sliders } from "lucide-react";
 import { MARKET_OPTIONS } from "@/utils/marketViewAlgorithm";
 import useUserPermissions from "@/hooks/useUserPermissions";
-import { toast } from "react-hot-toast";
+import { toast } from "sonner";
 
 export function ExploreFilters({
   isPro,
