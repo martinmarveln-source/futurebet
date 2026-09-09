@@ -667,7 +667,7 @@ export default function FutureBetDashboard() {
                           darkMode ? "text-white" : "text-slate-900"
                         )}
                       >
-                        {matchesLoading ? "..." : rawMatches.length}
+                        {matchesLoading ? "..." : rawMatches.filter((m) => selectors.getISODate(m) >= todayISO).length}
                       </div>
                       <div className="text-[10px] font-bold text-slate-500 uppercase mt-0.5">
                         Loaded
