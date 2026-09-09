@@ -163,6 +163,32 @@ export function getRealOdds(match, market, option) {
 
   // Try direct odds from sheet first!
   let directOdds = null;
+
+  if (mkt === "Combo") {
+    // SGP Odds are tightly mathematically juiced.
+    // e.g., "Home & Yes (Over 1.5)"
+    const parts = opt.split(" & ");
+    if (parts.length === 2) {
+      const p1Str = parts[0].trim(); // "Home"
+      const p2Full = parts[1].trim(); // "Yes (Over 1.5)"
+      
+      const p2Match = p2Full.match(/(.+) \((.+)\)/);
+      if (p2Match) {
+        const p2Opt = p2Match[1].trim(); // "Yes"
+        const p2Mkt = p2Match[2].trim(); // "Over 1.5"
+        
+        const oddsA = getRealOdds(match, "1X2", p1Str);
+        const oddsB = getRealOdds(match, p2Mkt, p2Opt);
+        
+        if (oddsA && oddsB) {
+          // Synthetic juiced odds (approx 85% of raw multiplier to mimic bookies)
+          const multiplier = 0.85; 
+          return Number((oddsA * oddsB * multiplier).toFixed(2));
+        }
+      }
+    }
+  }
+
   if (mkt === "1X2") {
     if (opt === "Home") directOdds = match.homeOdds ?? match.home_odds;
     if (opt === "Draw") directOdds = match.drawOdds ?? match.draw_odds;

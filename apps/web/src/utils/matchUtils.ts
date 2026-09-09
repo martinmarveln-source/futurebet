@@ -565,6 +565,58 @@ export function pickBestSelectionForMatch(m, style, prefs) {
     selectedMarkets.includes(c.selectedMarket.toLowerCase().replace(" ", "")),
   );
 
+  
+  // ================================
+  // PHASE 1: COMBO (SAME-GAME PARLAY) AUTOPICK
+  // ================================
+  if (prefs?.autoMarkets?.comboPicks) {
+    const oneX2Cands = candidates.filter(c => c.selectedMarket === "1X2");
+    const ouCands = candidates.filter(c => c.selectedMarket.startsWith("Over "));
+    const bttsCands = candidates.filter(c => c.selectedMarket === "BTTS");
+
+    // Helper to generate combo
+    const addCombo = (c1, c2) => {
+      // If we are dealing with high probability singles, their joint probability is P(A)*P(B).
+      // Because they are correlated, we add a slight correlation boost.
+      let syntheticProb = (c1.prob / 100) * (c2.prob / 100) * 100;
+      
+      // Correlation boost: Home Win + Over 1.5 are positively correlated.
+      if (c1.selectedOption === "Home" || c1.selectedOption === "Away") {
+        if (c2.selectedOption === "Yes") syntheticProb *= 1.15; // Positive correlation for Over/BTTS Yes with Win
+        if (c2.selectedOption === "No") syntheticProb *= 0.90;  // Negative correlation with Under/BTTS No
+      }
+      
+      const prob = Math.min(99, syntheticProb);
+      
+      // Only push if it passes a baseline threshold
+      if (prob >= (t.oneX2 - 10)) { // Lowered threshold because combos naturally drop in prob
+        candidates.push({
+          selectedMarket: "Combo",
+          selectedOption: `${c1.selectedOption} & ${c2.selectedOption} (${c2.selectedMarket})`,
+          prob: prob,
+          score: prob + vipScore / 10 + 10, // +10 to strongly prefer Combos over Singles if combo is enabled
+          comboA: c1,
+          comboB: c2,
+        });
+      }
+    };
+
+    // Combine 1X2 with Over/Under
+    for (const c1 of oneX2Cands) {
+      for (const c2 of ouCands) {
+        addCombo(c1, c2);
+      }
+    }
+    
+    // Combine 1X2 with BTTS
+    for (const c1 of oneX2Cands) {
+      for (const c2 of bttsCands) {
+        addCombo(c1, c2);
+      }
+    }
+  }
+
+
   const finalPool = filtered.length ? filtered : candidates;
 
   finalPool.sort((a, b) => b.score - a.score);
