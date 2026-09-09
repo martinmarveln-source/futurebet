@@ -23,7 +23,6 @@ export function useAutoPickLogic({
   });
   const [autoSelectedLeagues, setAutoSelectedLeagues] = useState([]);
   const [autoStyle, setAutoStyle] = useState("safe");
-  const [autoTargetMode, setAutoTargetMode] = useState("count"); // "count" or "odds"
   const [autoCount, setAutoCount] = useState(5);
   const [autoTargetOdds, setAutoTargetOdds] = useState(5.0);
 
