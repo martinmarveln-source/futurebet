@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { getRatingColor, getRatingBand } from "@/utils/ratings";
 import { checkIfPickWon } from "@/utils/vipAlgorithm";
+import { computeMarketViewPick } from "@/utils/marketViewAlgorithm";
 import useUserPermissions from "@/hooks/useUserPermissions";
 import useUser from "@/utils/useUser";
 import { useQuery } from "@tanstack/react-query";
@@ -1406,6 +1407,7 @@ export default function MatchCard({
   hasKickoffPassed,
   convictionTier,
   convictionStrength,
+  activeMarket,
 }) {
   const [showComparison, setShowComparison] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
@@ -1976,6 +1978,12 @@ export default function MatchCard({
   }, [aiCardKey]);
 
   const dcOdds = getDoubleChanceOdds(match);
+
+  // Market View: compute best pick for the selected market
+  const marketViewPick = useMemo(
+    () => computeMarketViewPick(match, activeMarket || ""),
+    [match, activeMarket]
+  );
   
   const rawFtScore = match?.ft_score || match?.raw_data?.ftScore || match?.ftScore;
   const globalFtScore = rawFtScore && rawFtScore !== "#N/A" ? rawFtScore : null;
@@ -2187,7 +2195,7 @@ export default function MatchCard({
                           darkMode ? "text-blue-400" : "text-blue-600"
                         )}
                       >
-                        Primary AI Pick
+                        {activeMarket ? `Market View • ${activeMarket}` : "Primary AI Pick"}
                       </div>
                       
                       {kickoffPassed && wonStatus === true ? (
@@ -2229,6 +2237,35 @@ export default function MatchCard({
                       ) : null}
                     </div>
                     <div className="mt-1 text-base sm:text-lg font-black truncate flex items-center flex-wrap gap-2">
+                      {/* ── MARKET VIEW PICK BANNER ── */}
+                      {activeMarket && marketViewPick ? (
+                        <div className="w-full flex flex-col gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={cn("text-lg font-black", darkMode ? "text-white" : "text-gray-900")}>
+                              {marketViewPick.label}
+                            </span>
+                            <span className={cn("px-2 py-0.5 rounded-lg text-[11px] font-black", darkMode ? "bg-blue-500/20 text-blue-300" : "bg-blue-100 text-blue-700")}>
+                              {marketViewPick.prob}% prob
+                            </span>
+                            {marketViewPick.hasOdds ? (
+                              <span className={cn("px-2 py-0.5 rounded-lg text-[11px] font-black", darkMode ? "bg-emerald-500/20 text-emerald-300" : "bg-emerald-100 text-emerald-700")}>
+                                @ {Number(marketViewPick.odds).toFixed(2)}
+                              </span>
+                            ) : (
+                              <span className={cn("px-2 py-0.5 rounded-lg text-[11px] font-bold opacity-50", darkMode ? "bg-white/5 text-gray-400" : "bg-gray-100 text-gray-500")}>
+                                No odds
+                              </span>
+                            )}
+                          </div>
+                          {/* Probability bar */}
+                          <div className={cn("h-1.5 w-full rounded-full overflow-hidden", darkMode ? "bg-white/10" : "bg-gray-200")}>
+                            <div
+                              className={cn("h-full rounded-full transition-all", darkMode ? "bg-blue-400" : "bg-blue-500")}
+                              style={{ width: `${Math.min(100, marketViewPick.prob)}%` }}
+                            />
+                          </div>
+                        </div>
+                      ) : (
                       <span
                         className={cn(
                           darkMode ? "text-white" : "text-gray-900"
@@ -2273,9 +2310,10 @@ export default function MatchCard({
                           "—"
                         )}
                       </span>
+                      )}
 
-                      {/* RESTORED @ ODDS */}
-                      {pickOdds ? (
+                      {/* @ ODDS — only when no market view active */}
+                      {!activeMarket && pickOdds ? (
                         canSeeAdvancedData ? (
                           <span className={`ml-1 ${getEdgeColor(valueEdge)}`}>
                             @{Number(pickOdds).toFixed(2)}

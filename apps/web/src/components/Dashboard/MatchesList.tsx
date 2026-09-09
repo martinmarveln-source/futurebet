@@ -279,6 +279,7 @@ export default function MatchesList({
   hasKickoffPassed,
   sortBy,
   isPro,
+  activeMarket,
 }) {
   const [visibleMatches, setVisibleMatches] = useState(12);
   const [exportingType, setExportingType] = useState(null);
@@ -617,6 +618,7 @@ export default function MatchesList({
             hasKickoffPassed={hasKickoffPassed}
             convictionTier={getConvictionTier(match)}
             convictionStrength={getBiasStrength(match)}
+            activeMarket={activeMarket}
           />
         ))}
 

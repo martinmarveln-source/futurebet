@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React from "react";
+import React, { useState } from "react";
 import StatsCards from "@/components/Dashboard/StatsCards";
 import { ExploreSearchBar } from "@/components/Dashboard/ExploreSearchBar";
 import { ExploreFilters } from "@/components/Dashboard/ExploreFilters";
@@ -39,6 +39,8 @@ export function ExploreTab({
   selectedDate,
   hasKickoffPassed,
 }) {
+  const [activeMarket, setActiveMarket] = useState("");
+
   return (
     // FIX 1: Wrap in a div instead of a fragment.
     // This gives the browser a stable DOM node to track during re-renders.
@@ -87,6 +89,8 @@ export function ExploreTab({
           sortBy={sortBy}
           setSortBy={setSortBy}
           noBorder={true}
+          activeMarket={activeMarket}
+          setActiveMarket={setActiveMarket}
         />
       </div>
 
@@ -102,6 +106,7 @@ export function ExploreTab({
         hasKickoffPassed={hasKickoffPassed}
         sortBy={sortBy}
         isPro={isPro}
+        activeMarket={activeMarket}
       />
     </div>
   );

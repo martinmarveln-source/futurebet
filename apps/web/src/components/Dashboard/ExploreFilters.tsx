@@ -3,6 +3,7 @@ import React from "react";
 import { cn } from "@/utils/matchUtils";
 import Controls from "@/components/Dashboard/Controls";
 import { Lock, X, Sliders } from "lucide-react";
+import { MARKET_OPTIONS } from "@/utils/marketViewAlgorithm";
 
 export function ExploreFilters({
   isPro,
@@ -26,6 +27,8 @@ export function ExploreFilters({
   sortBy,
   setSortBy,
   noBorder,
+  activeMarket,
+  setActiveMarket,
 }) {
   const handleChanceChange = (val) => {
     let num = Number(val);
@@ -52,6 +55,37 @@ export function ExploreFilters({
           : "rounded-[32px] border border-gray-200 bg-white/80 shadow-sm mb-6 backdrop-blur-xl"
       )}
     >
+      
+      {/* === MARKET VIEW SELECTOR === */}
+      {setActiveMarket && (
+        <div className="mb-4">
+          <div className={cn("text-[10px] font-black uppercase tracking-[0.2em] mb-2 px-1", darkMode ? "text-gray-400" : "text-gray-500")}>
+            Market View
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {MARKET_OPTIONS.map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setActiveMarket(key)}
+                className={cn(
+                  "px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider border transition-all active:scale-[0.98]",
+                  activeMarket === key
+                    ? darkMode
+                      ? "bg-blue-500/20 border-blue-500/40 text-blue-300 shadow-[0_0_10px_rgba(59,130,246,0.2)]"
+                      : "bg-blue-600 border-blue-600 text-white shadow-sm"
+                    : darkMode
+                    ? "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200"
+                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Toolstrip Header */}
       <div className="flex items-center gap-2.5 mb-4 px-1">
         <div
