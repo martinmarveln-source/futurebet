@@ -234,10 +234,17 @@ export async function GET(request: Request) {
               const ro  = oddsMap.get(`${hLc}|${aLc}`) || {};
               if (marketKey === "BTTS") odds = ro.bttsYesOdds || ro.bttsOdds;
               else if (marketKey === "NBTTS") odds = ro.bttsNoOdds;
-              else if (marketKey === "O15" || marketKey === "U15")  odds = ro.o15Odds;
-              else if (marketKey === "O25" || marketKey === "U25")  odds = ro.o25Odds;
-              else if (marketKey === "O35" || marketKey === "U35")  odds = ro.o35Odds;
-              else if (marketKey === "O45" || marketKey === "U45")  odds = ro.o45Odds;
+              else if (marketKey === "O15") odds = ro.o15Odds;
+              else if (marketKey === "U15") odds = ro.u15Odds;
+              else if (marketKey === "O25") odds = ro.o25Odds;
+              else if (marketKey === "U25") odds = ro.u25Odds;
+              else if (marketKey === "O35") odds = ro.o35Odds;
+              else if (marketKey === "U35") odds = ro.u35Odds;
+              else if (marketKey === "O45") odds = ro.o45Odds;
+              else if (marketKey === "U45") odds = ro.u45Odds;
+              else if (marketKey === "HOME_WIN") odds = ro.homeOdds;
+              else if (marketKey === "AWAY_WIN") odds = ro.awayOdds;
+              else if (marketKey === "DRAW") odds = ro.drawOdds;
             }
           }
         }
@@ -289,12 +296,12 @@ export async function GET(request: Request) {
       fts:        getTop15(t => getStat(t,"FTS"),     false, undefined, undefined, "FTS"),
       nfts:       getTop15(t => getInverse(t,"FTS"),  false, undefined, undefined, "FTS"),
       cleanSheet: getTop15(t => getStat(t,"CS"),      false, undefined, undefined, "CS"),
-      bestHome:   getTop15(t => parsePct(t.market_stats.Home_Win), false, gpHome, undefined, "Home_Win"),
-      worstHome:  getTop15(t => parsePct(t.market_stats.Home_Win), true,  gpHome, undefined, "Home_Win"),
-      bestAway:   getTop15(t => parsePct(t.market_stats.Away_Win), false, gpAway, undefined, "Away_Win"),
-      worstAway:  getTop15(t => parsePct(t.market_stats.Away_Win), true,  gpAway, undefined, "Away_Win"),
-      homeDraw:   getTop15(t => parsePct(t.market_stats.HOME_DRAW), false, gpHome, undefined, "HOME_DRAW"),
-      awayDraw:   getTop15(t => parsePct(t.market_stats.AWAY_DRAW), false, gpAway, undefined, "AWAY_DRAW"),
+      bestHome:   getTop15(t => parsePct(t.market_stats.Home_Win), false, gpHome, "HOME_WIN", "Home_Win"),
+      worstHome:  getTop15(t => parsePct(t.market_stats.Home_Win), true,  gpHome, "HOME_WIN", "Worst_Home"),
+      bestAway:   getTop15(t => parsePct(t.market_stats.Away_Win), false, gpAway, "AWAY_WIN", "Away_Win"),
+      worstAway:  getTop15(t => parsePct(t.market_stats.Away_Win), true,  gpAway, "AWAY_WIN", "Worst_Away"),
+      homeDraw:   getTop15(t => parsePct(t.market_stats.HOME_DRAW), false, gpHome, "DRAW", "HOME_DRAW"),
+      awayDraw:   getTop15(t => parsePct(t.market_stats.AWAY_DRAW), false, gpAway, "DRAW", "AWAY_DRAW"),
       hgsO15:     getTop15(t => parsePct(t.market_stats.HGS_Over_15 ?? t.market_stats["HGS_Over_1.5"]), false, gpHome, "O15", "HGS_Over_15"),
       hgcO15:     getTop15(t => parsePct(t.market_stats.HGC_Over_15 ?? t.market_stats["HGC_Over_1.5"]), false, gpHome, "O15", "HGC_Over_15"),
       agsO15:     getTop15(t => parsePct(t.market_stats.AGS_Over_15 ?? t.market_stats["AGS_Over_1.5"]), false, gpAway, "O15", "AGS_Over_15"),
