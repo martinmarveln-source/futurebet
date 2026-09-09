@@ -95,17 +95,7 @@ export async function GET(request: Request) {
       }
     }
 
-    // 4. Filter valid teams
-    const validTeams = teams.filter((t: any) => {
-      if ((parseInt(t.gp || "0", 10) || 0) < minGames) return false;
-      if (dateFilterTeamSet) {
-        const key = `${t.team?.trim().toLowerCase()}|${t.league?.trim().toLowerCase()}`;
-        if (!dateFilterTeamSet.has(key)) return false;
-      }
-      return true;
-    });
-
-    // 5. Stat helpers
+    // 4. Stat helpers
     const keySuffix  = split === "home" ? "_HOME" : split === "away" ? "_AWAY" : "_ALL";
     const getStat    = (t: any, base: string) => parsePct(t.market_stats[`${base}${keySuffix}`]);
     const getInverse = (t: any, base: string) => 100 - parsePct(t.market_stats[`${base}${keySuffix}`]);
@@ -113,6 +103,16 @@ export async function GET(request: Request) {
       split === "home" ? parseInt(t.market_stats.GP_HOME || "0", 10) || 0 :
       split === "away" ? parseInt(t.market_stats.GP_AWAY || "0", 10) || 0 :
       parseInt(t.gp || "0", 10) || 0;
+
+    // 5. Filter valid teams
+    const validTeams = teams.filter((t: any) => {
+      if (getGp(t) < minGames) return false;
+      if (dateFilterTeamSet) {
+        const key = `${t.team?.trim().toLowerCase()}|${t.league?.trim().toLowerCase()}`;
+        if (!dateFilterTeamSet.has(key)) return false;
+      }
+      return true;
+    });
 
     // 6. Build top-15 for teams
     const teamDict = new Map<string, any>();
@@ -260,6 +260,9 @@ export async function GET(request: Request) {
       });
 
       const filtered = mapped.filter((item: any) => {
+        if (item.gp < minGames) {
+          return false;
+        }
         if (minPrediction > 0) {
           if (item.prediction == null || isNaN(item.prediction) || Math.round(item.prediction) < minPrediction) {
             return false;
