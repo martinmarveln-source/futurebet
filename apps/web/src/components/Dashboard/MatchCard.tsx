@@ -1483,10 +1483,20 @@ export default function MatchCard({
   const canSeePredictedScore = canSeeAdvancedData;
   const isPro = canSeeAiInsight;
 
+  // Market View: compute best pick for the selected market
+  const marketViewPick = useMemo(
+    () => computeMarketViewPick(match, activeMarket || ""),
+    [match, activeMarket]
+  );
+
   const ratingPercentage = useMemo(() => {
+    if (activeMarket && marketViewPick?.rating) {
+        return Math.min(100, Math.max(0, marketViewPick.rating));
+    }
     const r = toNum(match?.rating);
     return r > 100 ? r / 100 : r;
-  }, [match?.rating]);
+  }, [match?.rating, activeMarket, marketViewPick]);
+
   const band = useMemo(
     () => getRatingBand(ratingPercentage),
     [ratingPercentage]
@@ -1495,7 +1505,13 @@ export default function MatchCard({
     () => getRatingColor(ratingPercentage, darkMode),
     [ratingPercentage, darkMode]
   );
-  const chance = pct(match?.chance);
+
+  const chance = useMemo(() => {
+    if (activeMarket && marketViewPick?.prob) {
+        return marketViewPick.prob;
+    }
+    return pct(match?.chance);
+  }, [match?.chance, activeMarket, marketViewPick]);
   const pickText = safeStr(match?.pick) || safeStr(match?.options) || "";
   const marketText =
     match?.market || match?.marketLabel || match?.tipMarket || "";

@@ -55,17 +55,25 @@ function compute1X2(m) {
   const aForm = formScore(m?.aForm ?? m?.form?.awayStr);
   const hppg  = toNum(m?.hppg);
   const appg  = toNum(m?.appg);
+  
+  const hWin = toPct(m?.hWin); const aLost = toPct(m?.aLost);
+  const hDraw = toPct(m?.hDraw); const aDraw = toPct(m?.aDraw);
+  const hLost = toPct(m?.hLost); const aWin = toPct(m?.aWin);
+
   const opts = [
     { option: "Home", label: "Home Win", prob: homeProb, odds: toNum(m?.homeOdds) || null,
-      score: 0.50*homeProb + 0.30*(h2hGP>=3&&h2hH>60?8:0) + 0.20*(hForm>aForm?8:0) + hppg*2 },
+      score: 0.50*homeProb + 0.30*(h2hGP>=3&&h2hH>60?8:0) + 0.20*(hForm>aForm?8:0) + hppg*2,
+      rating: (hWin + aLost) / 2 },
     { option: "Draw", label: "Draw",     prob: drawProb, odds: toNum(m?.drawOdds) || null,
-      score: 0.50*drawProb },
+      score: 0.50*drawProb,
+      rating: (hDraw + aDraw) / 2 },
     { option: "Away", label: "Away Win", prob: awayProb, odds: toNum(m?.awayOdds) || null,
-      score: 0.50*awayProb + 0.30*(h2hGP>=3&&h2hA>60?8:0) + 0.20*(aForm>hForm?8:0) + appg*2 },
+      score: 0.50*awayProb + 0.30*(h2hGP>=3&&h2hA>60?8:0) + 0.20*(aForm>hForm?8:0) + appg*2,
+      rating: (hLost + aWin) / 2 },
   ];
   const w = best(opts);
   return { market:"1X2", option:w.option, label:w.label, prob:Math.round(w.prob),
-           odds:w.odds>1?w.odds:null, hasOdds:w.odds>1 };
+           odds:w.odds>1?w.odds:null, hasOdds:w.odds>1, rating: Math.round(w.rating) };
 }
 
 function computeBTTS(m) {
@@ -80,48 +88,66 @@ function computeBTTS(m) {
   const bN = 0.50*ng + 0.20*(100-avg) + 0.30*(h2hGP>=3&&h2hGG<40?8:0);
   const yes = bY >= bN;
   const odds = yes ? (toNum(m?.bttsYesOdds)>1?toNum(m?.bttsYesOdds):null) : (toNum(m?.bttsNoOdds)>1?toNum(m?.bttsNoOdds):null);
+  const rating = yes ? avg : (100 - hB + 100 - aB) / 2;
   return { market:"BTTS", option:yes?"Yes":"No", label:yes?"BTTS Yes":"BTTS No",
-           prob:Math.round(yes?gg:ng), odds, hasOdds:!!odds };
+           prob:Math.round(yes?gg:ng), odds, hasOdds:!!odds, rating: Math.round(rating) };
 }
 
 function computeOU(m, line) {
   const ov25P = toPct(m?.ov25) / 100;
   const lam = ov25P > 0 ? inferLambda(ov25P) : 1.8;
-  let pU = poissonP(lam,0)+poissonP(lam,1);
-  if (line===2.5) pU += poissonP(lam,2);
-  if (line===3.5) pU += poissonP(lam,2)+poissonP(lam,3);
-  if (line===4.5) pU += poissonP(lam,2)+poissonP(lam,3)+poissonP(lam,4);
-  const pO = Math.max(0, Math.min(1, 1-pU));
+  
+  const getPOver = (lambda, l) => {
+    let pU = poissonP(lambda,0)+poissonP(lambda,1);
+    if (l===2.5) pU += poissonP(lambda,2);
+    if (l===3.5) pU += poissonP(lambda,2)+poissonP(lambda,3);
+    if (l===4.5) pU += poissonP(lambda,2)+poissonP(lambda,3)+poissonP(lambda,4);
+    return Math.max(0, Math.min(1, 1-pU));
+  };
+
+  const pO = getPOver(lam, line);
   const pUn = 1-pO;
+  
   const hOv2 = toPct(m?.hOv2), aOv2 = toPct(m?.aOv2);
+  const lamH = hOv2 > 0 ? inferLambda(hOv2 / 100) : 1.8;
+  const lamA = aOv2 > 0 ? inferLambda(aOv2 / 100) : 1.8;
+  
+  const hStatO = getPOver(lamH, line) * 100;
+  const aStatO = getPOver(lamA, line) * 100;
+  const avgO = (hStatO + aStatO) / 2;
+  const avgU = ((100 - hStatO) + (100 - aStatO)) / 2;
+
   const h2hGP = toNum(m?.H2H_GP??m?.h2hGP), h2hOV = toPct(m?.H2H_OV??m?.h2hOV);
   const sO = 0.50*pO*100 + 0.20*(hOv2+aOv2)/2 + 0.30*(h2hGP>=3&&h2hOV>60?5:0);
   const sU = 0.50*pUn*100;
   const over = sO >= sU;
+  
   const mk = `O/U ${line}`;
   const oMap = { 1.5:[m?.o15Odds,m?.u15Odds], 2.5:[m?.o25Odds,m?.u25Odds], 3.5:[m?.o35Odds,m?.u35Odds], 4.5:[m?.o45Odds,m?.u45Odds] };
   const [oOdds, uOdds] = oMap[line] || [];
   const odds = over ? (toNum(oOdds)>1?toNum(oOdds):null) : (toNum(uOdds)>1?toNum(uOdds):null);
   const lbl = over ? `Over ${line}` : `Under ${line}`;
-  return { market:mk, option:lbl, label:lbl, prob:Math.round(over?pO*100:pUn*100), odds, hasOdds:!!odds };
+  return { market:mk, option:lbl, label:lbl, prob:Math.round(over?pO*100:pUn*100), odds, hasOdds:!!odds, rating: Math.round(over ? avgO : avgU) };
 }
 
 function computeDC(m) {
   const hp = toPct(m?.homeWin??m?.hWin), dp = toPct(m?.draw??m?.hDraw), ap = toPct(m?.awayWin??m?.aWin);
   const h = toNum(m?.homeOdds), d = toNum(m?.drawOdds), a = toNum(m?.awayOdds);
+  const hWin = toPct(m?.hWin), aLost = toPct(m?.aLost), hDraw = toPct(m?.hDraw), aDraw = toPct(m?.aDraw), hLost = toPct(m?.hLost), aWin = toPct(m?.aWin);
+  
   let dcOdds = { h1x:null, h12:null, hx2:null };
   if (h>1&&d>1&&a>1) {
     const mg = 1/h+1/d+1/a, t1=(1/h)/mg, tX=(1/d)/mg, t2=(1/a)/mg, M=1.05;
     dcOdds = { h1x:1/((t1+tX)*M), h12:1/((t1+t2)*M), hx2:1/((tX+t2)*M) };
   }
   const opts = [
-    { option:"1X", label:"Home or Draw", prob:Math.min(100,hp+dp), score:Math.min(100,hp+dp), odds:dcOdds.h1x },
-    { option:"12", label:"Home or Away", prob:Math.min(100,hp+ap), score:Math.min(100,hp+ap), odds:dcOdds.h12 },
-    { option:"X2", label:"Draw or Away", prob:Math.min(100,dp+ap), score:Math.min(100,dp+ap), odds:dcOdds.hx2 },
+    { option:"1X", label:"Home or Draw", prob:Math.min(100,hp+dp), score:Math.min(100,hp+dp), odds:dcOdds.h1x, rating: ((hWin+hDraw)+(aLost+aDraw))/2 },
+    { option:"12", label:"Home or Away", prob:Math.min(100,hp+ap), score:Math.min(100,hp+ap), odds:dcOdds.h12, rating: ((hWin+hLost)+(aWin+aLost))/2 },
+    { option:"X2", label:"Draw or Away", prob:Math.min(100,dp+ap), score:Math.min(100,dp+ap), odds:dcOdds.hx2, rating: ((hLost+hDraw)+(aWin+aDraw))/2 },
   ];
   const w = best(opts);
   const finalOdds = w.odds&&w.odds>1?w.odds:null;
-  return { market:"Double Chance", option:w.option, label:w.label, prob:Math.round(w.prob), odds:finalOdds, hasOdds:!!finalOdds };
+  return { market:"Double Chance", option:w.option, label:w.label, prob:Math.round(w.prob), odds:finalOdds, hasOdds:!!finalOdds, rating: Math.round(w.rating) };
 }
 
 export function computeMarketViewPick(match, market) {
