@@ -1995,12 +1995,6 @@ export default function MatchCard({
 
   const dcOdds = getDoubleChanceOdds(match);
 
-  // Market View: compute best pick for the selected market
-  const marketViewPick = useMemo(
-    () => computeMarketViewPick(match, activeMarket || ""),
-    [match, activeMarket]
-  );
-  
   const rawFtScore = match?.ft_score || match?.raw_data?.ftScore || match?.ftScore;
   const globalFtScore = rawFtScore && rawFtScore !== "#N/A" ? rawFtScore : null;
   const actualMarket = recommended ? recommended.market : (marketText || "");
