@@ -84,9 +84,16 @@ function computeBTTS(m) {
   const avg = (hB + aB) / 2;
   const h2hGP = toNum(m?.H2H_GP ?? m?.h2hGP);
   const h2hGG = toPct(m?.H2H_GG ?? m?.h2hGG);
+
+  const hcs = toPct(m?.hcs);
+  const acs = toPct(m?.acs);
+  const hfts = toPct(m?.hfts);
+  const afts = toPct(m?.afts);
+  const bttsPotential = ( (100 - hfts) + (100 - acs) + (100 - afts) + (100 - hcs) ) / 4;
+
   const h2hScore = h2hGP >= 3 ? h2hGG : 50;
-  const bY = 0.50*gg + 0.30*avg + 0.20*h2hScore;
-  const bN = 0.50*ng + 0.30*(100-avg) + 0.20*(100-h2hScore);
+  const bY = 0.40*gg + 0.20*avg + 0.20*bttsPotential + 0.20*h2hScore;
+  const bN = 0.40*ng + 0.20*(100-avg) + 0.20*(100-bttsPotential) + 0.20*(100-h2hScore);
   const yes = bY >= bN;
   const odds = yes ? (toNum(m?.bttsYesOdds)>1?toNum(m?.bttsYesOdds):null) : (toNum(m?.bttsNoOdds)>1?toNum(m?.bttsNoOdds):null);
   const rating = yes ? avg : (100 - hB + 100 - aB) / 2;
@@ -127,8 +134,15 @@ function computeOU(m, line) {
   const agcO15 = toPct(m?.agcOver15);
   const goalsPotential = (hgsO15 + agcO15 + agsO15 + hgcO15) / 4;
 
-  const sO = 0.40*(pO*100) + 0.20*((hOv2+aOv2)/2) + 0.20*goalsPotential + 0.20*h2hScore;
-  const sU = 0.40*(pUn*100) + 0.20*(100 - (hOv2+aOv2)/2) + 0.20*(100 - goalsPotential) + 0.20*(100 - h2hScore);
+  const hcs = toPct(m?.hcs);
+  const acs = toPct(m?.acs);
+  const hfts = toPct(m?.hfts);
+  const afts = toPct(m?.afts);
+  const csFtsUnder = (hcs + acs + hfts + afts) / 4;
+  const csFtsOver = 100 - csFtsUnder;
+
+  const sO = 0.40*(pO*100) + 0.20*((hOv2+aOv2)/2) + 0.10*goalsPotential + 0.10*csFtsOver + 0.20*h2hScore;
+  const sU = 0.40*(pUn*100) + 0.20*(100 - (hOv2+aOv2)/2) + 0.10*(100 - goalsPotential) + 0.10*csFtsUnder + 0.20*(100 - h2hScore);
   const over = sO >= sU;
   
   const mk = `O/U ${line}`;
