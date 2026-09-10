@@ -404,5 +404,7 @@ export default function useDashboard() {
     savePreferencesMutation,
     filteredMatches,
     uniqueLeagues,
+    activeMarket,
+    setActiveMarket,
   };
 }
