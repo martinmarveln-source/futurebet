@@ -122,8 +122,19 @@ function computeOU(m, line) {
   
   const hStatO = getPOver(lamH, line) * 100;
   const aStatO = getPOver(lamA, line) * 100;
-  const avgO = (hStatO + aStatO) / 2;
-  const avgU = ((100 - hStatO) + (100 - aStatO)) / 2;
+  const pureAvgO = (hStatO + aStatO) / 2;
+  const pureAvgU = ((100 - hStatO) + (100 - aStatO)) / 2;
+  
+  const hcs_temp = toPct(m?.hcs);
+  const acs_temp = toPct(m?.acs);
+  const hfts_temp = toPct(m?.hfts);
+  const afts_temp = toPct(m?.afts);
+  
+  const ftsNotRate = ((100 - hfts_temp) + (100 - afts_temp)) / 2;
+  const csRate = (hcs_temp + acs_temp) / 2;
+  
+  const avgO = (pureAvgO + ftsNotRate) / 2;
+  const avgU = (pureAvgU + csRate) / 2;
 
   const h2hGP = toNum(m?.H2H_GP??m?.h2hGP), h2hOV = toPct(m?.H2H_OV??m?.h2hOV);
   const h2hScore = h2hGP >= 3 ? h2hOV : 50;

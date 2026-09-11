@@ -213,8 +213,22 @@ export async function GET(request: Request) {
               const rawT = parsePct(ms[`${baseStatKey}${tv}`]);
               const rawO = parsePct(oppTeamObj.market_stats[`${baseStatKey}${ov}`]);
               const inv  = marketKey?.startsWith("U") || marketKey?.startsWith("N");
-              tVal = inv ? 100 - rawT : rawT;
-              oVal = inv ? 100 - rawO : rawO;
+              if (marketKey && marketKey.match(/^[OU]\d5$/)) {
+                const tFts = parsePct(ms[`FTS${tv}`]);
+                const oFts = parsePct(oppTeamObj.market_stats[`FTS${ov}`]);
+                const tCs = parsePct(ms[`CS${tv}`]);
+                const oCs = parsePct(oppTeamObj.market_stats[`CS${ov}`]);
+                if (!inv) {
+                  tVal = (rawT + (100 - tFts)) / 2;
+                  oVal = (rawO + (100 - oFts)) / 2;
+                } else {
+                  tVal = ((100 - rawT) + tCs) / 2;
+                  oVal = ((100 - rawO) + oCs) / 2;
+                }
+              } else {
+                tVal = inv ? 100 - rawT : rawT;
+                oVal = inv ? 100 - rawO : rawO;
+              }
             }
 
             if (calcPred && !isNaN(tVal) && !isNaN(oVal)) {
