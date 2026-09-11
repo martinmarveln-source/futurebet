@@ -199,8 +199,8 @@ export async function GET(request: Request) {
                 oVal = parsePct(oppTeamObj.market_stats[ok] ?? oppTeamObj.market_stats[ok.replace("_15","_1.5")]);
               }
             } else if (baseStatKey === "FTS" || baseStatKey === "CS") {
-              const tv = isHome ? "_HOME" : "_AWAY";
-              const ov = isHome ? "_AWAY" : "_HOME";
+              const tv = split === "overall" ? "_ALL" : isHome ? "_HOME" : "_AWAY";
+              const ov = split === "overall" ? "_ALL" : isHome ? "_AWAY" : "_HOME";
               if (baseStatKey === "FTS") {
                 tVal = parsePct(ms[`FTS${tv}`]); oVal = parsePct(oppTeamObj.market_stats[`CS${ov}`]);
               } else {
@@ -208,8 +208,8 @@ export async function GET(request: Request) {
               }
               if (marketKey?.startsWith("N")) { tVal = 100 - tVal; oVal = 100 - oVal; }
             } else {
-              const tv   = isHome ? "_HOME" : "_AWAY";
-              const ov   = isHome ? "_AWAY" : "_HOME";
+              const tv   = split === "overall" ? "_ALL" : isHome ? "_HOME" : "_AWAY";
+              const ov   = split === "overall" ? "_ALL" : isHome ? "_AWAY" : "_HOME";
               const rawT = parsePct(ms[`${baseStatKey}${tv}`]);
               const rawO = parsePct(oppTeamObj.market_stats[`${baseStatKey}${ov}`]);
               const inv  = marketKey?.startsWith("U") || marketKey?.startsWith("N");
@@ -307,9 +307,9 @@ export async function GET(request: Request) {
       nfts:       getTop15(t => getInverse(t,"FTS"),  false, undefined, undefined, "FTS"),
       cleanSheet: getTop15(t => getStat(t,"CS"),      false, undefined, undefined, "CS"),
       bestHome:   getTop15(t => parsePct(t.market_stats.Home_Win), false, gpHome, "HOME_WIN", "Home_Win"),
-      worstHome:  getTop15(t => parsePct(t.market_stats.Home_Win), true,  gpHome, "HOME_WIN", "Worst_Home"),
+      worstHome:  getTop15(t => parsePct(t.market_stats.Home_Win), true,  gpHome, "AWAY_WIN", "Worst_Home"),
       bestAway:   getTop15(t => parsePct(t.market_stats.Away_Win), false, gpAway, "AWAY_WIN", "Away_Win"),
-      worstAway:  getTop15(t => parsePct(t.market_stats.Away_Win), true,  gpAway, "AWAY_WIN", "Worst_Away"),
+      worstAway:  getTop15(t => parsePct(t.market_stats.Away_Win), true,  gpAway, "HOME_WIN", "Worst_Away"),
       homeDraw:   getTop15(t => parsePct(t.market_stats.HOME_DRAW), false, gpHome, "DRAW", "HOME_DRAW"),
       awayDraw:   getTop15(t => parsePct(t.market_stats.AWAY_DRAW), false, gpAway, "DRAW", "AWAY_DRAW"),
       hgsO15:     getTop15(t => parsePct(t.market_stats.HGS_Over_15 ?? t.market_stats["HGS_Over_1.5"]), false, gpHome, "O15", "HGS_Over_15"),
