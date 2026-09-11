@@ -213,7 +213,7 @@ export async function GET(request: Request) {
               const rawT = parsePct(ms[`${baseStatKey}${tv}`]);
               const rawO = parsePct(oppTeamObj.market_stats[`${baseStatKey}${ov}`]);
               const inv  = marketKey?.startsWith("U") || marketKey?.startsWith("N");
-              if (marketKey && marketKey.match(/^[OU]\d5$/)) {
+              if (marketKey && marketKey.match(/^[OU]\d5$/) && (!baseStatKey || (!baseStatKey.includes("HG") && !baseStatKey.includes("AG")))) {
                 const tFts = parsePct(ms[`FTS${tv}`]);
                 const oFts = parsePct(oppTeamObj.market_stats[`FTS${ov}`]);
                 const tCs = parsePct(ms[`CS${tv}`]);
