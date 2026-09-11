@@ -225,6 +225,22 @@ export async function GET(request: Request) {
                   tVal = ((100 - rawT) + tCs) / 2;
                   oVal = ((100 - rawO) + oCs) / 2;
                 }
+              } else if (marketKey === "BTTS" || marketKey === "NBTTS") {
+                const tFts = parsePct(ms[`FTS${tv}`]);
+                const oFts = parsePct(oppTeamObj.market_stats[`FTS${ov}`]);
+                const tCs = parsePct(ms[`CS${tv}`]);
+                const oCs = parsePct(oppTeamObj.market_stats[`CS${ov}`]);
+                
+                const tScorePotential = ((100 - tFts) + (100 - oCs)) / 2;
+                const oScorePotential = ((100 - oFts) + (100 - tCs)) / 2;
+                
+                if (marketKey === "BTTS") {
+                  tVal = (rawT + tScorePotential) / 2;
+                  oVal = (rawO + oScorePotential) / 2;
+                } else {
+                  tVal = ((100 - rawT) + (100 - tScorePotential)) / 2;
+                  oVal = ((100 - rawO) + (100 - oScorePotential)) / 2;
+                }
               } else {
                 tVal = inv ? 100 - rawT : rawT;
                 oVal = inv ? 100 - rawO : rawO;

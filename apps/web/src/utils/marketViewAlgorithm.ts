@@ -96,7 +96,11 @@ function computeBTTS(m) {
   const bN = 0.40*ng + 0.20*(100-avg) + 0.20*(100-bttsPotential) + 0.20*(100-h2hScore);
   const yes = bY >= bN;
   const odds = yes ? (toNum(m?.bttsYesOdds)>1?toNum(m?.bttsYesOdds):null) : (toNum(m?.bttsNoOdds)>1?toNum(m?.bttsNoOdds):null);
-  const rating = yes ? avg : (100 - hB + 100 - aB) / 2;
+  const pureYes = avg;
+  const pureNo = (100 - hB + 100 - aB) / 2;
+  const finalYesRating = (pureYes + bttsPotential) / 2;
+  const finalNoRating = (pureNo + (100 - bttsPotential)) / 2;
+  const rating = yes ? finalYesRating : finalNoRating;
   return { market:"BTTS", option:yes?"Yes":"No", label:yes?"BTTS Yes":"BTTS No",
            prob:Math.round(yes?gg:ng), odds, hasOdds:!!odds, rating: Math.round(rating) };
 }
