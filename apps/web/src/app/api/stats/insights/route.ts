@@ -51,7 +51,8 @@ export async function GET(request: Request) {
     const endDate   = searchParams.get("endDate")   || "";
     const minPrediction = parseInt(searchParams.get("minPrediction") || "0", 10);
     const minConfidence = parseInt(searchParams.get("minConfidence") || "0", 10);
-    const showWithOddsOnly = searchParams.get("showWithOddsOnly") === "true";
+      const minOdds = parseFloat(searchParams.get("minOdds") || "0");
+      const showWithOddsOnly = searchParams.get("showWithOddsOnly") === "true";
 
     // 1. Fetch all teams
     const rows = await sql`SELECT * FROM league_table_cache`;
@@ -294,9 +295,10 @@ export async function GET(request: Request) {
         if (item.gp < minGames) {
           return false;
         }
-        if (showWithOddsOnly) {
+        if (showWithOddsOnly || minOdds > 1.0) {
           const oddsVal = parseFloat(item.odds);
-          if (!item.odds || isNaN(oddsVal) || oddsVal <= 1.0) {
+          const threshold = minOdds > 1.0 ? minOdds : 1.0001; // 1.0001 to ensure odds > 1.0 when "Has Odds" is selected
+          if (!item.odds || isNaN(oddsVal) || oddsVal < threshold) {
             return false;
           }
         }

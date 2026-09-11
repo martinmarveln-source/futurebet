@@ -16,7 +16,7 @@ export default function InsightsPage() {
   const [endDate, setEndDate] = useState("");
   const [minPrediction, setMinPrediction] = useState(0);
   const [minConfidence, setMinConfidence] = useState(0);
-  const [showWithOddsOnly, setShowWithOddsOnly] = useState(false);
+  const [minOdds, setMinOdds] = useState(0);
 
   useEffect(() => {
     setLoading(true);
@@ -30,7 +30,7 @@ export default function InsightsPage() {
     if (endDate) params.append("endDate", endDate);
     if (minPrediction > 0) params.append("minPrediction", minPrediction.toString());
     if (minConfidence > 0) params.append("minConfidence", minConfidence.toString());
-    if (showWithOddsOnly) params.append("showWithOddsOnly", "true");
+    if (minOdds > 0) params.append("minOdds", minOdds.toString());
 
     fetch(`/api/stats/insights?${params.toString()}`)
       .then(res => res.json())
@@ -43,7 +43,7 @@ export default function InsightsPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [minGames, split, startDate, endDate, minPrediction, minConfidence, viewType, showWithOddsOnly]);
+  }, [minGames, split, startDate, endDate, minPrediction, minConfidence, viewType, minOdds]);
 
   const sections = [
     { key: "btts", title: "Best BTTS", icon: Target, color: "text-amber-400" },
@@ -128,14 +128,21 @@ export default function InsightsPage() {
               <button onClick={() => setSplit('away')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${split === 'away' ? 'bg-slate-700 text-white' : 'text-slate-400'}`}>Away</button>
             </div>
 
-            {/* Show Odds Toggle */}
-            <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg p-1">
-              <button 
-                onClick={() => setShowWithOddsOnly(!showWithOddsOnly)} 
-                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${showWithOddsOnly ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+            {/* Min Odds Filter */}
+            <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg p-1.5 pl-3">
+              <span className="text-xs font-bold text-slate-400">Min Odds:</span>
+              <select 
+                value={minOdds}
+                onChange={(e) => setMinOdds(Number(e.target.value))}
+                className="bg-transparent text-white text-xs font-bold appearance-none cursor-pointer focus:outline-none"
               >
-                {showWithOddsOnly ? 'Matches with Odds' : 'All Matches'}
-              </button>
+                <option value={0} className="bg-slate-900">Any</option>
+                <option value={1.01} className="bg-slate-900">Has Odds</option>
+                <option value={1.20} className="bg-slate-900">1.20+</option>
+                <option value={1.50} className="bg-slate-900">1.50+</option>
+                <option value={1.80} className="bg-slate-900">1.80+</option>
+                <option value={2.00} className="bg-slate-900">2.00+</option>
+              </select>
             </div>
 
             {/* Min Games Filter */}
