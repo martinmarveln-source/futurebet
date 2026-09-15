@@ -2075,42 +2075,45 @@ export default function MatchCard({
                     Conviction: {convictionTier} ({convictionStrength}%)
                   </span>
                 )}
-                {/* ===== FB SCORE BADGE ===== */}
-                {(() => {
-                  const fbChance = Math.round(Number(match?.chance) || 0);
-                  const fbRating = Math.round(Number(match?.rating) || 0);
-                  const fbPts = Math.abs(Number(match?.hPts || 0) - Number(match?.aPts || 0));
-                  const fbStab = Math.min(100, Math.round((fbPts / 15) * 100));
-                  const fbTrust = Math.round(fbChance * 0.5 + fbRating * 0.5);
-                  const fbRaw = Math.round(fbChance * 0.35 + fbRating * 0.30 + fbStab * 0.20 + fbTrust * 0.15);
-                  const fbScore = Math.max(0, Math.min(100, fbRaw));
-                  const fbTier = fbScore >= 85 ? { label: "Elite", cls: "bg-purple-500/20 border-purple-500/40 text-purple-300" }
-                    : fbScore >= 70 ? { label: "High", cls: "bg-emerald-500/20 border-emerald-500/40 text-emerald-300" }
-                    : fbScore >= 50 ? { label: "Medium", cls: "bg-amber-500/20 border-amber-500/40 text-amber-300" }
-                    : { label: "Low", cls: "bg-slate-500/10 border-slate-500/20 text-slate-400" };
-                  return (
-                    <span
-                      title={`FutureBet Score: ${fbScore}/100 (${fbTier.label})\nChance: ${fbChance}% · Rating: ${fbRating}% · Stability: ${fbStab}% · Trust: ${fbTrust}%`}
-                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-black border cursor-help select-none ${fbTier.cls}`}
+                {/* ===== FB SCORE BADGE & H2H BUTTON (PREMIUM ONLY) ===== */}
+                {canSeeAdvancedData && (
+                  <>
+                    {(() => {
+                      const fbChance = Math.round(Number(match?.chance) || 0);
+                      const fbRating = Math.round(Number(match?.rating) || 0);
+                      const fbPts = Math.abs(Number(match?.hPts || 0) - Number(match?.aPts || 0));
+                      const fbStab = Math.min(100, Math.round((fbPts / 15) * 100));
+                      const fbTrust = Math.round(fbChance * 0.5 + fbRating * 0.5);
+                      const fbRaw = Math.round(fbChance * 0.35 + fbRating * 0.30 + fbStab * 0.20 + fbTrust * 0.15);
+                      const fbScore = Math.max(0, Math.min(100, fbRaw));
+                      const fbTier = fbScore >= 85 ? { label: "Elite", cls: "bg-purple-500/20 border-purple-500/40 text-purple-300" }
+                        : fbScore >= 70 ? { label: "High", cls: "bg-emerald-500/20 border-emerald-500/40 text-emerald-300" }
+                        : fbScore >= 50 ? { label: "Medium", cls: "bg-amber-500/20 border-amber-500/40 text-amber-300" }
+                        : { label: "Low", cls: "bg-slate-500/10 border-slate-500/20 text-slate-400" };
+                      return (
+                        <span
+                          title={`FutureBet Score: ${fbScore}/100 (${fbTier.label})\nChance: ${fbChance}% · Rating: ${fbRating}% · Stability: ${fbStab}% · Trust: ${fbTrust}%`}
+                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-black border cursor-help select-none ${fbTier.cls}`}
+                        >
+                          ⚡ FB {fbScore}
+                        </span>
+                      );
+                    })()}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setShowComparison(true); }}
+                      title="Quick Head-to-Head Comparison"
+                      className={cn(
+                        "inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-black border transition-colors",
+                        darkMode
+                          ? "bg-blue-500/10 border-blue-500/30 text-blue-300 hover:bg-blue-500/20"
+                          : "bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100"
+                      )}
                     >
-                      ⚡ FB {fbScore}
-                    </span>
-                  );
-                })()}
-                {/* ===== H2H QUICK BUTTON ===== */}
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); setShowComparison(true); }}
-                  title="Quick Head-to-Head Comparison"
-                  className={cn(
-                    "inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-black border transition-colors",
-                    darkMode
-                      ? "bg-blue-500/10 border-blue-500/30 text-blue-300 hover:bg-blue-500/20"
-                      : "bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100"
-                  )}
-                >
-                  H2H
-                </button>
+                      H2H
+                    </button>
+                  </>
+                )}
                 {!user ? (
                   <span className={pill(darkMode, "premium")}>
                     Sign in for BetSlip
