@@ -281,6 +281,12 @@ export async function GET(request: Request) {
           }
         }
 
+        // Derive trend from form string
+        const formStr = String(t.market_stats.Overall_Form || t.market_stats.Home_Form || t.market_stats.Away_Form || '').toUpperCase();
+        const trend = formStr.split('').filter(c => c === 'W' || c === 'L' || c === 'D').slice(0, 5).map(c => c === 'W' ? 1 : c === 'D' ? 0.5 : 0);
+        // If trend has fewer than 3 points, pad with the current value proxy
+        while (trend.length < 3) trend.unshift(trend[0] ?? 0.5);
+
         return {
           team: t.team, league: t.league, country: t.country,
           value: getValue(t),
@@ -288,6 +294,7 @@ export async function GET(request: Request) {
           nextOpponent, nextDate, isHome,
           nextHomeFixture, nextAwayFixture,
           opponentStatValue, opponentGp, prediction, confidence, odds,
+          trend,
         };
       });
 

@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { LineChart, Line, ResponsiveContainer } from "recharts";
 
 import { Trophy, ChevronLeft, Target, Shield, Home, AlertCircle, BarChart3, ArrowDown, ArrowUp, Activity, Globe } from "lucide-react";
 import PremiumOverlay from "../../../components/Stats/PremiumOverlay";
@@ -251,6 +252,7 @@ export default function InsightsPage() {
                             <th className="py-2 px-2 font-semibold text-center">Prediction</th>
                             <th className="py-2 px-2 font-semibold text-center">Confidence</th>
                             <th className="py-2 px-2 font-semibold text-center">Odds</th>
+                            <th className="py-2 px-2 font-semibold text-center">Trend</th>
                           </>
                         )}
                       </tr>
@@ -343,6 +345,26 @@ export default function InsightsPage() {
                                     <span className="text-emerald-400 text-[11px] font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded inline-block min-w-[36px]">
                                       {Number(item.odds).toFixed(2)}
                                     </span>
+                                  ) : (
+                                    <span className="text-slate-600 text-[11px]">-</span>
+                                  )}
+                                </td>
+                                {/* Trend Sparkline */}
+                                <td className="py-2.5 px-2 text-center">
+                                  {Array.isArray(item.trend) && item.trend.length >= 2 ? (
+                                    <div className="w-12 h-6 inline-block align-middle" title="Recent form trend">
+                                      <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={item.trend.map((v: number, i: number) => ({ i, v }))}>
+                                          <Line
+                                            type="monotone"
+                                            dataKey="v"
+                                            stroke={item.trend[item.trend.length - 1] > item.trend[0] ? '#10b981' : '#f43f5e'}
+                                            strokeWidth={1.5}
+                                            dot={false}
+                                          />
+                                        </LineChart>
+                                      </ResponsiveContainer>
+                                    </div>
                                   ) : (
                                     <span className="text-slate-600 text-[11px]">-</span>
                                   )}
