@@ -62,7 +62,7 @@ export async function GET(request: Request) {
       SELECT * FROM matches_cache 
       WHERE match_date = ${today}
         AND (guide IS NOT NULL AND guide != 'N/A')
-        AND chance >= 70
+        AND chance >= 65
         AND rating >= 60
       ORDER BY rating DESC, chance DESC
     `;
@@ -87,17 +87,48 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: "No upcoming high-value matches found today. Skipping push alerts." });
     }
 
-    // 2. Format the push payload (list up to 3 matches)
+    // 2. Compute FB Score per match and format the push payload (list up to 3 matches)
     const topMatches = matches.slice(0, 3);
-    const matchesText = topMatches.map(m => {
+
+    function getFBScore(m: any): number {
+      const chance = Number(m.chance) || 0;
+      const rating = Number(m.rating) || 0;
+      const hPts = Number(m.raw_data?.hPts) || 0;
+      const aPts = Number(m.raw_data?.aPts) || 0;
+      const ptsDiff = Math.min(100, (Math.abs(hPts - aPts) / 15) * 100);
+      const raw =
+        chance * 0.35 +
+        rating * 0.30 +
+        ptsDiff * 0.20 +
+        (chance * 0.5 + rating * 0.5) * 0.15;
+      return Math.max(0, Math.min(100, Math.round(raw)));
+    }
+
+    function getTier(fbScore: number): string {
+      if (fbScore >= 85) return "🔮 ELITE";
+      if (fbScore >= 70) return "✅ HIGH";
+      if (fbScore >= 50) return "⚡ SOLID";
+      return "⚠️ EDGE";
+    }
+
+    const enrichedMatches = topMatches.map((m) => {
       const odds = getOddsForPick(m.raw_data, m.guide);
-      return `${m.home_team} vs ${m.away_team} • ${m.guide} (${odds.toFixed(2)})`;
-    }).join("\n");
-    
-    const bodyText = `${matches.length} high-value picks found:\n${matchesText}${matches.length > 3 ? `\n+${matches.length - 3} more on the dashboard` : ''}`;
-    
+      const fbScore = getFBScore(m);
+      const tier = getTier(fbScore);
+      const kickoff = m.match_time ? String(m.match_time) : "TBD";
+      return {
+        tier,
+        fbScore,
+        line: `${tier} | ${m.home_team} vs ${m.away_team}\nPick: ${m.guide} @ ${odds.toFixed(2)}\nFB Score: ${fbScore} | Kickoff: ${kickoff} WAT`,
+      };
+    });
+
+    const topTier = enrichedMatches[0]?.tier ?? "🔥";
+    const matchesText = enrichedMatches.map((e) => e.line).join("\n\n");
+    const bodyText = `${matchesText}${matches.length > 3 ? `\n\n+${matches.length - 3} more on the dashboard` : ""}`;
+
     const payload = JSON.stringify({
-      title: `🔥 ${matches.length} Premium Picks Available`,
+      title: `🔥 FutureBet Alerts — ${matches.length} Premium Picks Today`,
       body: bodyText,
       url: "/",
     });
