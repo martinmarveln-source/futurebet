@@ -106,6 +106,29 @@ export default function BetSlip({ darkMode = false }) {
   const [kellyMultiplier, setKellyMultiplier] = useState(0.25); // Fractional Kelly
   const [isWalletSynced, setIsWalletSynced] = useState(false);
 
+  // AI Slip Analysis State
+  const [aiAnalyzing, setAiAnalyzing] = useState(false);
+  const [aiFeedback, setAiFeedback] = useState(null);
+
+  const handleAiAnalyze = async () => {
+    setAiAnalyzing(true);
+    setAiFeedback(null);
+    try {
+      const response = await fetch("/api/ai-slip-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ matches: validMatches }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Analysis failed");
+      setAiFeedback(data.analysis);
+    } catch (err) {
+      alert("AI Analysis Error: " + err.message);
+    } finally {
+      setAiAnalyzing(false);
+    }
+  };
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
@@ -873,6 +896,53 @@ export default function BetSlip({ darkMode = false }) {
               </div>
             </div>
           </div>
+
+          {/* ===== AI SLIP ANALYZER (ADMIN ONLY) ===== */}
+          {isAdmin && validMatches.length > 0 && (
+            <div className="w-full mb-6">
+              <button
+                onClick={handleAiAnalyze}
+                disabled={aiAnalyzing}
+                className={cn(
+                  "w-full py-3 rounded-2xl text-xs font-black transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg mb-3",
+                  aiAnalyzing
+                    ? "bg-purple-900/50 text-purple-200 cursor-wait"
+                    : "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white"
+                )}
+              >
+                {aiAnalyzing ? (
+                  <>
+                    <div className="animate-spin h-3 w-3 border-2 border-white/20 border-t-white rounded-full" />
+                    Analyzing Slip Risks...
+                  </>
+                ) : (
+                  <>
+                    <Brain size={14} /> AI Risk Analysis
+                  </>
+                )}
+              </button>
+
+              {aiFeedback && (
+                <div className={cn(
+                  "relative p-4 rounded-2xl text-xs font-semibold leading-relaxed whitespace-pre-wrap text-left shadow-inner border",
+                  darkMode
+                    ? "bg-purple-500/10 border-purple-500/20 text-purple-200"
+                    : "bg-purple-50 border-purple-200 text-purple-900"
+                )}>
+                  <button
+                    onClick={() => setAiFeedback(null)}
+                    className="absolute top-2 right-2 p-1.5 rounded-full hover:bg-black/10 transition"
+                  >
+                    <X size={12} />
+                  </button>
+                  <div className="flex items-center gap-1.5 mb-2 font-black uppercase tracking-widest opacity-70">
+                    <AlertTriangle size={12} /> Claude 3.5 Risk Report
+                  </div>
+                  {aiFeedback}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 🔥 UX FIX: Dual Quick Stake Buttons */}
           <div className="flex flex-col gap-3 w-full mb-6">
