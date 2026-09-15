@@ -43,7 +43,8 @@ const mean = (values, fallback = 0) => {
   return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : fallback;
 };
 
-const pct = (v, d = 0) => clamp(safe(v, d), 0, 100);
+const pct = (v, d = 0) => Math.round(clamp(safe(v, d), 0, 100));
+const formatOdds = (v) => safe(v) > 0 ? safe(v).toFixed(2) : "N/A";
 
 const fmt = (v, decimals = 2) => safe(v).toFixed(decimals);
 
@@ -606,10 +607,8 @@ function buildNarratives(data) {
   const awayPPG = safe(match.appg ?? match.awayPPG);
   const tone = toneMap[edgeTier] || toneMap.MEASURED;
   const guideMeta = getGuideMeta(match, guide);
-  const surplus = computeSurplus(
-    probability,
-    resolveOddsForGuide(match, guide)
-  );
+  const marketOdds = resolveOddsForGuide(match, guide);
+  const surplus = computeSurplus(probability, marketOdds);
 
   const overview = `
 ${tone.opener}
@@ -622,11 +621,7 @@ ${tone.opener}
     match.ags
   )}** (GF) and **${fmt(match.agc)}** (GA).
 
-Points-per-game distribution sits at **${fmt(homePPG)}** vs **${fmt(
-    awayPPG
-  )}**, supported by a short-term momentum distribution of **${safe(
-    match.hPts
-  )}** points to **${safe(match.aPts)}** over the trailing 5-match window.
+Points-per-game distribution sits at **${fmt(homePPG)}** vs **${fmt(awayPPG)}**, supported by a short-term momentum distribution of **${safe(match.hPts)}** points to **${safe(match.aPts)}** over the trailing 5-match window (Form: **${match.hForm || match.homeForm || "N/A"}** vs **${match.aForm || match.awayForm || "N/A"}**).
 
 The quantitative model values the primary outcome at **${probability}%**, anchored by a structural delta of **${fmt(
     structural.composite
@@ -654,39 +649,21 @@ BTTS propensities track at **${pct(match.hBtts)}%** (${homeTeam}) and **${pct(
     match.aBtts
   )}%** (${awayTeam}), mapping directly to a **${tempoProfile.toLowerCase()}** game script.
 
-Shutout potential (Clean Sheet %: **${pct(match.hcs)}** vs **${pct(
-    match.acs
-  )}**) combined with offensive zeroes (FTS %: **${pct(
-    match.hfts ?? match.hFailedToScore
-  )}** vs **${pct(
-    match.afts ?? match.aFailedToScore
-  )}**) categorizes this matchup strictly as a state of **${defensiveState.toLowerCase()}**.
+Shutout potential (Clean Sheet: **${pct(match.hcs)}%** vs **${pct(match.acs)}%**) combined with offensive zeroes (Failed to Score: **${pct(match.hfts ?? match.hFailedToScore)}%** vs **${pct(match.afts ?? match.aFailedToScore)}%**) categorizes this matchup strictly as a state of **${defensiveState.toLowerCase()}**.
 `;
 
   const marketAlignment = `
-Market alignment isolates on **${
-    guideMeta.marketAngle
-  }**, carrying a **${probability}%** true probability overlay against a system rating of **${safe(
-    match.rating
-  ).toFixed(0)}%**.
+Market alignment isolates on **${guideMeta.marketAngle}**, carrying a **${probability}%** true probability overlay against a system rating of **${safe(match.rating).toFixed(0)}%**.
 
-Trailing head-to-head parameters over **${safe(
-    match.H2H_GP
-  )}** iterations indicate BTTS at **${pct(match.H2H_GG)}%** and Over 2.5 at **${pct(
-    match.H2H_OV
-  )}%**.
+${safe(match.H2H_GP) > 0 
+  ? "Trailing head-to-head parameters over **" + safe(match.H2H_GP) + "** iterations indicate BTTS at **" + pct(match.H2H_GG) + "%** and Over 2.5 at **" + pct(match.H2H_OV) + "%**." 
+  : "There is no historical head-to-head data available for these teams in this configuration."}
 
-Algorithmic scoreline distribution highlights **${match.cScore || "N/A"}** (**${pct(
-    match.modelCSPercent
-  )}%**) as the primary vector, trailed by **${match.cs2 || "N/A"}** (**${pct(
-    match.cs2Percent
-  )}%**).
+Algorithmic scoreline distribution highlights **${match.cScore ?? match.likelyCS ?? "N/A"}** (**${pct(match.modelCSPercent ?? match.scorelineCSPercent)}%**) as the primary vector, trailed by **${match.cs2 || "N/A"}** (**${pct(match.cs2Percent)}%**).
 
-Compared to market pricing, the implied probability rests at **${safe(
-    surplus.impliedProbability
-  )}%**, exposing a quantified mathematical surplus of **${safe(
-    surplus.surplus
-  )}** points. ${tone.closer}
+${surplus.impliedProbability > 0 
+  ? "Compared to the current market pricing of **" + formatOdds(marketOdds) + "** (implied probability: **" + pct(surplus.impliedProbability) + "%**), the model exposes a quantified mathematical surplus of **" + fmt(surplus.surplus, 1) + "** points." 
+  : "Market pricing is currently unavailable for this selection, preventing a mathematical surplus calculation."} ${tone.closer}
 `;
 
   const goalProjection = `
