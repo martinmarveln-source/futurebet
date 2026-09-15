@@ -569,6 +569,25 @@ const useBetslipStore = create(
         }
         const slip = uniqueMatches.slice(0, 20);
 
+        // Log picks to portfolio API
+        slip.forEach((m) => {
+          const mm = ensureMatchShape(m);
+          fetch('/api/portfolio', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              match_name: normalizeName(mm.match),
+              match_date: mm.dateISO || "",
+              league: mm.league || "",
+              market: mm.selectedMarket,
+              selection: mm.selectedOption,
+              odds: mm.odds,
+              chance: mm.chance,
+              rating: mm.rating
+            })
+          }).catch(console.error);
+        });
+
         const fallbackStake = Number(get().stake);
 
         const stakesToProcess =
@@ -662,6 +681,22 @@ const useBetslipStore = create(
           if (!Number.isFinite(kb.recommendedStake) || kb.recommendedStake <= 0) return;
           
           const mm = ensureMatchShape(kb);
+
+          fetch('/api/portfolio', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              match_name: normalizeName(mm.match),
+              match_date: mm.dateISO || "",
+              league: mm.league || "",
+              market: mm.selectedMarket,
+              selection: mm.selectedOption,
+              odds: mm.odds,
+              chance: mm.chance,
+              rating: mm.rating
+            })
+          }).catch(console.error);
+
           const selection = {
             match: normalizeName(mm.match),
             league: mm.league || "",

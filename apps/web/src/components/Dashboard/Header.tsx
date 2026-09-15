@@ -8,6 +8,7 @@ import {
   Zap,
   ExternalLink,
   User,
+  Trophy,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import useUser from "@/utils/useUser";
@@ -151,6 +152,13 @@ export default function Header({
                     </UpgradeButton>
                   )}
               </div>
+              <a
+                href="/account/portfolio"
+                className={`p-2 rounded-lg transition-transform active:scale-95 ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-100 hover:bg-gray-200"}`}
+                title="My Prediction Portfolio"
+              >
+                <Trophy className="h-5 w-5 text-amber-400" />
+              </a>
               <a
                 href="/account/profile"
                 className={`p-2 rounded-lg transition-transform active:scale-95 ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-100 hover:bg-gray-200"}`}
