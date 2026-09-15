@@ -1,4 +1,4 @@
-// @ts-nocheck
+﻿// @ts-nocheck
 "use client";
 import { toast } from "sonner";
 import { useState, useCallback, useMemo, useEffect, memo, useRef } from "react";
@@ -1719,54 +1719,7 @@ export default function MatchCard({
           : null;
 
       if (computedOdds === null || computedOdds === undefined) {
-        toast.error("⚠️ Exact odds are currently unavailable for this selection. This match cannot be added to the betslip.");
-        return;
-      }
-
-      const payload = {
-        ...match,
-        match: match?.match || match?.match_name || match?.matchName,
-        league: match?.fullLeague || match?.league || "",
-        selectedMarket: market,
-        selectedOption: option,
-        odds: computedOdds,
-      };
-      try {
-        const added = store.addMatch?.(payload);
-        if (added) {
-          setShowBetslipModal(false);
-        } else {
-          toast.error("Could not add match. It may already be in your betslip.");
-        }
-      } catch (e) {
-        toast.error("Could not add match to BetSlip.");
-      }
-    },
-    [match]
-  );
-
-  const localConvictionStrength = useMemo(() => {
-    if (!activeMarket || !marketViewPick) return convictionStrength;
-    const prob = marketViewPick.prob || 0;
-    if (prob <= 50) return 0;
-    const diff = prob - (100 - prob);
-    return Math.round((diff / prob) * 100);
-  }, [activeMarket, marketViewPick, convictionStrength]);
-
-  const localConvictionTier = useMemo(() => {
-    if (!activeMarket) return convictionTier;
-    const s = localConvictionStrength;
-    if (s >= 80) return "Ultra";
-    if (s >= 60) return "Strong";
-    if (s >= 40) return "Moderate";
-    if (s >= 20) return "Weak";
-    return "Low";
-  }, [activeMarket, localConvictionStrength, convictionTier]);
-    e.preventDefault();
-    if (!canSeeAdvancedData) {
-      toast.error(
-        "🔒 Premium Feature: Upgrade to Pro to share elite VIP slips and unlock exact market odds!"
-      );
+        toast.error(🔒 Premium Feature: Upgrade to Pro to share elite VIP slips and unlock exact market odds!);
       window.dispatchEvent(new CustomEvent("futurebet:trigger-premium"));
       return;
     }
