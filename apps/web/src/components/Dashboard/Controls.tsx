@@ -606,6 +606,7 @@ export default function Controls({
   const proSortOptions = useMemo(
     () => [
       { value: "date", label: "Sort by Date" },
+      { value: "fbscore", label: "Sort by FB Score" },
       { value: "league", label: "Sort by League" },
       { value: "homeWin", label: "Sort by Home Win" },
       { value: "draw", label: "Sort by Draw" },

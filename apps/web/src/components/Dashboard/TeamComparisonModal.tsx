@@ -2441,12 +2441,18 @@ export default function TeamComparisonModal({
   const currentPlan = mergedUser?.plan || "free";
 
   const { homeTeam, awayTeam } = React.useMemo(() => {
-    const parts = String(match.match || "").split(" - ");
+    if (match.homeTeam && match.awayTeam) {
+      return { homeTeam: match.homeTeam, awayTeam: match.awayTeam };
+    }
+    const matchName = String(match.match || "");
+    const parts = matchName.includes(" vs ") 
+      ? matchName.split(" vs ") 
+      : matchName.split(" - ");
     return {
-      homeTeam: parts[0] || "Home Team",
-      awayTeam: parts[1] || "Away Team",
+      homeTeam: (parts[0] || "Home Team").trim(),
+      awayTeam: (parts[1] || "Away Team").trim(),
     };
-  }, [match.match]);
+  }, [match.match, match.homeTeam, match.awayTeam]);
   const country = match.country || "";
   const league = match.league || "";
 

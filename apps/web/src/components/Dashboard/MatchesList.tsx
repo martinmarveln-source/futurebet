@@ -310,6 +310,18 @@ export default function MatchesList({
   const sortedMatches = useMemo(() => {
     const list = Array.isArray(filteredMatches) ? [...filteredMatches] : [];
 
+    const getFBScore = (match) => {
+      const fbChance = Math.round(Number(match?.chance) || 0);
+      const fbRating = Math.round(Number(match?.rating) || 0);
+      const fbPts = Math.abs(Number(match?.hPts || 0) - Number(match?.aPts || 0));
+      const fbStab = Math.min(100, Math.round((fbPts / 15) * 100));
+      const fbTrust = Math.round(fbChance * 0.5 + fbRating * 0.5);
+      const fbRaw = Math.round(fbChance * 0.35 + fbRating * 0.30 + fbStab * 0.20 + fbTrust * 0.15);
+      return Math.max(0, Math.min(100, fbRaw));
+    };
+
+    const byFBScoreDesc = (a, b) => getFBScore(b) - getFBScore(a);
+
     const byProbDesc = (key) => (a, b) =>
       toNumber(b?.[key]) - toNumber(a?.[key]);
 
@@ -331,6 +343,9 @@ export default function MatchesList({
     };
 
     switch (effectiveSort) {
+      case "fbscore":
+        list.sort(byFBScoreDesc);
+        break;
       case "league":
         list.sort(byLeagueAsc);
         break;
