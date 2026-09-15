@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 "use client";
 import { toast } from "sonner";
 import { useState, useCallback, useMemo, useEffect, memo, useRef } from "react";
@@ -1719,7 +1719,7 @@ export default function MatchCard({
           : null;
 
       if (computedOdds === null || computedOdds === undefined) {
-        toast.error(🔒 Premium Feature: Upgrade to Pro to share elite VIP slips and unlock exact market odds!);
+        toast.error("🔒 Premium Feature: Upgrade to Pro to share elite VIP slips and unlock exact market odds!");
       window.dispatchEvent(new CustomEvent("futurebet:trigger-premium"));
       return;
     }

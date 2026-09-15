@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/utils/auth";
-import { getUserRoleAndSubscription } from "@/utils/supabaseServer";
+import { auth } from "@/auth";
+import sql from "@/app/api/utils/sql";
 
 export async function POST(req: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     
-    const { role } = await getUserRoleAndSubscription(session.user.id);
+    const [userRecord] = await sql`SELECT user_role FROM auth_users WHERE id = ${session.user.id} LIMIT 1`;
+    const role = userRecord?.user_role || "free";
     if (role !== "admin") return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     
     const { matches } = await req.json();
