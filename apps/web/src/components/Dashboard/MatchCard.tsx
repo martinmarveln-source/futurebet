@@ -1570,8 +1570,20 @@ export default function MatchCard({
   const recommended = match?.recommended || null;
   const activeSelection = recommended;
 
-  const pickOdds = match?.pickOdds || null;
-  const valueEdge = match?.valueEdge || null;
+  const pickOdds = useMemo(() => {
+    if (activeMarket && marketViewPick && marketViewPick.hasOdds) {
+      return marketViewPick.odds;
+    }
+    return match?.pickOdds || null;
+  }, [match?.pickOdds, activeMarket, marketViewPick]);
+
+  const valueEdge = useMemo(() => {
+    if (activeMarket && marketViewPick && marketViewPick.hasOdds) {
+      const implied = 100 / marketViewPick.odds;
+      return Number((marketViewPick.prob - implied).toFixed(1));
+    }
+    return match?.valueEdge || null;
+  }, [match?.valueEdge, activeMarket, marketViewPick]);
 
   const isSystemMatch = useMemo(() => {
     if (!canSeeAdvancedData || !pickOdds || valueEdge === null) return false;
@@ -1733,7 +1745,23 @@ export default function MatchCard({
     [match]
   );
 
-  const handleShare = async (e) => {
+  const localConvictionStrength = useMemo(() => {
+    if (!activeMarket || !marketViewPick) return convictionStrength;
+    const prob = marketViewPick.prob || 0;
+    if (prob <= 50) return 0;
+    const diff = prob - (100 - prob);
+    return Math.round((diff / prob) * 100);
+  }, [activeMarket, marketViewPick, convictionStrength]);
+
+  const localConvictionTier = useMemo(() => {
+    if (!activeMarket) return convictionTier;
+    const s = localConvictionStrength;
+    if (s >= 80) return "Ultra";
+    if (s >= 60) return "Strong";
+    if (s >= 40) return "Moderate";
+    if (s >= 20) return "Weak";
+    return "Low";
+  }, [activeMarket, localConvictionStrength, convictionTier]);
     e.preventDefault();
     if (!canSeeAdvancedData) {
       toast.error(
@@ -2066,21 +2094,21 @@ export default function MatchCard({
                     Strength: {pickStrength.label}
                   </span>
                 ) : null}
-                {convictionTier && (
+                {localConvictionTier && (
                   <span
                     className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${getConvictionColor(
-                      convictionTier
+                      localConvictionTier
                     )}`}
                   >
-                    Conviction: {convictionTier} ({convictionStrength}%)
+                    Conviction: {localConvictionTier} ({localConvictionStrength}%)
                   </span>
                 )}
                 {/* ===== FB SCORE BADGE & H2H BUTTON (PREMIUM ONLY) ===== */}
                 {canSeeAdvancedData && (
                   <>
                     {(() => {
-                      const fbChance = Math.round(Number(match?.chance) || 0);
-                      const fbRating = Math.round(Number(match?.rating) || 0);
+                      const fbChance = Math.round(Number(chance) || 0);
+                      const fbRating = Math.round(Number(ratingPercentage) || 0);
                       const fbPts = Math.abs(Number(match?.hPts || 0) - Number(match?.aPts || 0));
                       const fbStab = Math.min(100, Math.round((fbPts / 15) * 100));
                       const fbTrust = Math.round(fbChance * 0.5 + fbRating * 0.5);
