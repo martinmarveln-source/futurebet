@@ -18,29 +18,30 @@ export async function POST(req: Request) {
     const systemPrompt = "You are an elite, brutally honest sports betting risk analyst. Your job is to analyze the user's betslip selections and flag the WEAKEST links. Be concise, analytical, and direct. Focus purely on the statistical numbers provided. Identify max 2 selections that are the riskiest and explain exactly why based on the stats. Format your response in simple, punchy paragraphs. Use emojis where appropriate.";
     const userPrompt = "Here is the current betslip:\n\n" + slipData + "\n\nPlease analyze this slip and highlight the biggest risks before I lock it in.";
     
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return NextResponse.json({ error: "ANTHROPIC_API_KEY is not configured." }, { status: 500 });
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return NextResponse.json({ error: "GEMINI_API_KEY is not configured." }, { status: 500 });
     
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "claude-3-5-sonnet-20240620",
-        max_tokens: 400,
-        temperature: 0.3,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userPrompt }],
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ parts: [{ text: userPrompt }] }],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 800,
+        },
       }),
     });
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Anthropic API Error:", errorText);
+      console.error("Gemini API Error:", errorText);
       return NextResponse.json({ error: "Failed to generate AI analysis." }, { status: 502 });
     }
     
     const data = await response.json();
-    const analysis = data.content?.[0]?.text || "No analysis generated.";
+    const analysis = data.candidates?.[0]?.content?.parts?.[0]?.text || "No analysis generated.";
     return NextResponse.json({ analysis });
   } catch (error) {
     console.error("AI Slip Analysis Error:", error);

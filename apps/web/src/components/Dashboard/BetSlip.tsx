@@ -936,7 +936,7 @@ export default function BetSlip({ darkMode = false }) {
                     <X size={12} />
                   </button>
                   <div className="flex items-center gap-1.5 mb-2 font-black uppercase tracking-widest opacity-70">
-                    <AlertTriangle size={12} /> Claude 3.5 Risk Report
+                    <AlertTriangle size={12} /> Gemini 3.5 Risk Report
                   </div>
                   {aiFeedback}
                 </div>
