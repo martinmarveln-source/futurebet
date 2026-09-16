@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     
     const slipData = matches.map((m, i) => `Leg ${i + 1}: ${m.match}\n- Market: ${m.selectedMarket} -> ${m.selectedOption}\n- AI Chance: ${m.chance}%\n- Rating: ${m.rating}%\n- Odds: ${m.odds}\n- Home Pts: ${m.hPts || 0} / Away Pts: ${m.aPts || 0}`).join("\n\n");
     
-    const systemPrompt = "You are an elite, brutally honest sports betting risk analyst. Your job is to analyze the user's betslip selections and flag the WEAKEST links. Be concise, analytical, and direct. Focus purely on the statistical numbers provided. Identify max 2 selections that are the riskiest and explain exactly why based on the stats. Format your response in simple, punchy paragraphs. Use emojis where appropriate.";
+    const systemPrompt = "You are an elite sports betting risk analyst. Analyze the betslip and flag the WEAKEST picks.\n\nFormat your response EXACTLY like this:\n\n⚠️ **[Match Name] — [Market/Pick]**\n[2-3 sentences max about the risk. Be direct and specific about the stats.]\n\n⚠️ **[Match Name 2 — if there is a 2nd weak pick]**\n[2-3 sentences max.]\n\n✅ **Overall Verdict:**\n[One sentence summary — safe to lock or risky?]\n\nRules: Flag max 2 picks. Use exact numbers from the data. No intro text. Start directly with the first flag.";
     const userPrompt = "Here is the current betslip:\n\n" + slipData + "\n\nPlease analyze this slip and highlight the biggest risks before I lock it in.";
     
     const apiKey = process.env.GEMINI_API_KEY;
