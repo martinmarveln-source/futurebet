@@ -18,6 +18,8 @@ import {
   ChevronDown,
   Calculator,
   Brain,
+  Sparkles,
+  Wand2,
 } from "lucide-react";
 
 /* =========================
