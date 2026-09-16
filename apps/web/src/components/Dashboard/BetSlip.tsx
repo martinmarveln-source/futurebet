@@ -1052,7 +1052,7 @@ export default function BetSlip({ darkMode = false }) {
                     <AlertTriangle size={12} /> Gemini 3.5 Risk Report
                   </div>
                   {aiFeedback.split('\n').map((line, i) => {
-                    const parts = line.split(/(**[^*]+**)/g);
+                    const boldRegex = /([*][*][^*]+[*][*])/g; const parts = line.split(boldRegex);
                     return (
                       <p key={i} className={line.trim() === '' ? 'mt-2' : 'mb-1'}>
                         {parts.map((part, j) =>
