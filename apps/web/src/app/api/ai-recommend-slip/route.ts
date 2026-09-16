@@ -34,7 +34,8 @@ export async function POST(req: Request) {
     if (!matchesRes.ok) {
       return NextResponse.json({ error: "Failed to fetch matches for analysis." }, { status: 502 });
     }
-    const rows = await matchesRes.json();
+    const payload = await matchesRes.json();
+    const rows = payload.matches || [];
 
     if (!rows || rows.length === 0) {
       return NextResponse.json({ error: "No matches found for today. Try again later." }, { status: 404 });
