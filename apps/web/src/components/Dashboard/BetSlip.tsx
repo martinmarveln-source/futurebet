@@ -152,7 +152,11 @@ export default function BetSlip({ darkMode = false }) {
         const store = useBetslipStore.getState();
         let added = 0;
         for (const m of data.matches) {
-          try { store.addMatch?.(m); added++; } catch(e) {}
+          try { 
+            // If the store rejects it (e.g. duplicate or missing odds), it returns false or current state.
+            const result = store.addMatch?.(m);
+            if (result !== false) added++; 
+          } catch(e) {}
         }
         if (added > 0) {
           alert("✅ Added " + added + " AI-recommended match" + (added > 1 ? "es" : "") + " to your betslip!");
