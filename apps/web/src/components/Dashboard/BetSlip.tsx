@@ -115,7 +115,8 @@ export default function BetSlip({ darkMode = false }) {
   // AI Recommend Slip State
   const [showRecommendModal, setShowRecommendModal] = useState(false);
   const [aiRecommending, setAiRecommending] = useState(false);
-  const [recommendConfig, setRecommendConfig] = useState({ minMatches: 3, maxMatches: 5, minOdds: 1.5, maxOdds: 4.0 });
+  const getTodayStr = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().split('T')[0]; };
+  const [recommendConfig, setRecommendConfig] = useState({ minMatches: 3, maxMatches: 5, minOdds: 1.5, maxOdds: 4.0, targetDate: getTodayStr() });
 
   const handleAiAnalyze = async () => {
     setAiAnalyzing(true);
@@ -1001,9 +1002,16 @@ export default function BetSlip({ darkMode = false }) {
                       className={cn("w-full rounded-xl px-3 py-2 text-sm font-bold border", darkMode ? "bg-gray-800 border-gray-700" : "bg-gray-50 border-gray-200")}
                     />
                   </div>
-                </div>
-                <button
-                  onClick={handleAiRecommend}
+                  </div>
+                  <div className="mb-5">
+                    <label className="text-[10px] font-bold uppercase tracking-widest opacity-60 block mb-1">Match Date (Optional)</label>
+                    <input type="date" value={recommendConfig.targetDate || ""}
+                      onChange={e => setRecommendConfig(c => ({...c, targetDate: e.target.value}))}
+                      className={cn("w-full rounded-xl px-3 py-2 text-sm font-bold border", darkMode ? "bg-gray-800 border-gray-700" : "bg-gray-50 border-gray-200")}
+                    />
+                  </div>
+                  <button
+                    onClick={handleAiRecommend}
                   className="w-full py-3 rounded-2xl text-xs font-black bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white flex items-center justify-center gap-2"
                 >
                   <Sparkles size={14} /> Build My Slip

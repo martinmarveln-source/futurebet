@@ -8,6 +8,7 @@ interface RecommendConfig {
   maxMatches: number;
   minOdds: number;
   maxOdds: number;
+  targetDate?: string;
 }
 
 export async function POST(req: Request) {
@@ -24,6 +25,7 @@ export async function POST(req: Request) {
     const maxMatches = Math.max(minMatches, Math.min(15, Number(body.maxMatches) || 5));
     const minOdds = Math.max(1.01, Number(body.minOdds) || 1.5);
     const maxOdds = Math.max(minOdds, Number(body.maxOdds) || 4.0);
+    const targetDate = body.targetDate || "";
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return NextResponse.json({ error: "GEMINI_API_KEY is not configured." }, { status: 500 });
@@ -41,8 +43,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No matches found for today. Try again later." }, { status: 404 });
     }
 
-    // Filter by odds range
+    // Filter by date and odds range
     const eligibleMatches = rows.filter((r: any) => {
+      if (targetDate && r.date !== targetDate) return false;
       const guide = (r.guide || r.pick || "").toLowerCase();
       let odds = 0;
       if (guide.includes("home")) odds = Number(r.homeOdds) || 0;
