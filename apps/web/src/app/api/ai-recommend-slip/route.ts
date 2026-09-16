@@ -63,8 +63,45 @@ export async function POST(req: Request) {
     eligibleMatches.sort((a: any, b: any) => (Number(b.chance) + Number(b.rating)) - (Number(a.chance) + Number(a.rating)));
     const topMatches = eligibleMatches.slice(0, 40);
 
+    // Fetch league stats for all teams to give AI more insight
+    let teamStatsMap = new Map();
+    try {
+      const stats = await sql`SELECT team, market_stats FROM league_table_cache WHERE market_stats IS NOT NULL`;
+      for (const row of stats) {
+        if (!row.team || !row.market_stats) continue;
+        let ms = row.market_stats;
+        if (typeof ms === "string") {
+          try { ms = JSON.parse(ms); } catch(e) { ms = {}; }
+        }
+        teamStatsMap.set(row.team.trim().toLowerCase(), ms);
+      }
+    } catch(e) {
+      console.warn("Could not fetch team stats:", e);
+    }
+
+
     // Format matches for Gemini
     const matchData = topMatches.map((r: any, i: number) => {
+      // Parse out home/away teams to look up stats
+      let homeTeam = "Unknown", awayTeam = "Unknown";
+      if (r.match) {
+        const parts = r.match.split(/\s+vs\s+|\s+-\s+/);
+        homeTeam = (parts[0] || "").trim();
+        awayTeam = (parts[1] || "").trim();
+      }
+      
+      const homeStats = teamStatsMap.get(homeTeam.toLowerCase()) || {};
+      const awayStats = teamStatsMap.get(awayTeam.toLowerCase()) || {};
+      
+      const formatStat = (val: any) => val ? (String(val).includes('%') ? val : val + '%') : '—';
+      
+      const homeWinPct = formatStat(homeStats.W_ALL || homeStats.W_HOME);
+      const awayWinPct = formatStat(awayStats.W_ALL || awayStats.W_AWAY);
+      const homeO25 = formatStat(homeStats.O25_ALL || homeStats.O25_HOME);
+      const awayO25 = formatStat(awayStats.O25_ALL || awayStats.O25_AWAY);
+      const homeBtts = formatStat(homeStats.BTTS_ALL || homeStats.BTTS_HOME);
+      const awayBtts = formatStat(awayStats.BTTS_ALL || awayStats.BTTS_AWAY);
+
       const guide = (r.guide || r.pick || "—").toUpperCase();
       const homeOdds = Number(r.homeOdds) || 0;
       const drawOdds = Number(r.drawOdds) || 0;
@@ -79,7 +116,8 @@ export async function POST(req: Request) {
       return `Match ${i + 1}: ${r.match || "Unknown"} | ${r.league || ""}
   Pick: ${guide} | Chance: ${chance > 1 ? chance : (chance * 100).toFixed(0)}% | Rating: ${rating > 1 ? rating : (rating * 100).toFixed(0)}%
   Odds → Home: ${homeOdds > 0 ? homeOdds.toFixed(2) : "—"} | Draw: ${drawOdds > 0 ? drawOdds.toFixed(2) : "—"} | Away: ${awayOdds > 0 ? awayOdds.toFixed(2) : "—"} | O2.5: ${o25Odds > 0 ? o25Odds.toFixed(2) : "—"} | BTTS: ${bttsOdds > 0 ? bttsOdds.toFixed(2) : "—"}
-  Form Pts → Home: ${hPts} | Away: ${aPts}`;
+  Form Pts → Home: ${hPts} | Away: ${aPts}
+  Historical Hit Rates → Home: [Win: ${homeWinPct}, O2.5: ${homeO25}, BTTS: ${homeBtts}] | Away: [Win: ${awayWinPct}, O2.5: ${awayO25}, BTTS: ${awayBtts}]`;
     }).join("\n\n");
 
     const systemPrompt = `You are an elite sports betting analyst building an optimized betslip. 
