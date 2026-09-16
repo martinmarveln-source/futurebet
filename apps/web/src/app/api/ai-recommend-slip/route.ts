@@ -128,7 +128,7 @@ export async function POST(req: Request) {
 Your task: Select exactly between ${minMatches} and ${maxMatches} matches from the list provided.
 Criteria for selection:
 - Prioritize matches with the HIGHEST chance % AND rating % combined.
-- STRICT RULE: Do not select any match with a Rating below 55% or where historical hit rates severely contradict the pick.
+- STRICT RULE: DO NOT select any match where Chance is < 70%, or Rating is < 60%. NEVER select a match where the historical hit rate for the specific market contradicts the pick.
 - Only pick selections where the odds are between ${minOdds} and ${maxOdds}.
 - Avoid picks where the two teams have very similar form points (suggests a tight match).
 - If there are not enough high-quality matches meeting these strict criteria, you may return FEWER than ${minMatches} matches. Never recommend a bad bet just to fill the quota.
