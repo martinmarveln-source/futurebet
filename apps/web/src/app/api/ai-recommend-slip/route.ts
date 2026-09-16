@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import sql from "@/app/api/utils/sql";
+import { GET as getMatches } from "../matches/route";
 
 interface RecommendConfig {
   minMatches: number;
@@ -27,17 +28,13 @@ export async function POST(req: Request) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return NextResponse.json({ error: "GEMINI_API_KEY is not configured." }, { status: 500 });
 
-    // Fetch today's matches from cache
-    const today = new Date().toISOString().split("T")[0];
-    const rows = await sql`
-      SELECT match_name, home_team, away_team, league, match_date, match_time,
-             home_odds, draw_odds, away_odds, o25_odds, u25_odds, btts_yes_odds, btts_no_odds,
-             chance, rating, guide, pick, home_pts, away_pts, o25, gg
-      FROM matches_cache
-      WHERE match_date = ${today}
-      ORDER BY chance DESC NULLS LAST
-      LIMIT 40
-    `.catch(() => [] as any[]);
+    // Fetch today's matches using the standard matches endpoint logic
+    const mockReq = new Request(req.url.replace('/ai-recommend-slip', '/matches'));
+    const matchesRes = await getMatches(mockReq);
+    if (!matchesRes.ok) {
+      return NextResponse.json({ error: "Failed to fetch matches for analysis." }, { status: 502 });
+    }
+    const rows = await matchesRes.json();
 
     if (!rows || rows.length === 0) {
       return NextResponse.json({ error: "No matches found for today. Try again later." }, { status: 404 });
@@ -47,12 +44,12 @@ export async function POST(req: Request) {
     const eligibleMatches = rows.filter((r: any) => {
       const guide = (r.guide || r.pick || "").toLowerCase();
       let odds = 0;
-      if (guide.includes("home")) odds = Number(r.home_odds) || 0;
-      else if (guide.includes("away")) odds = Number(r.away_odds) || 0;
-      else if (guide.includes("draw")) odds = Number(r.draw_odds) || 0;
-      else if (guide.includes("over 2.5") || guide.includes("o2.5")) odds = Number(r.o25_odds) || 0;
-      else if (guide.includes("btts") || guide === "gg") odds = Number(r.btts_yes_odds) || 0;
-      else odds = Math.max(Number(r.home_odds) || 0, Number(r.draw_odds) || 0, Number(r.away_odds) || 0);
+      if (guide.includes("home")) odds = Number(r.homeOdds) || 0;
+      else if (guide.includes("away")) odds = Number(r.awayOdds) || 0;
+      else if (guide.includes("draw")) odds = Number(r.drawOdds) || 0;
+      else if (guide.includes("over 2.5") || guide.includes("o2.5")) odds = Number(r.o25Odds) || 0;
+      else if (guide.includes("btts") || guide === "gg") odds = Number(r.bttsYesOdds) || 0;
+      else odds = Math.max(Number(r.homeOdds) || 0, Number(r.drawOdds) || 0, Number(r.awayOdds) || 0);
       return odds >= minOdds && odds <= maxOdds;
     });
 
@@ -62,20 +59,24 @@ export async function POST(req: Request) {
       }, { status: 422 });
     }
 
+    // Sort by rating+chance descending, take top 40 for AI
+    eligibleMatches.sort((a: any, b: any) => (Number(b.chance) + Number(b.rating)) - (Number(a.chance) + Number(a.rating)));
+    const topMatches = eligibleMatches.slice(0, 40);
+
     // Format matches for Gemini
-    const matchData = eligibleMatches.map((r: any, i: number) => {
+    const matchData = topMatches.map((r: any, i: number) => {
       const guide = (r.guide || r.pick || "—").toUpperCase();
-      const homeOdds = Number(r.home_odds) || 0;
-      const drawOdds = Number(r.draw_odds) || 0;
-      const awayOdds = Number(r.away_odds) || 0;
-      const o25Odds = Number(r.o25_odds) || 0;
-      const bttsOdds = Number(r.btts_yes_odds) || 0;
+      const homeOdds = Number(r.homeOdds) || 0;
+      const drawOdds = Number(r.drawOdds) || 0;
+      const awayOdds = Number(r.awayOdds) || 0;
+      const o25Odds = Number(r.o25Odds) || 0;
+      const bttsOdds = Number(r.bttsYesOdds) || 0;
       const chance = Number(r.chance) || 0;
       const rating = Number(r.rating) || 0;
-      const hPts = Number(r.home_pts) || 0;
-      const aPts = Number(r.away_pts) || 0;
+      const hPts = Number(r.hPts) || 0;
+      const aPts = Number(r.aPts) || 0;
 
-      return `Match ${i + 1}: ${r.match_name || `${r.home_team} vs ${r.away_team}`} | ${r.league || ""}
+      return `Match ${i + 1}: ${r.match || "Unknown"} | ${r.league || ""}
   Pick: ${guide} | Chance: ${chance > 1 ? chance : (chance * 100).toFixed(0)}% | Rating: ${rating > 1 ? rating : (rating * 100).toFixed(0)}%
   Odds → Home: ${homeOdds > 0 ? homeOdds.toFixed(2) : "—"} | Draw: ${drawOdds > 0 ? drawOdds.toFixed(2) : "—"} | Away: ${awayOdds > 0 ? awayOdds.toFixed(2) : "—"} | O2.5: ${o25Odds > 0 ? o25Odds.toFixed(2) : "—"} | BTTS: ${bttsOdds > 0 ? bttsOdds.toFixed(2) : "—"}
   Form Pts → Home: ${hPts} | Away: ${aPts}`;
@@ -148,37 +149,28 @@ Option values for selectedOption: "Home Win", "Away Win", "Draw", "Over", "Under
     // Map AI selections to betslip match objects
     const betslipMatches = selections.map((sel: any) => {
       const idx = (sel.matchIndex || 1) - 1;
-      const row = eligibleMatches[idx] || eligibleMatches[0];
+      const row = topMatches[idx] || topMatches[0];
 
       // Determine odds based on selected option
       const option = (sel.selectedOption || "").toLowerCase();
       let resolvedOdds = sel.odds;
       if (!resolvedOdds || resolvedOdds < 1.01) {
-        if (option.includes("home win") || option === "home") resolvedOdds = Number(row.home_odds);
-        else if (option.includes("away win") || option === "away") resolvedOdds = Number(row.away_odds);
-        else if (option === "draw") resolvedOdds = Number(row.draw_odds);
-        else if (option === "over") resolvedOdds = Number(row.o25_odds);
-        else if (option === "yes") resolvedOdds = Number(row.btts_yes_odds);
-        else resolvedOdds = Number(row.home_odds) || Number(row.draw_odds) || Number(row.away_odds);
+        if (option.includes("home win") || option === "home") resolvedOdds = Number(row.homeOdds);
+        else if (option.includes("away win") || option === "away") resolvedOdds = Number(row.awayOdds);
+        else if (option === "draw") resolvedOdds = Number(row.drawOdds);
+        else if (option === "over") resolvedOdds = Number(row.o25Odds);
+        else if (option === "yes") resolvedOdds = Number(row.bttsYesOdds);
+        else resolvedOdds = Number(row.homeOdds) || Number(row.drawOdds) || Number(row.awayOdds);
       }
 
       return {
-        match: sel.match || row.match_name,
+        ...row, // Copy all existing fields from the original match object
+        match: sel.match || row.match,
         league: sel.league || row.league || "",
         selectedMarket: sel.selectedMarket || "1X2",
         selectedOption: sel.selectedOption || "Home Win",
         odds: Number(resolvedOdds) || 2.0,
-        chance: Number(row.chance) > 1 ? Number(row.chance) : Number(row.chance) * 100,
-        rating: Number(row.rating) > 1 ? Number(row.rating) : Number(row.rating) * 100,
-        hPts: Number(row.home_pts) || 0,
-        aPts: Number(row.away_pts) || 0,
         aiReason: sel.reason || "",
-        homeOdds: Number(row.home_odds) || 0,
-        drawOdds: Number(row.draw_odds) || 0,
-        awayOdds: Number(row.away_odds) || 0,
-        o25Odds: Number(row.o25_odds) || 0,
-        bttsYesOdds: Number(row.btts_yes_odds) || 0,
-        guide: row.guide || row.pick || "",
         addedAt: new Date().toISOString(),
       };
     });
