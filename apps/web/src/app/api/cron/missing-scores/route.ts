@@ -12,13 +12,15 @@ export async function GET(req: Request) {
     const rows = await sql`
       SELECT 
         match_date, 
-        match_time, 
+        match_time,
+        country, 
         league,
         home_team, 
         away_team, 
         match_label, 
         guide, 
-        chance
+        chance,
+        '' as ft_score
       FROM matches_cache
       WHERE match_date < CURRENT_DATE
         AND (ft_score IS NULL OR trim(ft_score) = '')
@@ -33,7 +35,7 @@ export async function GET(req: Request) {
     }
 
     // Default to CSV so Google Sheets IMPORTDATA can read it easily
-    const header = ['match_date', 'match_time', 'league', 'home_team', 'away_team', 'match_label', 'guide', 'chance'];
+    const header = ['match_date', 'match_time', 'country', 'league', 'home_team', 'away_team', 'match_label', 'guide', 'chance', 'ft_score'];
     const csvRows = [header.join(',')];
     
     for (const row of rows) {
