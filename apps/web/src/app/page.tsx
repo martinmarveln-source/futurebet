@@ -18,6 +18,7 @@ import SettingsModal from "@/components/Dashboard/SettingsModal";
 import TeamComparisonModal from "@/components/Dashboard/TeamComparisonModal";
 import useBetslipStore from "@/store/betslipStore";
 import useUserPermissions from "@/hooks/useUserPermissions";
+import SystemHealthWidget from "@/components/Dashboard/SystemHealthWidget";
 import { SafeFallback } from "@/components/Dashboard/PremiumUI";
 import BetslipMarketModal from "@/components/Dashboard/BetslipMarketModal";
 import StickySocialBar from "@/components/Dashboard/StickySocialBar";
