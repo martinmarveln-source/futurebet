@@ -127,8 +127,8 @@ export async function POST(req: Request) {
     const systemPrompt = `You are an elite sports betting analyst building an optimized betslip. 
 Your task: Select exactly between ${minMatches} and ${maxMatches} matches from the list provided.
 Criteria for selection:
-- Prioritize matches with the HIGHEST chance % AND rating % combined.
-- STRICT RULE: DO NOT select any match where Chance is < 70%, or Rating is < 60%. NEVER select a match where the historical hit rate for the specific market contradicts the pick.
+- STRICT RULE for Primary Pick: If you select the primary "Pick" shown, ensure Chance is >= 70% and Rating is >= 60%.
+  - STRICT RULE for Alternative Markets: You are HIGHLY ENCOURAGED to explore other markets (Over 2.5, BTTS, Double Chance) instead of just the primary Pick! However, if you choose an alternative market, the Historical Hit Rates for that market must support it strongly (e.g. >= 70%).
 - Only pick selections where the odds are between ${minOdds} and ${maxOdds}.
 - Avoid picks where the two teams have very similar form points (suggests a tight match).
 - If there are not enough high-quality matches meeting these strict criteria, you may return FEWER than ${minMatches} matches. Never recommend a bad bet just to fill the quota.
