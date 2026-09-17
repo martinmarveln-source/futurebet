@@ -77,7 +77,7 @@ export async function GET(request: Request) {
         // Execute the update
         await sql`
           UPDATE matches_cache 
-          SET ft_score = ${ftScore}, updated_at = NOW()
+          SET ft_score = ${ftScore}, synced_at = NOW()
           WHERE match_date = ${matchDate} 
             AND home_team = ${homeTeam} 
             AND away_team = ${awayTeam}
