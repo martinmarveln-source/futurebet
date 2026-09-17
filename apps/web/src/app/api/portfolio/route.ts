@@ -3,10 +3,14 @@ import sql from '@/app/api/utils/sql';
 import { NextResponse } from 'next/server';
 
 async function ensureTable() {
+  try {
+    await sql`ALTER TABLE user_picks_log ALTER COLUMN user_id TYPE TEXT`;
+  } catch(e) {}
+
   await sql`
     CREATE TABLE IF NOT EXISTS user_picks_log (
       id BIGSERIAL PRIMARY KEY,
-      user_id UUID NOT NULL,
+      user_id TEXT NOT NULL,
       match_id TEXT NOT NULL DEFAULT '',
       match_name TEXT NOT NULL,
       match_date TEXT NOT NULL,

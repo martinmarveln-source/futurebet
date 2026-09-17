@@ -3,10 +3,52 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { LineChart, Line, ResponsiveContainer } from "recharts";
 
-import { Trophy, ChevronLeft, Target, Shield, Home, AlertCircle, BarChart3, ArrowDown, ArrowUp, Activity, Globe } from "lucide-react";
+import { Trophy, Plus, ChevronLeft, Target, Shield, Home, AlertCircle, BarChart3, ArrowDown, ArrowUp, Activity, Globe } from "lucide-react";
 import PremiumOverlay from "../../../components/Stats/PremiumOverlay";
+import { useBetslipStore } from "../../../store/betslipStore";
 
 export default function InsightsPage() {
+  const handleAddToBetslip = (item: any, secKey: string) => {
+    let market = "";
+    let option = "";
+    
+    switch(secKey) {
+       case "btts": market = "BTTS"; option = "Yes"; break;
+       case "nbtts": market = "BTTS"; option = "No"; break;
+       case "o15": market = "O/U 1.5"; option = "Over"; break;
+       case "u15": market = "O/U 1.5"; option = "Under"; break;
+       case "o25": market = "O/U 2.5"; option = "Over"; break;
+       case "u25": market = "O/U 2.5"; option = "Under"; break;
+       case "o35": market = "O/U 3.5"; option = "Over"; break;
+       case "u35": market = "O/U 3.5"; option = "Under"; break;
+       case "o45": market = "O/U 4.5"; option = "Over"; break;
+       case "u45": market = "O/U 4.5"; option = "Under"; break;
+       case "bestHome": market = "1X2"; option = "Home Win"; break;
+       case "bestAway": market = "1X2"; option = "Away Win"; break;
+       case "homeDraw": market = "1X2"; option = "Draw"; break;
+       case "awayDraw": market = "1X2"; option = "Draw"; break;
+       case "worstHome": market = "1X2"; option = "Away Win"; break;
+       case "worstAway": market = "1X2"; option = "Home Win"; break;
+       default: return; // Not supported
+    }
+    
+    const matchName = item.isHome ? `${item.team} vs ${item.nextOpponent}` : `${item.nextOpponent} vs ${item.team}`;
+    
+    const m = {
+      match: matchName,
+      league: item.league,
+      country: item.country,
+      date: item.nextDate,
+      selectedMarket: market,
+      selectedOption: option,
+      odds: Number(item.odds),
+      chance: item.prediction,
+      rating: item.confidence
+    };
+    
+    useBetslipStore.getState().addMatch(m);
+    alert(`Added ${matchName} to BetSlip!`);
+  };
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [minGames, setMinGames] = useState(4);
