@@ -1,1 +1,0 @@
-﻿const sql = require('./apps/web/src/app/api/utils/sql').default; async function run() { try { const res = await sql\SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'matches_cache'\; console.log(res); } catch(e) { console.error(e); } process.exit(0); } run();
