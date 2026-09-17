@@ -55,14 +55,6 @@ function parseCSV(csvText: string) {
 
 export async function GET(request: Request) {
   try {
-    // Secure with CRON_SECRET if provided
-    const { searchParams } = new URL(request.url);
-    const secret = searchParams.get("secret");
-    const envSecret = process.env.CRON_SECRET;
-    if (envSecret && secret !== envSecret) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const csvUrl = 'https://docs.google.com/spreadsheets/d/1FkwBHYn00egVeyKVgI7OBEU96wMmf30v-aLKosFdDok/gviz/tq?tqx=out:csv&sheet=missed_Results';
     const response = await fetch(csvUrl, { cache: 'no-store' });
     if (!response.ok) {
