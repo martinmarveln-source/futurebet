@@ -5,7 +5,7 @@ import { LineChart, Line, ResponsiveContainer } from "recharts";
 
 import { Trophy, Plus, ChevronLeft, Target, Shield, Home, AlertCircle, BarChart3, ArrowDown, ArrowUp, Activity, Globe } from "lucide-react";
 import PremiumOverlay from "../../../components/Stats/PremiumOverlay";
-import { useBetslipStore } from "../../../store/betslipStore";
+import useBetslipStore from "../../../store/betslipStore";
 
 export default function InsightsPage() {
   const handleAddToBetslip = (item: any, secKey: string) => {
