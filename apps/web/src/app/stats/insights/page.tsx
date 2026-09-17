@@ -294,7 +294,8 @@ export default function InsightsPage() {
                             <th className="py-2 px-2 font-semibold text-center">Prediction</th>
                             <th className="py-2 px-2 font-semibold text-center">Confidence</th>
                             <th className="py-2 px-2 font-semibold text-center">Odds</th>
-                            <th className="py-2 px-2 font-semibold text-center">Trend</th>
+                            <th className="py-2 px-2 font-semibold text-center">Trend</th><th className="py-2 px-2 font-semibold text-center w-8"></th>
+                            <th className="py-2 px-2 font-semibold text-center w-8"></th>
                           </>
                         )}
                       </tr>
@@ -409,6 +410,17 @@ export default function InsightsPage() {
                                     </div>
                                   ) : (
                                     <span className="text-slate-600 text-[11px]">-</span>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-2 text-right">
+                                  {hasNextMatch && item.odds !== null && Number(item.odds) > 0 && (
+                                    <button
+                                      onClick={(e) => { e.preventDefault(); handleAddToBetslip(item, sec.key); }}
+                                      className="text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 p-1.5 rounded-lg transition-colors border border-slate-700"
+                                      title="Add to Betslip"
+                                    >
+                                      <Plus size={14} />
+                                    </button>
                                   )}
                                 </td>
                               </>

@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 
 async function ensureTable() {
   try {
-    await sql`ALTER TABLE user_picks_log ALTER COLUMN user_id TYPE TEXT`;
+    await sql`ALTER TABLE user_picks_log ALTER COLUMN user_id TYPE TEXT USING user_id::text`;
   } catch(e) {}
 
   await sql`
