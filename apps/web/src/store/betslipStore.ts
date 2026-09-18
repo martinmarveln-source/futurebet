@@ -446,7 +446,7 @@ const useBetslipStore = create(
         deriveMasterOdds(match, market, option),
 
       matches: [],
-      maxMatches: 20,
+      maxMatches: 40,
       stake: 1000,
       slipTitle: "",
 
