@@ -86,7 +86,7 @@ async function settlePendingPicks(userId: string) {
   const cache = await sql`
     SELECT match, match_date, ft_score 
     FROM matches_cache 
-    WHERE match_date = ANY(${dates})
+    WHERE match_date = ANY(${dates}::text[])
       AND ft_score IS NOT NULL
       AND ft_score != ''
   `;
@@ -122,7 +122,7 @@ export async function GET() {
     await ensureTable();
     
     // Auto-settle any pending picks before returning
-    await settlePendingPicks(session.user.id);
+    try { await settlePendingPicks(session.user.id); } catch(e) { console.error("Auto-settle error:", e); }
 
     const picks = await sql`
       SELECT * FROM user_picks_log
