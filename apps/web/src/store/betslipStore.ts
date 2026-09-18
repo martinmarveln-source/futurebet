@@ -446,7 +446,7 @@ const useBetslipStore = create(
         deriveMasterOdds(match, market, option),
 
       matches: [],
-      maxMatches: 20,
+      maxMatches: 40,
       stake: 1000,
       slipTitle: "",
 
@@ -567,7 +567,7 @@ const useBetslipStore = create(
             uniqueMatches.push(m);
           }
         }
-        const slip = uniqueMatches.slice(0, 20);
+        const slip = uniqueMatches.slice(0, 40);
 
         // Log picks to portfolio API
         slip.forEach((m) => {
@@ -783,8 +783,8 @@ const useBetslipStore = create(
 
           return {
             ...state,
-            matches: uniqueMatches.slice(0, 20),
-            tickets: tickets.filter((t) => !Array.isArray(t.selections) || t.selections.length <= 20).map((t) => {
+            matches: uniqueMatches.slice(0, 40),
+            tickets: tickets.filter((t) => !Array.isArray(t.selections) || t.selections.length <= 40).map((t) => {
               const uniqueSelections = [];
               if (Array.isArray(t.selections)) {
                 for (const s of t.selections) {
