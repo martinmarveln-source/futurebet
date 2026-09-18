@@ -498,7 +498,7 @@ export default function BetSlip({ darkMode = false }) {
                 darkMode ? "text-gray-500" : "text-gray-400"
               )}
             >
-              {total} Selections • Max 20
+              {total} Selections • Max 40
             </div>
           </div>
         </div>
