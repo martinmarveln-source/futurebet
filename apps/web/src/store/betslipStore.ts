@@ -602,11 +602,11 @@ const useBetslipStore = create(
           }
         });
 
-        if (expectedTickets > 500) {
+        if (expectedTickets > 2000) {
           return {
             ok: false,
             reason: "too_many_combinations",
-            message: `This system bet generates ${expectedTickets} combinations. The tracking maximum is 500 at once to prevent server crashes.`,
+            message: `This system bet generates ${expectedTickets} combinations. The tracking maximum is 2000 at once to prevent server crashes.`,
           };
         }
 
