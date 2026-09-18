@@ -123,7 +123,7 @@ Rules:
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: systemPrompt }] },
           contents: [{ parts: [{ text: userPrompt }] }],
-          generationConfig: { temperature: 0.3, maxOutputTokens: 1500 },
+          generationConfig: { temperature: 0.0, maxOutputTokens: 1500 },
         }),
       }
     );
