@@ -84,7 +84,7 @@ async function settlePendingPicks(userId: string) {
   if (dates.length === 0) return;
 
   const cache = await sql`
-    SELECT match, match_date, ft_score 
+    SELECT match_label, match_date, ft_score 
     FROM matches_cache 
     WHERE match_date = ANY(${dates}::text[])
       AND ft_score IS NOT NULL
@@ -96,7 +96,7 @@ async function settlePendingPicks(userId: string) {
   const norm = (s: string) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, '');
   const scoreMap = new Map();
   for (const row of cache) {
-    scoreMap.set(`${row.match_date}|${norm(row.match)}`, row.ft_score);
+    scoreMap.set(`${row.match_date}|${norm(row.match_label)}`, row.ft_score);
   }
 
   // 3. Evaluate and update
