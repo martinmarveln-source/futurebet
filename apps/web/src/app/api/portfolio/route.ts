@@ -118,15 +118,22 @@ async function settlePendingPicks(userId: string) {
     }
 
     // C. Home/Away split fuzzy match
-    if (!matchedRow && pick.match_name.includes(' vs ')) {
-      const [home, away] = pick.match_name.split(' vs ');
-      const hNorm = norm(home).substring(0, 5); // first 5 chars of home
-      const aNorm = norm(away).substring(0, 5); // first 5 chars of away
+    let separator = null;
+    if (pick.match_name.includes(' vs ')) separator = ' vs ';
+    else if (pick.match_name.includes(' - ')) separator = ' - ';
+
+    if (!matchedRow && separator) {
+      const parts = pick.match_name.split(separator);
+      const home = parts[0];
+      const away = parts[1];
+      const hNorm = norm(home).substring(0, 5);
+      const aNorm = norm(away).substring(0, 5);
       
-      if (hNorm.length > 2 && aNorm.length > 2) {
+      if (hNorm.length >= 2 && aNorm.length >= 2) {
         matchedRow = candidates.find(c => {
-          const cHome = norm(c.home_team || c.match_label.split(' vs ')[0]);
-          const cAway = norm(c.away_team || c.match_label.split(' vs ')[1]);
+          const cParts = c.match_label.split(/ vs | - /);
+          const cHome = norm(c.home_team || cParts[0]);
+          const cAway = norm(c.away_team || cParts[1] || '');
           return cHome.includes(hNorm) && cAway.includes(aNorm);
         });
       }
