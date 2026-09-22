@@ -72,10 +72,42 @@ function normalizeGuide(value = "") {
       if (option === "YES" || option === "OVER" || option === "OVER 2.5")
         return "OV.2.5";
     }
-
     if (market === "UNDER 2.5" || market === "UNDER2.5") {
       if (option === "YES" || option === "UNDER" || option === "UNDER 2.5")
         return "UN2.5";
+    }
+
+    if (market === "OVER 1.5" || market === "OVER1.5") {
+      if (option === "YES" || option === "OVER" || option === "OVER 1.5")
+        return "OV.1.5";
+    }
+    if (market === "UNDER 1.5" || market === "UNDER1.5") {
+      if (option === "YES" || option === "UNDER" || option === "UNDER 1.5")
+        return "UN1.5";
+    }
+
+    if (market === "OVER 3.5" || market === "OVER3.5") {
+      if (option === "YES" || option === "OVER" || option === "OVER 3.5")
+        return "OV.3.5";
+    }
+    if (market === "UNDER 3.5" || market === "UNDER3.5") {
+      if (option === "YES" || option === "UNDER" || option === "UNDER 3.5")
+        return "UN3.5";
+    }
+
+    if (market === "OVER 4.5" || market === "OVER4.5") {
+      if (option === "YES" || option === "OVER" || option === "OVER 4.5")
+        return "OV.4.5";
+    }
+    if (market === "UNDER 4.5" || market === "UNDER4.5") {
+      if (option === "YES" || option === "UNDER" || option === "UNDER 4.5")
+        return "UN4.5";
+    }
+
+    if (market === "DOUBLE CHANCE") {
+      if (option === "HOME OR DRAW" || option === "1X") return "DC1X";
+      if (option === "HOME OR AWAY" || option === "12") return "DC12";
+      if (option === "DRAW OR AWAY" || option === "X2") return "DCX2";
     }
 
     if (value.label) return normalizeGuide(value.label);
@@ -132,6 +164,32 @@ function normalizeGuide(value = "") {
   )
     return "UN2.5";
 
+  // Over/Under 1.5
+  if (compact === "OV15" || compact === "OVER15" || compact === "O15" || compact.includes("OVER15"))
+    return "OV.1.5";
+  if (compact === "UN15" || compact === "UNDER15" || compact === "U15" || compact.includes("UNDER15"))
+    return "UN1.5";
+
+  // Over/Under 3.5
+  if (compact === "OV35" || compact === "OVER35" || compact === "O35" || compact.includes("OVER35"))
+    return "OV.3.5";
+  if (compact === "UN35" || compact === "UNDER35" || compact === "U35" || compact.includes("UNDER35"))
+    return "UN3.5";
+
+  // Over/Under 4.5
+  if (compact === "OV45" || compact === "OVER45" || compact === "O45" || compact.includes("OVER45"))
+    return "OV.4.5";
+  if (compact === "UN45" || compact === "UNDER45" || compact === "U45" || compact.includes("UNDER45"))
+    return "UN4.5";
+
+  // Double Chance
+  if (compact === "DC1X" || compact === "1X" || compact.includes("HOMEORDRAW"))
+    return "DC1X";
+  if (compact === "DC12" || compact === "12" || compact.includes("HOMEORAWAY"))
+    return "DC12";
+  if (compact === "DCX2" || compact === "X2" || compact.includes("DRAWORAWAY") || compact.includes("AWAYORDRAW"))
+    return "DCX2";
+
   return raw;
 }
 
@@ -187,6 +245,69 @@ function getGuideMeta(match, guideInput = "") {
         selection: "Under 2.5 Goals",
         marketLabel: "Totals",
         marketAngle: "Under 2.5 Goals",
+      };
+    case "OV.1.5":
+      return {
+        market: "Goals",
+        selection: "Over 1.5 Goals",
+        marketLabel: "Totals",
+        marketAngle: "Over 1.5 Goals",
+      };
+    case "UN1.5":
+      return {
+        market: "Goals",
+        selection: "Under 1.5 Goals",
+        marketLabel: "Totals",
+        marketAngle: "Under 1.5 Goals",
+      };
+    case "OV.3.5":
+      return {
+        market: "Goals",
+        selection: "Over 3.5 Goals",
+        marketLabel: "Totals",
+        marketAngle: "Over 3.5 Goals",
+      };
+    case "UN3.5":
+      return {
+        market: "Goals",
+        selection: "Under 3.5 Goals",
+        marketLabel: "Totals",
+        marketAngle: "Under 3.5 Goals",
+      };
+    case "OV.4.5":
+      return {
+        market: "Goals",
+        selection: "Over 4.5 Goals",
+        marketLabel: "Totals",
+        marketAngle: "Over 4.5 Goals",
+      };
+    case "UN4.5":
+      return {
+        market: "Goals",
+        selection: "Under 4.5 Goals",
+        marketLabel: "Totals",
+        marketAngle: "Under 4.5 Goals",
+      };
+    case "DC1X":
+      return {
+        market: "Double Chance",
+        selection: "Home or Draw",
+        marketLabel: "Double Chance",
+        marketAngle: "Home Win or Draw outcome",
+      };
+    case "DC12":
+      return {
+        market: "Double Chance",
+        selection: "Home or Away",
+        marketLabel: "Double Chance",
+        marketAngle: "Home Win or Away Win outcome",
+      };
+    case "DCX2":
+      return {
+        market: "Double Chance",
+        selection: "Draw or Away",
+        marketLabel: "Double Chance",
+        marketAngle: "Draw or Away Win outcome",
       };
     default:
       return {
@@ -258,6 +379,24 @@ function resolveOddsForGuide(match, guideInput = "") {
         match.un25Odds,
         match.odds
       );
+    case "OV.1.5":
+      return firstValidOdds(match.o15Odds, match.o15_odds, match.odds);
+    case "UN1.5":
+      return firstValidOdds(match.u15Odds, match.u15_odds, match.odds);
+    case "OV.3.5":
+      return firstValidOdds(match.o35Odds, match.o35_odds, match.odds);
+    case "UN3.5":
+      return firstValidOdds(match.u35Odds, match.u35_odds, match.odds);
+    case "OV.4.5":
+      return firstValidOdds(match.o45Odds, match.o45_odds, match.odds);
+    case "UN4.5":
+      return firstValidOdds(match.u45Odds, match.u45_odds, match.odds);
+    case "DC1X":
+      return firstValidOdds(match.dc1X, match.dc1x, match.odds);
+    case "DC12":
+      return firstValidOdds(match.dc12, match.odds);
+    case "DCX2":
+      return firstValidOdds(match.dcX2, match.dcx2, match.odds);
     default:
       return firstValidOdds(match.odds);
   }
@@ -273,6 +412,15 @@ function resolveGuideProbability(match, guide, structural, totalAvg) {
     NG: safe(match.ng ?? match.bttsNo),
     "OV.2.5": safe(match.ov25 ?? match.over25 ?? match.o25),
     "UN2.5": safe(match.un25 ?? match.under25 ?? match.u25),
+    "OV.1.5": safe(match.ov15),
+    "UN1.5": safe(match.un15),
+    "OV.3.5": safe(match.ov35),
+    "UN3.5": safe(match.un35),
+    "OV.4.5": safe(match.ov45),
+    "UN4.5": safe(match.un45),
+    "DC1X": safe(match.homeWin) + safe(match.draw),
+    "DC12": safe(match.homeWin) + safe(match.awayWin),
+    "DCX2": safe(match.draw) + safe(match.awayWin),
   };
 
   const direct = directMap[normalized];
@@ -321,6 +469,16 @@ function resolveGuideProbability(match, guide, structural, totalAvg) {
   const overEstimate = clamp(overBase + (totalAvg - 2.5) * 14, 10, 90);
   const underEstimate = clamp(mean([underBase, 100 - overEstimate]), 10, 90);
 
+  // Poisson-based goal line approximations
+  const mu = totalAvg > 0 ? totalAvg : 2.5;
+  const poissonOver = (line) => {
+    const kMax = Math.floor(line);
+    let pLE = Math.exp(-mu);
+    for (let k = 1; k <= kMax; k++) pLE += (Math.exp(-mu) * Math.pow(mu, k)) / factorial(k);
+    return clamp((1 - pLE) * 100, 0, 100);
+  };
+  const factorial = (n) => { let r = 1; for (let i = 2; i <= n; i++) r *= i; return r; };
+
   switch (normalized) {
     case "HOME WIN":
       return Math.round(homeEstimate);
@@ -336,6 +494,24 @@ function resolveGuideProbability(match, guide, structural, totalAvg) {
       return Math.round(overEstimate);
     case "UN2.5":
       return Math.round(underEstimate);
+    case "OV.1.5":
+      return Math.round(poissonOver(1.5));
+    case "UN1.5":
+      return Math.round(100 - poissonOver(1.5));
+    case "OV.3.5":
+      return Math.round(poissonOver(3.5));
+    case "UN3.5":
+      return Math.round(100 - poissonOver(3.5));
+    case "OV.4.5":
+      return Math.round(poissonOver(4.5));
+    case "UN4.5":
+      return Math.round(100 - poissonOver(4.5));
+    case "DC1X":
+      return Math.round(clamp(homeEstimate + drawEstimate, 10, 98));
+    case "DC12":
+      return Math.round(clamp(homeEstimate + awayEstimate, 10, 98));
+    case "DCX2":
+      return Math.round(clamp(drawEstimate + awayEstimate, 10, 98));
     default:
       return 0;
   }

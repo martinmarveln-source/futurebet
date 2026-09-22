@@ -70,25 +70,38 @@ export async function POST(req: Request) {
       const chance = Number(m.chance) || 0;
       const rating = Number(m.rating) || 0;
 
+      // Compute avg goals for context
+      const hgs = Number(m.hgs) || 0, hgc = Number(m.hgc) || 0;
+      const ags = Number(m.ags) || 0, agc = Number(m.agc) || 0;
+      const avgGoals = m.avg || ((hgs + hgc + ags + agc) / 2) || 0;
+
       return `Leg ${i + 1}: ${m.match} [${m.selectedMarket} → ${m.selectedOption} @ ${m.odds}]
   Model: Chance ${chance > 1 ? chance : (chance * 100).toFixed(0)}% | Rating ${rating > 1 ? rating : (rating * 100).toFixed(0)}%
   Win Probabilities → Home: ${fmtPct(m.homeWin)} | Draw: ${fmtPct(m.draw)} | Away: ${fmtPct(m.awayWin)}
-  Goals Avg → Home: scores ${fmt(m.hgs,1)}/g, concedes ${fmt(m.hgc,1)}/g | Away: scores ${fmt(m.ags,1)}/g, concedes ${fmt(m.agc,1)}/g
+  Double Chance → 1X: ${fmtPct(Number(m.homeWin || 0) + Number(m.draw || 0))} | 12: ${fmtPct(Number(m.homeWin || 0) + Number(m.awayWin || 0))} | X2: ${fmtPct(Number(m.draw || 0) + Number(m.awayWin || 0))}
+  Goals Avg → Home: scores ${fmt(m.hgs,1)}/g, concedes ${fmt(m.hgc,1)}/g | Away: scores ${fmt(m.ags,1)}/g, concedes ${fmt(m.agc,1)}/g | Combined Avg: ${fmt(avgGoals, 1)} goals/game
   Season Record → Home: W${fmt(m.hWin)}/D${fmt(m.hDraw)}/L${fmt(m.hLost)} | Away: W${fmt(m.aWin)}/D${fmt(m.aDraw)}/L${fmt(m.aLost)}
   Form → Home: ${m.hForm || "—"} (${fmt(m.hPts)}pts) | Away: ${m.aForm || "—"} (${fmt(m.aPts)}pts)
   BTTS Rate → Home: ${fmtPct(m.hBtts)} | Away: ${fmtPct(m.aBtts)}
   Over 2.5 Rate → Home: ${fmtPct(m.hOv2)} | Away: ${fmtPct(m.aOv2)}
+  Goal Line Probabilities → O1.5: ${fmtPct(m.ov15)} | O2.5: ${fmtPct(m.ov25)} | O3.5: ${fmtPct(m.ov35)} | O4.5: ${fmtPct(m.ov45)}
   H2H (last ${fmt(m.H2H_GP) || "?"}) → Home W:${fmt(m.H2H_H)} D:${fmt(m.H2H_D)} Away:${fmt(m.H2H_A)} | O2.5:${fmtPct(m.H2H_OV)} | BTTS:${fmtPct(m.H2H_GG)}
   Predicted Score: ${m.likelyCS || "—"} (${fmtPct(m.scorelineCSPercent)} confidence)
-  Odds → Home:${fmtOdds(m.homeOdds)} | Draw:${fmtOdds(m.drawOdds)} | Away:${fmtOdds(m.awayOdds)} | O2.5:${fmtOdds(m.o25Odds)} | BTTS:${fmtOdds(m.bttsYesOdds)}
+  Odds → Home:${fmtOdds(m.homeOdds)} | Draw:${fmtOdds(m.drawOdds)} | Away:${fmtOdds(m.awayOdds)} | O1.5:${fmtOdds(m.o15Odds)} | O2.5:${fmtOdds(m.o25Odds)} | O3.5:${fmtOdds(m.o35Odds)} | O4.5:${fmtOdds(m.o45Odds)} | BTTS:${fmtOdds(m.bttsYesOdds)} | DC1X:${fmtOdds(m.dc1X)} | DC12:${fmtOdds(m.dc12)} | DCX2:${fmtOdds(m.dcX2)}
   League Hit Rates → Home: [Win:${homeWinPct} O2.5:${homeO25} BTTS:${homeBtts}] | Away: [Win:${awayWinPct} O2.5:${awayO25} BTTS:${awayBtts}]`;
     }).join("\n\n");
 
     const systemPrompt = `You are an elite sports betting risk analyst with access to comprehensive statistical data for each leg. 
 
 Your job:
-1. For each leg, check if the market selection is SUPPORTED by the data (win probs, form, H2H, goals avg, BTTS rates, league hit rates).
-2. Flag a leg as RISKY only if there is a genuine statistical contradiction — e.g. picking Over 2.5 when both teams average < 1.5 goals/game, or picking a Home Win when the away team is in superior form.
+1. For each leg, check if the market selection is SUPPORTED by the data (win probs, form, H2H, goals avg, BTTS rates, goal line probs, league hit rates).
+2. Flag a leg as RISKY only if there is a genuine statistical contradiction. Examples:
+   - Picking Over 2.5 when both teams average < 1.5 goals/game and combined avg is under 2.0
+   - Picking Over 3.5 or Over 4.5 when combined avg goals is under 2.8 or O3.5 probability < 35%
+   - Picking Over 1.5 when combined avg is < 1.5 or both teams frequently fail to score
+   - Picking Home Win when the away team is in superior form and has better PPG
+   - Picking Double Chance (e.g. 1X) when the covered outcomes have weak combined probability
+   - Picking Under 2.5 when both teams have high BTTS rates (>60%) and combined avg > 2.8
 3. If a leg's data strongly backs the selection, say so positively.
 4. If ALL legs have solid data support, say the slip is solid — do NOT invent fake risks.
 

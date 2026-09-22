@@ -299,6 +299,8 @@ export function getRecommendedMarket(match: any) {
   const u15 = marketProb(match, "Over 1.5", "No");
   const o35 = marketProb(match, "Over 3.5", "Yes");
   const u35 = marketProb(match, "Over 3.5", "No");
+  const o45 = marketProb(match, "Over 4.5", "Yes");
+  const u45 = marketProb(match, "Over 4.5", "No");
 
   const hgs = toNum(match?.hgs), hgc = toNum(match?.hgc);
   const ags = toNum(match?.ags), agc = toNum(match?.agc);
@@ -345,6 +347,9 @@ export function getRecommendedMarket(match: any) {
     
     o35 > 0 ? createCandidate({ market: "Over 3.5", option: "Yes", label: "Over 3.5", prob: o35, opposition: u35, support: (overProfile >= 70 ? 4 : 0) + (totalAvg >= 3.2 ? 5 : 0), penalty: un25 >= 45 ? 6 : 0, match }) : null,
     u35 > 0 ? createCandidate({ market: "Over 3.5", option: "No", label: "Under 3.5", prob: u35, opposition: o35, support: (un25 >= 50 ? 3 : 0) + (totalAvg <= 2.8 ? 3 : 0), penalty: overProfile >= 60 ? 4 : 0, match }) : null,
+    
+    o45 > 0 ? createCandidate({ market: "Over 4.5", option: "Yes", label: "Over 4.5", prob: o45, opposition: u45, support: (overProfile >= 75 ? 5 : 0) + (totalAvg >= 3.5 ? 6 : 0), penalty: un25 >= 40 ? 8 : 0, match }) : null,
+    u45 > 0 ? createCandidate({ market: "Over 4.5", option: "No", label: "Under 4.5", prob: u45, opposition: o45, support: (un25 >= 45 ? 3 : 0) + (totalAvg <= 3.2 ? 3 : 0), penalty: overProfile >= 65 ? 4 : 0, match }) : null,
   ].filter(Boolean) as any[];
 
   if (!candidates.length) return null;

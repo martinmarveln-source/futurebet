@@ -13,6 +13,15 @@ export function bestPickFromMatch(m, style = "balanced") {
   const pGG = n(m?.gg);
   const pNG = n(m?.ng);
 
+  // Over/Under 1.5, 3.5, 4.5 — use direct values or Poisson approximation
+  const avgGoals = n(m?.avg) || ((n(m?.hgs) + n(m?.hgc) + n(m?.ags) + n(m?.agc)) / 2) || 0;
+  const pOv15 = n(m?.ov15) || (avgGoals > 0 ? approxOverProbFromAvg(avgGoals, 1.5) : 0);
+  const pUn15 = pOv15 > 0 ? 100 - pOv15 : 0;
+  const pOv35 = n(m?.ov35) || (avgGoals > 0 ? approxOverProbFromAvg(avgGoals, 3.5) : 0);
+  const pUn35 = pOv35 > 0 ? 100 - pOv35 : 0;
+  const pOv45 = n(m?.ov45) || (avgGoals > 0 ? approxOverProbFromAvg(avgGoals, 4.5) : 0);
+  const pUn45 = pOv45 > 0 ? 100 - pOv45 : 0;
+
   // Derived Double Chance (from 1X2)
   const pHD = pHome + pDraw; // Home or Draw
   const pHA = pHome + pAway; // Home or Away
@@ -27,10 +36,19 @@ export function bestPickFromMatch(m, style = "balanced") {
     { market: "Over 2.5", option: "Yes", prob: pOv25 },
     { market: "Over 2.5", option: "No", prob: pUn25 },
 
+    { market: "Over 1.5", option: "Yes", prob: pOv15 },
+    { market: "Over 1.5", option: "No", prob: pUn15 },
+
+    { market: "Over 3.5", option: "Yes", prob: pOv35 },
+    { market: "Over 3.5", option: "No", prob: pUn35 },
+
+    { market: "Over 4.5", option: "Yes", prob: pOv45 },
+    { market: "Over 4.5", option: "No", prob: pUn45 },
+
     { market: "BTTS", option: "Yes", prob: pGG },
     { market: "BTTS", option: "No", prob: pNG },
 
-    // Optional but great for SAFE:
+    // Double Chance — great for SAFE:
     { market: "Double Chance", option: "Home or Draw", prob: pHD },
     { market: "Double Chance", option: "Home or Away", prob: pHA },
     { market: "Double Chance", option: "Draw or Away", prob: pDA },
@@ -42,19 +60,25 @@ export function bestPickFromMatch(m, style = "balanced") {
   for (const c of candidates) {
     if (style === "safe") {
       // Avoid volatile markets a bit
-      if (c.market === "1X2" && c.option === "Draw") c.score *= 0.85; // penalize Draw
-      if (c.market === "BTTS") c.score *= 0.92; // small penalty
-      if (c.market === "Over 2.5") c.score *= 0.95; // small penalty
+      if (c.market === "1X2" && c.option === "Draw") c.score *= 0.85;
+      if (c.market === "BTTS") c.score *= 0.92;
+      if (c.market === "Over 2.5") c.score *= 0.95;
+      if (c.market === "Over 1.5") c.score *= 1.02; // Over 1.5 is safer — boost slightly
+      if (c.market === "Over 3.5") c.score *= 0.88; // 3.5+ is risky for safe
+      if (c.market === "Over 4.5") c.score *= 0.80; // 4.5+ very volatile for safe
 
       // Prefer Double Chance for safety
       if (c.market === "Double Chance") c.score *= 1.05;
     }
 
     if (style === "edge") {
-      // Slightly prefer markets that usually pay better than double chance
+      // Slightly prefer markets that usually pay better
       if (c.market === "1X2" && c.option !== "Draw") c.score *= 1.02;
       if (c.market === "Over 2.5") c.score *= 1.01;
       if (c.market === "BTTS") c.score *= 1.01;
+      if (c.market === "Over 1.5") c.score *= 0.96; // Low odds, less edge value
+      if (c.market === "Over 3.5") c.score *= 1.04; // Higher odds = more edge
+      if (c.market === "Over 4.5") c.score *= 1.06; // High odds = good edge play
 
       // De-prioritize Double Chance in Edge mode
       if (c.market === "Double Chance") c.score *= 0.95;
