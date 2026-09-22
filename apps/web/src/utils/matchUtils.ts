@@ -267,6 +267,7 @@ export function thresholdsByStyle(style) {
       ou: 68,
       btts: 70,
       oneX2: 62,
+      dc: 80,
       draw: 40,
       cs: 10,
     };
@@ -276,6 +277,7 @@ export function thresholdsByStyle(style) {
       ou: 60,
       btts: 60,
       oneX2: 55,
+      dc: 74,
       draw: 33,
       cs: 8,
     };
@@ -285,6 +287,7 @@ export function thresholdsByStyle(style) {
     ou: 55,
     btts: 55,
     oneX2: 50,
+    dc: 68,
     draw: 28,
     cs: 6.5,
   };
@@ -408,36 +411,47 @@ export function pickBestSelectionForMatch(m, style, prefs) {
     const draw = Number(m?.draw) || 0;
     const away = Number(m?.awayWin) || 0;
 
+    // A utility to penalize score if odds are too low
+    const dcScore = (p, opt) => {
+      let score = p + vipScore / 10;
+      // if odds are provided and they are too low (e.g. < 1.15), penalize to avoid worthless picks
+      const odds = resolveOddsForSelection(m, "Double Chance", opt);
+      if (odds && Number(odds) > 1 && Number(odds) < 1.18) {
+        score -= 10;
+      }
+      return score;
+    };
+
     if (prefs?.autoDoubleChanceOptions?.homeDraw) {
       const p = home + draw;
-      if (p >= t.oneX2)
+      if (p >= t.dc)
         candidates.push({
           selectedMarket: "Double Chance",
           selectedOption: "Home or Draw",
           prob: p,
-          score: p + vipScore / 10,
+          score: dcScore(p, "Home or Draw"),
         });
     }
 
     if (prefs?.autoDoubleChanceOptions?.homeAway) {
       const p = home + away;
-      if (p >= t.oneX2)
+      if (p >= t.dc)
         candidates.push({
           selectedMarket: "Double Chance",
           selectedOption: "Home or Away",
           prob: p,
-          score: p + vipScore / 10,
+          score: dcScore(p, "Home or Away"),
         });
     }
 
     if (prefs?.autoDoubleChanceOptions?.drawAway) {
       const p = draw + away;
-      if (p >= t.oneX2)
+      if (p >= t.dc)
         candidates.push({
           selectedMarket: "Double Chance",
           selectedOption: "Draw or Away",
           prob: p,
-          score: p + vipScore / 10,
+          score: dcScore(p, "Draw or Away"),
         });
     }
   }
