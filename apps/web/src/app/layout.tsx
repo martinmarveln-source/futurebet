@@ -18,21 +18,7 @@ export const metadata: Metadata = {
     "Futurebet provides highly accurate AI football predictions, betting tips, algorithmic football predictions, backtesting, and VIP market context odds to help you win consistently.",
   applicationName: "FutureBet",
   authors: [{ name: "FutureBet Team", url: "https://futurebet.com.ng" }],
-  keywords: [
-    "Futurebet",
-    "AI football predictions",
-    "VIP betting tips",
-    "algorithmic football predictions",
-    "sure wins today",
-    "football tips",
-    "value betting",
-    "soccer predictions",
-    "betting analytics",
-    "football algorithm",
-    "predictive football analytics",
-    "value betting software",
-    "AI betting algorithm"
-  ],
+  keywords: ["Futurebet","Future bet","AI football predictions","VIP betting tips","algorithmic football predictions","sure wins today","football tips","value betting","soccer predictions","betting analytics","football algorithm","predictive football analytics","value betting software","AI betting algorithm","best football prediction site","sure bet predictions today","accurate soccer predictions for tomorrow","mathematical football predictions","betting tips 1x2","over 2.5 goals predictions","BTTS tips","daily VIP picks"],
   openGraph: {
     title: "Futurebet | AI Football Predictions",
     description:
@@ -86,6 +72,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How accurate are Futurebet's AI football predictions?","acceptedAnswer":{"@type":"Answer","text":"Futurebet uses advanced machine learning models that analyze thousands of data points including xG, team form, injuries, and historical statistics to generate highly accurate football predictions, consistently outperforming traditional human analysis."}},{"@type":"Question","name":"Are your football betting tips free?","acceptedAnswer":{"@type":"Answer","text":"We offer a robust selection of free daily football tips and predictions. For serious bettors, we also offer a Premium subscription that unlocks elite algorithmic predictions, VIP market context, and deeper statistical insights."}},{"@type":"Question","name":"How does the AI Risk Analyzer work?","acceptedAnswer":{"@type":"Answer","text":"Our proprietary AI Risk Analyzer evaluates your combined betslip selections and identifies contradicting odds, mathematical traps, and overall risk levels, helping you avoid bad bets before placing them."}}]})
+          }}
+        />
         {/* Structured Data for Web Application */}
         <script
           type="application/ld+json"
