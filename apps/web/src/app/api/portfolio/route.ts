@@ -79,31 +79,61 @@ async function settlePendingPicks(userId: string) {
   if (pending.length === 0) return;
 
   // 2. Fetch matches_cache rows that might match
-  // We can just fetch matches_cache where match_date IN (...)
   const dates = [...new Set(pending.map(p => p.match_date))].filter(Boolean);
   if (dates.length === 0) return;
 
   const cache = await sql`
-    SELECT match_label, match_date, ft_score 
+    SELECT match_label, match_date, home_team, away_team, ft_score 
     FROM matches_cache 
     WHERE match_date = ANY(${dates}::text[])
       AND ft_score IS NOT NULL
       AND ft_score != ''
   `;
 
-  // Create a lookup map: "match_date|match_name" -> ft_score
   // Normalize match_name slightly to help matching
   const norm = (s: string) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, '');
-  const scoreMap = new Map();
+
+  const cacheByDate = new Map();
   for (const row of cache) {
-    scoreMap.set(`${row.match_date}|${norm(row.match_label)}`, row.ft_score);
+    if (!cacheByDate.has(row.match_date)) cacheByDate.set(row.match_date, []);
+    cacheByDate.get(row.match_date).push(row);
   }
 
   // 3. Evaluate and update
   for (const pick of pending) {
-    const score = scoreMap.get(`${pick.match_date}|${norm(pick.match_name)}`);
-    if (score) {
-      const outcome = evaluateBet(pick.market, pick.selection, score);
+    const candidates = cacheByDate.get(pick.match_date) || [];
+    const pNorm = norm(pick.match_name);
+    
+    let matchedRow = null;
+
+    // A. Exact Match (norm)
+    matchedRow = candidates.find(c => norm(c.match_label) === pNorm);
+
+    // B. Partial contains (e.g. "Din Minsk" vs "Dinamo Minsk vs BATE")
+    if (!matchedRow) {
+      matchedRow = candidates.find(c => {
+         const cNorm = norm(c.match_label);
+         return cNorm.includes(pNorm.substring(0, 8)) || pNorm.includes(cNorm.substring(0, 8));
+      });
+    }
+
+    // C. Home/Away split fuzzy match
+    if (!matchedRow && pick.match_name.includes(' vs ')) {
+      const [home, away] = pick.match_name.split(' vs ');
+      const hNorm = norm(home).substring(0, 5); // first 5 chars of home
+      const aNorm = norm(away).substring(0, 5); // first 5 chars of away
+      
+      if (hNorm.length > 2 && aNorm.length > 2) {
+        matchedRow = candidates.find(c => {
+          const cHome = norm(c.home_team || c.match_label.split(' vs ')[0]);
+          const cAway = norm(c.away_team || c.match_label.split(' vs ')[1]);
+          return cHome.includes(hNorm) && cAway.includes(aNorm);
+        });
+      }
+    }
+
+    if (matchedRow && matchedRow.ft_score) {
+      const outcome = evaluateBet(pick.market, pick.selection, matchedRow.ft_score);
       if (outcome === 'Won' || outcome === 'Lost') {
         await sql`
           UPDATE user_picks_log 
