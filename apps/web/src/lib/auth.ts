@@ -30,6 +30,11 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
+// Prevent unhandled 'error' events on idle Neon WebSocket clients from crashing Node.js
+pool.on('error', (err) => {
+  console.error('[AUTH DB Pool] Idle client error:', err);
+});
+
 // Origins we accept auth requests from. Include every URL the app may be
 // served under so better-auth's CSRF check doesn't reject legitimate requests
 // as "Invalid origin". The request's own origin + known sandbox / published
@@ -249,6 +254,9 @@ export const auth = betterAuth({
     }),
   },
   advanced: {
+    ipAddress: {
+      ipAddressHeaders: ['cf-connecting-ip', 'x-forwarded-for', 'x-real-ip'],
+    },
     cookiePrefix: 'better-auth',
     defaultCookieAttributes: {
       sameSite: 'none', // Required for iframes

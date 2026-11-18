@@ -8,9 +8,13 @@ import { getRecommendedMarket, parsePredictedScore, getOddsForRecommendation } f
 /*                                  CACHE                                     */
 /* -------------------------------------------------------------------------- */
 
-let cachedPayload = null;
-let cacheTimestamp = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const LOOKBACK_DAYS = 7; // Bounded rolling window for ?all=true (older matches use /archive)
+
+const matchesCache = {
+  upcoming: { payload: null, timestamp: 0, inflight: null },
+  all: { payload: null, timestamp: 0, inflight: null },
+};
 
 /* -------------------------------------------------------------------------- */
 /*                             GOOGLE SHEETS CONFIG                           */
@@ -801,8 +805,13 @@ async function fetchMatchesFromDb(includeAll = false) {
 
   let rows;
   if (includeAll) {
+    const lookback = new Date();
+    lookback.setUTCDate(lookback.getUTCDate() - LOOKBACK_DAYS);
+    const fromDate = lookback.toISOString().split("T")[0];
+
     rows = await sql`
       SELECT raw_data FROM matches_cache
+      WHERE match_date >= ${fromDate}
       ORDER BY match_date ASC, match_time ASC
     `;
   } else {
@@ -816,6 +825,8 @@ async function fetchMatchesFromDb(includeAll = false) {
   return rows.map((r) => r.raw_data);
 }
 
+const COLUMN_ENTRIES = Object.entries(COLUMNS);
+
 async function fetchMatchesFromSheet(includeAll = false) {
   // Try database first
   try {
@@ -824,17 +835,18 @@ async function fetchMatchesFromSheet(includeAll = false) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const COL_IDX = COLUMNS;
       const matches: any[] = [];
 
       for (const raw of dbRows) {
         if (!raw) continue;
-        // Reconstruct the array correctly using the index mapping from COL_IDX (prevents JSONB key-sorting misalignment)
+        // Reconstruct the array correctly using the index mapping from COLUMNS (prevents JSONB key-sorting misalignment)
         const rowArr: string[] = [];
-        Object.entries(COL_IDX).forEach(([key, index]) => {
-          rowArr[index] = raw[key] !== undefined && raw[key] !== null ? String(raw[key]) : "";
-        });
-        const parsedDate = parseDate(rowArr[COL_IDX.date]);
+        for (let i = 0; i < COLUMN_ENTRIES.length; i++) {
+          const [key, index] = COLUMN_ENTRIES[i];
+          const val = raw[key];
+          rowArr[index] = val !== undefined && val !== null ? String(val) : "";
+        }
+        const parsedDate = parseDate(rowArr[COLUMNS.date]);
         if (!includeAll && parsedDate && parsedDate < today) continue;
         matches.push(mapSheetRowToMatch(rowArr));
       }
@@ -1240,6 +1252,60 @@ function buildCsvResponse({ csv, fileName, access, exportType, usedCount }) {
   });
 }
 
+async function getCachedMatchesPayload(includeAll = false, forceRefresh = false) {
+  const cacheKey = includeAll ? "all" : "upcoming";
+  const entry = matchesCache[cacheKey];
+  const now = Date.now();
+
+  if (!forceRefresh && entry.payload && now - entry.timestamp < CACHE_DURATION) {
+    return entry.payload;
+  }
+
+  if (!forceRefresh && entry.inflight) {
+    return entry.inflight;
+  }
+
+  const promise = (async () => {
+    const base = await fetchMatchesFromSheet(includeAll);
+
+    const enrichedMatches = base.matches.map((m) => {
+      const recommended = getRecommendedMarket(m);
+      const predictedScore = parsePredictedScore(m?.cScore || m?.predictedScore);
+      const pickOdds = recommended
+        ? getOddsForRecommendation(m, recommended, m?.pick || m?.guide || "")
+        : null;
+      return {
+        ...m,
+        recommended,
+        predictedScore,
+        pickOdds,
+        valueEdge: recommended?.valueEdge,
+        intelligence: computeIntelligence(m, "admin"),
+      };
+    });
+
+    const payload = {
+      matches: enrichedMatches,
+      summary: base.summary,
+    };
+
+    if (enrichedMatches.length > 0) {
+      entry.payload = payload;
+      entry.timestamp = Date.now();
+    }
+    return payload;
+  })();
+
+  entry.inflight = promise;
+  try {
+    return await promise;
+  } finally {
+    if (entry.inflight === promise) {
+      entry.inflight = null;
+    }
+  }
+}
+
 /* -------------------------------------------------------------------------- */
 /*                                   GET                                      */
 /* -------------------------------------------------------------------------- */
@@ -1295,7 +1361,7 @@ export async function GET(request) {
         );
       }
 
-      const { matches } = await fetchMatchesFromSheet(includeAll);
+      const { matches } = await getCachedMatchesPayload(includeAll, forceRefresh);
       const csv =
         exportType === "pro"
           ? buildPremiumCsv(matches, {
@@ -1326,42 +1392,7 @@ export async function GET(request) {
       });
     }
 
-    const now = Date.now();
-
-    let payload = cachedPayload;
-
-    if (
-      !payload ||
-      includeAll ||
-      forceRefresh ||
-      now - cacheTimestamp >= CACHE_DURATION
-    ) {
-      const base = await fetchMatchesFromSheet(includeAll);
-
-      const enrichedMatches = base.matches.map((m) => {
-        const recommended = getRecommendedMarket(m);
-        const predictedScore = parsePredictedScore(m?.cScore || m?.predictedScore);
-        const pickOdds = recommended ? getOddsForRecommendation(m, recommended, m?.pick || m?.guide || "") : null;
-        return {
-          ...m,
-          recommended,
-          predictedScore,
-          pickOdds,
-          valueEdge: recommended?.valueEdge,
-          intelligence: computeIntelligence(m, "admin"),
-        };
-      });
-
-      payload = {
-        matches: enrichedMatches,
-        summary: base.summary,
-      };
-
-      if (!includeAll) {
-        cachedPayload = payload;
-        cacheTimestamp = now;
-      }
-    }
+    const payload = await getCachedMatchesPayload(includeAll, forceRefresh);
 
     let finalMatches = payload.matches;
     const tier = exportAccess?.tier || "free";

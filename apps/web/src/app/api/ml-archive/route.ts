@@ -5,6 +5,50 @@ import { auth } from "@/auth";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const ML_ARCHIVE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+let mlArchiveCache: { data: any[] | null; timestamp: number; inflight: Promise<any[]> | null } = {
+  data: null,
+  timestamp: 0,
+  inflight: null,
+};
+
+async function getCachedMlArchive() {
+  const now = Date.now();
+  if (mlArchiveCache.data && now - mlArchiveCache.timestamp < ML_ARCHIVE_CACHE_TTL) {
+    return mlArchiveCache.data;
+  }
+  if (mlArchiveCache.inflight) {
+    return mlArchiveCache.inflight;
+  }
+
+  const promise = (async () => {
+    const rows = await sql`
+      SELECT 
+        model_chance as chance, 
+        model_rating as rating, 
+        algorithm_pick as market, 
+        ft_result as result
+      FROM sandbox_archive
+      WHERE ft_result IN ('W', 'L')
+      ORDER BY match_date DESC
+    `;
+    if (rows.length > 0) {
+      mlArchiveCache.data = rows;
+      mlArchiveCache.timestamp = Date.now();
+    }
+    return rows;
+  })();
+
+  mlArchiveCache.inflight = promise;
+  try {
+    return await promise;
+  } finally {
+    if (mlArchiveCache.inflight === promise) {
+      mlArchiveCache.inflight = null;
+    }
+  }
+}
+
 export async function GET(request: Request) {
   try {
     // Check session
@@ -49,16 +93,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const data = await sql`
-      SELECT 
-        model_chance as chance, 
-        model_rating as rating, 
-        algorithm_pick as market, 
-        ft_result as result
-      FROM sandbox_archive
-      WHERE ft_result IN ('W', 'L')
-      ORDER BY match_date DESC
-    `;
+    const data = await getCachedMlArchive();
 
     return NextResponse.json(data, {
       headers: {

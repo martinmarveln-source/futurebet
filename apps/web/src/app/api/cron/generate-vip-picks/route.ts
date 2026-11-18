@@ -156,9 +156,13 @@ function computeMarketSignal({ market, selection, vals }) {
    CORE BUILD FUNCTION
 ========================= */
 async function buildPicksData(minChance, minRating, minRecents) {
-  // Query matches_cache for data synced by the cron job
+  // Query matches_cache with a bounded date window around today to avoid loading full history into RAM
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0];
   const dbRows = await sql`
     SELECT id, raw_data FROM matches_cache
+    WHERE match_date >= ${yesterday}
+      AND match_date <= ${tomorrow}
   `;
 
   if (!dbRows || dbRows.length === 0) {

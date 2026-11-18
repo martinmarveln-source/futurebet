@@ -1236,7 +1236,7 @@ const TEAM_COMPARE_GUIDE_CARDS = [
 ];
 // API
 async function fetchMatches() {
-  const res = await fetch("/api/matches?all=true&refresh=true&compare=true", {
+  const res = await fetch("/api/matches?all=true&compare=true", {
     cache: "no-store",
   });
 
