@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import useBetslipStore from "@/store/betslipStore";
 import useUserPermissions from "@/hooks/useUserPermissions";
 import BetslipMarketModal from "@/components/Dashboard/BetslipMarketModal";
+import BookingCodeModal from "@/components/Dashboard/BookingCodeModal";
 import { formatNaira } from "@/utils/matchUtils";
 import {
   Ticket,
@@ -95,9 +96,10 @@ export default function BetSlip({ darkMode = false }) {
   const [editingMatch, setEditingMatch] = useState(null);
   const [tracking, setTracking] = useState(false);
 
-  // Router State
-  const [selectedBookie, setSelectedBookie] = useState("1XBET");
+  // Router & Booking Code State
+  const [selectedBookie, setSelectedBookie] = useState("SPORTYBET");
   const [isRouting, setIsRouting] = useState(false);
+  const [bookingModalOpen, setBookingModalOpen] = useState(false);
 
   // System Bets State
   const [systemStakes, setSystemStakes] = useState({});
@@ -284,7 +286,7 @@ export default function BetSlip({ darkMode = false }) {
   const handleRouteToBookie = () => {
     if (!isPro) {
       alert(
-        "🔒 Premium Feature: Upgrade to Pro to unlock One-Click Sportsbook Routing!"
+        "🔒 Premium Feature: Upgrade to Pro to unlock 1-Click Multi-Bookmaker Booking Codes!"
       );
       window.dispatchEvent(new CustomEvent("futurebet:trigger-premium"));
       return;
@@ -292,40 +294,17 @@ export default function BetSlip({ darkMode = false }) {
 
     if (missingSelection) {
       alert(
-        "Please ensure all matches have a market and option selected before routing."
+        "Please ensure all matches have a market and option selected before generating a booking code."
       );
       return;
     }
 
-    setIsRouting(true);
-
-    const payloadStr = validMatches
-      .map((m) => {
-        const cleanMatch = encodeURIComponent(
-          String(m.match).replace(/\s+/g, "-").toLowerCase()
-        );
-        const cleanMarket = encodeURIComponent(
-          String(m.selectedMarket).replace(/\s+/g, "").toLowerCase()
-        );
-        return `${cleanMatch}_${cleanMarket}`;
-      })
-      .join("|");
-
-    let targetUrl = "";
-    if (selectedBookie === "1XBET") {
-      targetUrl = `https://1xbet.ng/en/line/football?betslip=${payloadStr}&stake=${
-        grandTotalStake || 1000
-      }`;
-    } else if (selectedBookie === "SPORTYBET") {
-      targetUrl = `https://www.sportybet.com/ng/m/sports/football?loadslip=${payloadStr}`;
-    } else if (selectedBookie === "BETWAY") {
-      targetUrl = `https://www.betway.com.ng/sport/soccer?bets=${payloadStr}`;
+    if (!validMatches || validMatches.length === 0) {
+      alert("Please add at least one match to your betslip first.");
+      return;
     }
 
-    setTimeout(() => {
-      setIsRouting(false);
-      window.open(targetUrl, "_blank", "noopener,noreferrer");
-    }, 800);
+    setBookingModalOpen(true);
   };
 
   const handleTrack = () => {
@@ -1183,8 +1162,10 @@ export default function BetSlip({ darkMode = false }) {
                       : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
                   )}
                 >
-                  <option value="1XBET">1xBet</option>
                   <option value="SPORTYBET">SportyBet</option>
+                  <option value="BET9JA">Bet9ja</option>
+                  <option value="1XBET">1xBet</option>
+                  <option value="BETKING">BetKing</option>
                   <option value="BETWAY">Betway</option>
                 </select>
                 <ChevronDown
@@ -1204,11 +1185,11 @@ export default function BetSlip({ darkMode = false }) {
                 )}
               >
                 {isRouting ? (
-                  <span className="animate-pulse">Routing...</span>
+                  <span className="animate-pulse">Generating Code...</span>
                 ) : (
                   <>
-                    {isPro ? <ExternalLink size={16} /> : <Lock size={14} />}
-                    Route Slip
+                    {isPro ? <Ticket size={16} /> : <Lock size={14} />}
+                    Book Slip
                   </>
                 )}
               </button>
@@ -1216,6 +1197,16 @@ export default function BetSlip({ darkMode = false }) {
           </div>
         </div>
       )}
+
+      {/* Booking Code Modal */}
+      <BookingCodeModal
+        open={bookingModalOpen}
+        onClose={() => setBookingModalOpen(false)}
+        matches={validMatches}
+        initialBookmaker={selectedBookie}
+        darkMode={darkMode}
+        stake={grandTotalStake || totalKellyStake || 0}
+      />
 
       {/* Market Modal */}
       <BetslipMarketModal
