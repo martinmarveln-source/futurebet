@@ -3,51 +3,96 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { LineChart, Line, ResponsiveContainer } from "recharts";
 
-import { Trophy, Plus, ChevronLeft, Target, Shield, Home, AlertCircle, BarChart3, ArrowDown, ArrowUp, Activity, Globe } from "lucide-react";
+import { Trophy, Plus, Check, X, ChevronLeft, Target, Shield, Home, AlertCircle, BarChart3, ArrowDown, ArrowUp, Activity, Globe, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import PremiumOverlay from "../../../components/Stats/PremiumOverlay";
 import useBetslipStore from "../../../store/betslipStore";
 
+function getMarketSelection(secKey: string): { market: string; option: string } | null {
+  switch (secKey) {
+    case "btts": return { market: "BTTS", option: "Yes" };
+    case "nbtts": return { market: "BTTS", option: "No" };
+    case "o15": return { market: "O/U 1.5", option: "Over" };
+    case "u15": return { market: "O/U 1.5", option: "Under" };
+    case "o25": return { market: "O/U 2.5", option: "Over" };
+    case "u25": return { market: "O/U 2.5", option: "Under" };
+    case "o35": return { market: "O/U 3.5", option: "Over" };
+    case "u35": return { market: "O/U 3.5", option: "Under" };
+    case "o45": return { market: "O/U 4.5", option: "Over" };
+    case "u45": return { market: "O/U 4.5", option: "Under" };
+    case "bestHome": return { market: "1X2", option: "Home Win" };
+    case "bestAway": return { market: "1X2", option: "Away Win" };
+    case "homeDraw": return { market: "1X2", option: "Draw" };
+    case "awayDraw": return { market: "1X2", option: "Draw" };
+    case "worstHome": return { market: "1X2", option: "Away Win" };
+    case "worstAway": return { market: "1X2", option: "Home Win" };
+    default: return null;
+  }
+}
+
 export default function InsightsPage() {
-  const handleAddToBetslip = (item: any, secKey: string) => {
-    let market = "";
-    let option = "";
-    
-    switch(secKey) {
-       case "btts": market = "BTTS"; option = "Yes"; break;
-       case "nbtts": market = "BTTS"; option = "No"; break;
-       case "o15": market = "O/U 1.5"; option = "Over"; break;
-       case "u15": market = "O/U 1.5"; option = "Under"; break;
-       case "o25": market = "O/U 2.5"; option = "Over"; break;
-       case "u25": market = "O/U 2.5"; option = "Under"; break;
-       case "o35": market = "O/U 3.5"; option = "Over"; break;
-       case "u35": market = "O/U 3.5"; option = "Under"; break;
-       case "o45": market = "O/U 4.5"; option = "Over"; break;
-       case "u45": market = "O/U 4.5"; option = "Under"; break;
-       case "bestHome": market = "1X2"; option = "Home Win"; break;
-       case "bestAway": market = "1X2"; option = "Away Win"; break;
-       case "homeDraw": market = "1X2"; option = "Draw"; break;
-       case "awayDraw": market = "1X2"; option = "Draw"; break;
-       case "worstHome": market = "1X2"; option = "Away Win"; break;
-       case "worstAway": market = "1X2"; option = "Home Win"; break;
-       default: return; // Not supported
+  const { matches: betslipMatches, addMatch, removeMatch, clearAll, maxMatches } = useBetslipStore();
+  const [mounted, setMounted] = useState(false);
+  const [showSelectedTray, setShowSelectedTray] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const activeBetslipMatches = mounted ? betslipMatches : [];
+
+  const getMatchName = (item: any) =>
+    item.isHome ? `${item.team} vs ${item.nextOpponent}` : `${item.nextOpponent} vs ${item.team}`;
+
+  const findInBetslip = (matchName: string) => {
+    const key = matchName.trim().toLowerCase();
+    return activeBetslipMatches.find((m: any) => String(m.match || "").trim().toLowerCase() === key);
+  };
+
+  const handleToggleBetslip = (item: any, secKey: string) => {
+    const selection = getMarketSelection(secKey);
+    if (!selection) return;
+
+    const matchName = getMatchName(item);
+    const existing = findInBetslip(matchName);
+
+    if (existing) {
+      removeMatch(matchName);
+      toast.info(`Removed ${matchName} from Betslip`);
+      return;
     }
-    
-    const matchName = item.isHome ? `${item.team} vs ${item.nextOpponent}` : `${item.nextOpponent} vs ${item.team}`;
-    
+
+    if (activeBetslipMatches.length >= maxMatches) {
+      toast.error(`Betslip limit reached (max ${maxMatches} matches)`);
+      return;
+    }
+
     const m = {
       match: matchName,
       league: item.league,
       country: item.country,
       date: item.nextDate,
-      selectedMarket: market,
-      selectedOption: option,
+      selectedMarket: selection.market,
+      selectedOption: selection.option,
       odds: Number(item.odds),
       chance: item.prediction,
       rating: item.confidence
     };
-    
-    useBetslipStore.getState().addMatch(m);
-    alert(`Added ${matchName} to BetSlip!`);
+
+    const added = addMatch(m);
+    if (added) {
+      toast.success(`Added ${matchName} (${selection.market}: ${selection.option})`, {
+        action: {
+          label: "Remove",
+          onClick: () => {
+            removeMatch(matchName);
+            toast.info(`Removed ${matchName} from Betslip`);
+          },
+        },
+      });
+    } else {
+      toast.error(`Could not add ${matchName} to Betslip`);
+    }
   };
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -119,10 +164,81 @@ export default function InsightsPage() {
   return (
     <div className="min-h-screen bg-[#030712] text-slate-200">
       <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-white mb-6 transition-colors">
-          <ChevronLeft className="w-4 h-4" />
-          Back to Dashboard
-        </Link>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors">
+            <ChevronLeft className="w-4 h-4" />
+            Back to Dashboard
+          </Link>
+
+          {activeBetslipMatches.length > 0 && (
+            <button
+              onClick={() => setShowSelectedTray((prev) => !prev)}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-bold transition-colors"
+            >
+              <Check className="w-3.5 h-3.5" />
+              <span>Betslip: {activeBetslipMatches.length} / {maxMatches} selected</span>
+            </button>
+          )}
+        </div>
+
+        {showSelectedTray && activeBetslipMatches.length > 0 && (
+          <div className="mb-6 bg-[#0f172a] border border-emerald-500/25 rounded-2xl p-4 shadow-lg">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                Selected Matches ({activeBetslipMatches.length})
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    clearAll();
+                    setShowSelectedTray(false);
+                    toast.info("Cleared all selections from Betslip");
+                  }}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Clear All
+                </button>
+                <button
+                  onClick={() => setShowSelectedTray(false)}
+                  className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition-colors"
+                  aria-label="Close selected matches tray"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {activeBetslipMatches.map((m: any) => (
+                <div
+                  key={m.match}
+                  className="inline-flex items-center gap-2 bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs"
+                >
+                  <span className="font-semibold text-white">{m.match}</span>
+                  {m.selectedMarket && (
+                    <span className="text-[11px] text-emerald-400 font-bold">
+                      {m.selectedMarket}{m.selectedOption ? ` • ${m.selectedOption}` : ""}
+                    </span>
+                  )}
+                  {m.odds ? (
+                    <span className="text-[11px] text-slate-400 font-mono">@{Number(m.odds).toFixed(2)}</span>
+                  ) : null}
+                  <button
+                    onClick={() => {
+                      removeMatch(m.match);
+                      toast.info(`Removed ${m.match} from Betslip`);
+                    }}
+                    className="text-slate-400 hover:text-red-400 p-0.5 rounded hover:bg-red-500/10 transition-colors"
+                    title={`Remove ${m.match}`}
+                    aria-label={`Remove ${m.match} from Betslip`}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Top Navigation Tabs */}
         <div className="flex gap-2 mb-8 border-b border-slate-800 pb-px">
@@ -294,8 +410,8 @@ export default function InsightsPage() {
                             <th className="py-2 px-2 font-semibold text-center">Prediction</th>
                             <th className="py-2 px-2 font-semibold text-center">Confidence</th>
                             <th className="py-2 px-2 font-semibold text-center">Odds</th>
-                            <th className="py-2 px-2 font-semibold text-center">Trend</th><th className="py-2 px-2 font-semibold text-center w-8"></th>
-                            <th className="py-2 px-2 font-semibold text-center w-8"></th>
+                            <th className="py-2 px-2 font-semibold text-center">Trend</th>
+                            <th className="py-2 px-2 font-semibold text-center w-10">Slip</th>
                           </>
                         )}
                       </tr>
@@ -330,9 +446,19 @@ export default function InsightsPage() {
                                        "text-red-400 bg-red-500/10";
 
                         const val = Math.round(item.value);
+                        const selectionConfig = getMarketSelection(sec.key);
+                        const matchName = hasNextMatch ? getMatchName(item) : "";
+                        const existingPick = hasNextMatch ? findInBetslip(matchName) : null;
+                        const isSelected = Boolean(existingPick);
+                        const isSameMarket = Boolean(
+                          existingPick &&
+                          selectionConfig &&
+                          existingPick.selectedMarket === selectionConfig.market &&
+                          existingPick.selectedOption === selectionConfig.option
+                        );
 
                         return (
-                          <tr key={idx} className="hover:bg-slate-800/30 transition-colors group">
+                          <tr key={idx} className={`transition-colors group ${isSelected ? "bg-emerald-500/[0.06] hover:bg-emerald-500/[0.1]" : "hover:bg-slate-800/30"}`}>
                             <td className="py-2.5 px-2 text-xs font-bold text-slate-500">{idx + 1}</td>
                             <td className="py-2.5 px-2">
                               {viewType === 'team' ? (
@@ -413,13 +539,33 @@ export default function InsightsPage() {
                                   )}
                                 </td>
                                 <td className="py-2.5 px-2 text-right">
-                                  {hasNextMatch && item.odds !== null && Number(item.odds) > 0 && (
+                                  {hasNextMatch && selectionConfig && item.odds !== null && Number(item.odds) > 0 && (
                                     <button
-                                      onClick={(e) => { e.preventDefault(); handleAddToBetslip(item, sec.key); }}
-                                      className="text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 p-1.5 rounded-lg transition-colors border border-slate-700"
-                                      title="Add to Betslip"
+                                      onClick={(e) => { e.preventDefault(); handleToggleBetslip(item, sec.key); }}
+                                      className={`group/btn inline-flex items-center justify-center p-1.5 rounded-lg transition-all border ${
+                                        isSelected
+                                          ? isSameMarket
+                                            ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40"
+                                            : "bg-amber-500/20 text-amber-400 border-amber-500/40 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40"
+                                          : "text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 border-slate-700"
+                                      }`}
+                                      title={
+                                        isSelected
+                                          ? isSameMarket
+                                            ? "Selected — Click to remove from Betslip"
+                                            : `In Betslip (${existingPick.selectedMarket}: ${existingPick.selectedOption}) — Click to remove`
+                                          : "Add to Betslip"
+                                      }
+                                      aria-label={isSelected ? `Remove ${matchName} from Betslip` : `Add ${matchName} to Betslip`}
                                     >
-                                      <Plus size={14} />
+                                      {isSelected ? (
+                                        <>
+                                          <Check size={14} className="group-hover/btn:hidden" />
+                                          <X size={14} className="hidden group-hover/btn:block" />
+                                        </>
+                                      ) : (
+                                        <Plus size={14} />
+                                      )}
                                     </button>
                                   )}
                                 </td>

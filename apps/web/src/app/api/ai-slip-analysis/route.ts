@@ -121,6 +121,7 @@ Always end with:
 Rules:
 - Only flag if data genuinely contradicts the selection.
 - Quote actual numbers from the data.
+- If the same team appears in more than one leg, note it at the end as a correlation warning.
 - No intro or filler text. Start immediately with the first flag or praise.`;
 
     const userPrompt = `Here is the current betslip with full stats:\n\n${slipData}\n\nAnalyze each leg and highlight any genuine statistical risks before locking in.`;
@@ -129,14 +130,14 @@ Rules:
     if (!apiKey) return NextResponse.json({ error: "GEMINI_API_KEY is not configured." }, { status: 500 });
     
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: systemPrompt }] },
           contents: [{ parts: [{ text: userPrompt }] }],
-          generationConfig: { temperature: 0.0, maxOutputTokens: 1500 },
+          generationConfig: { temperature: 0.0, maxOutputTokens: 2000 },
         }),
       }
     );
