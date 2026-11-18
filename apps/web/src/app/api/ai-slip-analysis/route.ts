@@ -121,6 +121,7 @@ Always end with:
 Rules:
 - Only flag if data genuinely contradicts the selection.
 - Quote actual numbers from the data.
+- If the same team appears in more than one leg, note it at the end as a correlation warning.
 - No intro or filler text. Start immediately with the first flag or praise.`;
 
     const userPrompt = `Here is the current betslip with full stats:\n\n${slipData}\n\nAnalyze each leg and highlight any genuine statistical risks before locking in.`;
@@ -136,7 +137,7 @@ Rules:
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: systemPrompt }] },
           contents: [{ parts: [{ text: userPrompt }] }],
-          generationConfig: { temperature: 0.0, maxOutputTokens: 1500 },
+          generationConfig: { temperature: 0.0, maxOutputTokens: 2000 },
         }),
       }
     );
