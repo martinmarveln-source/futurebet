@@ -20,6 +20,7 @@ import {
   WifiOff,
   Clock3,
   TriangleAlert,
+  Download,
 } from "lucide-react";
 import { computeDerivedPickFromStats, getBestInGroup, checkIfPickWon } from "@/utils/vipAlgorithm";
 import useUserPermissions from "@/hooks/useUserPermissions";
@@ -1434,6 +1435,86 @@ export default function VipPick({ darkMode = false }) {
     refetch();
   }, [refetch]);
 
+  const handleExportVipCsv = useCallback(() => {
+    if (!picksVM || picksVM.length === 0) {
+      showNotice("No VIP picks available to export.", "warn");
+      return;
+    }
+
+    const escapeCsv = (val) => {
+      const s = String(val ?? "");
+      if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+        return `"${s.replace(/"/g, '""')}"`;
+      }
+      return s;
+    };
+
+    const headers = [
+      "Rank",
+      "Match",
+      "League",
+      "Date",
+      "Time",
+      "Market",
+      "Selection",
+      "Bookmaker Odds",
+      "Fair Odds",
+      "VIP Score",
+      "Chance %",
+      "Rating %",
+      "Value Tier",
+      "Expected Value (EV)",
+      "Predicted Score",
+    ];
+
+    const rows = picksVM.map((p, idx) => [
+      escapeCsv(idx + 1),
+      escapeCsv(p.match || ""),
+      escapeCsv(p.fullLeague || p.league || ""),
+      escapeCsv(p.date || ""),
+      escapeCsv(p.time || ""),
+      escapeCsv(p.market || "VIP"),
+      escapeCsv(p.selection || p.pickLabel || ""),
+      escapeCsv(p.odds ? Number(p.odds).toFixed(2) : "—"),
+      escapeCsv(p.fairOdds ? Number(p.fairOdds).toFixed(2) : "—"),
+      escapeCsv(Math.round(p.vipScore)),
+      escapeCsv(`${Math.round(p.chance)}%`),
+      escapeCsv(`${Math.round(p.rating)}%`),
+      escapeCsv(p.valueLabel || "Solid"),
+      escapeCsv(p.raw?.ev != null ? `${(Number(p.raw.ev) * 100).toFixed(1)}%` : "—"),
+      escapeCsv(p.predictedScore || "—"),
+    ]);
+
+    const summaryRows = [
+      [],
+      ["# VIP Intelligence Report", ""],
+      ["# Total Picks", String(picksVM.length)],
+      ["# Average Chance", `${vipSummary.avgChance}%`],
+      ["# Average Rating", `${vipSummary.avgRating}%`],
+      ["# Generated At", new Date().toISOString()],
+    ];
+
+    const csvContent =
+      "\uFEFF" +
+      [
+        headers.map(escapeCsv).join(","),
+        ...rows.map((r) => r.join(",")),
+        ...summaryRows.map((r) => r.map(escapeCsv).join(",")),
+      ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const todayStr = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.setAttribute("download", `futurebet-vip-picks-${todayStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showNotice("VIP picks CSV exported successfully.", "success");
+  }, [picksVM, vipSummary, showNotice]);
+
   // Hard gate UI only after hooks are safely called
   if (!isPro) {
     return (
@@ -1771,6 +1852,16 @@ export default function VipPick({ darkMode = false }) {
                   Rating
                 </button>
               </div>
+
+              <SoftButton
+                darkMode={darkMode}
+                onClick={handleExportVipCsv}
+                disabled={!picksVM.length}
+                title="Download today's VIP picks as CSV"
+              >
+                <Download size={18} />
+                <span className="hidden sm:inline">Export CSV</span>
+              </SoftButton>
 
               <SoftButton
                 darkMode={darkMode}

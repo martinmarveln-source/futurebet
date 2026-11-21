@@ -21,6 +21,7 @@ import {
   Brain,
   Sparkles,
   Wand2,
+  Download,
 } from "lucide-react";
 
 /* =========================
@@ -445,6 +446,73 @@ export default function BetSlip({ darkMode = false }) {
     }
   };
 
+  const handleExportBetslipCsv = () => {
+    if (!matches || matches.length === 0) return;
+
+    const escapeCsv = (val) => {
+      const s = String(val ?? "");
+      if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+        return `"${s.replace(/"/g, '""')}"`;
+      }
+      return s;
+    };
+
+    const headers = [
+      "Leg",
+      "Match",
+      "League",
+      "Date",
+      "Time",
+      "Market",
+      "Selection",
+      "Odds",
+      "Chance %",
+      "Rating %",
+    ];
+
+    const rows = matches.map((m, idx) => [
+      escapeCsv(idx + 1),
+      escapeCsv(m.match || ""),
+      escapeCsv(m.league || ""),
+      escapeCsv(m.date || ""),
+      escapeCsv(m.time || ""),
+      escapeCsv(m.selectedMarket || m.market || "1X2"),
+      escapeCsv(m.selectedOption || m.selection || m.pickLabel || ""),
+      escapeCsv(m.odds ? Number(m.odds).toFixed(2) : "—"),
+      escapeCsv(m.chance ? `${m.chance}%` : "—"),
+      escapeCsv(m.rating ? `${m.rating}%` : "—"),
+    ]);
+
+    const summaryRows = [
+      [],
+      ["# Summary", ""],
+      ["# Total Selections", String(matches.length)],
+      ["# Total Accumulator Odds", totalOdds ? totalOdds.toFixed(2) : "—"],
+      ["# Single Stake", singleStake ? String(singleStake) : "—"],
+      ["# Potential Return", potentialWin ? potentialWin.toFixed(2) : "—"],
+      ["# Exported At", new Date().toISOString()],
+    ];
+
+    const csvContent =
+      "\uFEFF" +
+      [
+        headers.map(escapeCsv).join(","),
+        ...rows.map((r) => r.join(",")),
+        ...summaryRows.map((r) => r.map(escapeCsv).join(",")),
+      ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const todayStr = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.setAttribute("download", `futurebet-betslip-${todayStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-4 relative">
       {/* Header */}
@@ -482,23 +550,42 @@ export default function BetSlip({ darkMode = false }) {
           </div>
         </div>
 
-        <button
-          onClick={() => {
-            clearAll();
-            setSystemStakes({});
-          }}
-          disabled={!total}
-          className={cn(
-            "px-4 py-2 rounded-xl text-xs font-extrabold border transition",
-            !total
-              ? "opacity-30 cursor-not-allowed"
-              : darkMode
-              ? "border-white/10 bg-white/5 hover:bg-white/10 text-gray-300"
-              : "border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-600"
-          )}
-        >
-          Clear All
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportBetslipCsv}
+            disabled={!total}
+            className={cn(
+              "px-3.5 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-1.5",
+              !total
+                ? "opacity-30 cursor-not-allowed"
+                : darkMode
+                ? "border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300"
+                : "border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700"
+            )}
+            title="Download BetSlip as CSV"
+          >
+            <Download size={14} />
+            <span className="hidden sm:inline">Export CSV</span>
+          </button>
+
+          <button
+            onClick={() => {
+              clearAll();
+              setSystemStakes({});
+            }}
+            disabled={!total}
+            className={cn(
+              "px-3.5 py-2 rounded-xl text-xs font-extrabold border transition",
+              !total
+                ? "opacity-30 cursor-not-allowed"
+                : darkMode
+                ? "border-white/10 bg-white/5 hover:bg-white/10 text-gray-300"
+                : "border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-600"
+            )}
+          >
+            Clear All
+          </button>
+        </div>
       </div>
 
       {/* Warnings */}

@@ -912,10 +912,20 @@ function buildBasicCsv(matches) {
     "Rating %",
     "Confidence Tier",
     "Risk Level",
+    "Home Odds",
+    "Draw Odds",
+    "Away Odds",
+    "Over 2.5 Odds",
+    "Fair Odds",
+    "Value Edge %",
   ];
 
-  const body = rows.map((m, index) =>
-    [
+  const body = rows.map((m, index) => {
+    const selectedProbability = getSelectedProbability(m);
+    const fairOdds = getFairOdds(selectedProbability);
+    const valueEdgePct = getValueEdgePct(m);
+
+    return [
       csvEscape(index + 1), // or csvEscape(m.sn || index + 1)
       csvEscape(m.date),
       csvEscape(m.time),
@@ -934,8 +944,14 @@ function buildBasicCsv(matches) {
       csvEscape(formatPct(m.rating)),
       csvEscape(getConfidenceTier(m.rating)),
       csvEscape(getRiskLevel(m)),
-    ].join(","),
-  );
+      csvEscape(toNumber(m.homeOdds) ? toNumber(m.homeOdds).toFixed(2) : ""),
+      csvEscape(toNumber(m.drawOdds) ? toNumber(m.drawOdds).toFixed(2) : ""),
+      csvEscape(toNumber(m.awayOdds) ? toNumber(m.awayOdds).toFixed(2) : ""),
+      csvEscape(toNumber(m.o25Odds) ? toNumber(m.o25Odds).toFixed(2) : ""),
+      csvEscape(fairOdds ? fairOdds.toFixed(2) : ""),
+      csvEscape(valueEdgePct !== 0 ? `${Math.round(valueEdgePct)}%` : ""),
+    ].join(",");
+  });
 
   return [headers.map(csvEscape).join(","), ...body].join("\n");
 }
@@ -1072,8 +1088,14 @@ function buildPremiumCsv(matches, meta = {}) {
     m.h2hLean,
   ]);
 
+  const shortlistMap = new Map();
+  premiumShortlist.forEach((m, index) => {
+    shortlistMap.set(m.match || m.id || String(index), index + 1);
+  });
+
   const detailColumns = [
     "sn",
+    "shortlist_rank",
     "date",
     "time",
     "league",
@@ -1134,6 +1156,7 @@ function buildPremiumCsv(matches, meta = {}) {
 
   const detailRows = enriched.map((m, index) => [
     String(index + 1),
+    shortlistMap.get(m.match || m.id) ? String(shortlistMap.get(m.match || m.id)) : "",
     m.date,
     m.time,
     m.fullLeague || m.league || "",
@@ -1203,22 +1226,18 @@ function buildPremiumCsv(matches, meta = {}) {
 
   const lines = [];
 
+  // Metadata as standard CSV comments (supports pandas comment='#' and Excel)
   for (const row of metadata) {
-    lines.push((row || []).map(csvEscape).join(","));
+    if (!row || row.length === 0) continue;
+    lines.push("# " + row.map(csvEscape).join(": "));
   }
 
   for (const row of summary) {
-    lines.push((row || []).map(csvEscape).join(","));
+    if (!row || row.length === 0) continue;
+    lines.push("# " + row.map(csvEscape).join(": "));
   }
 
-  lines.push(shortlistHeader.map(csvEscape).join(","));
-  lines.push(shortlistColumns.map(csvEscape).join(","));
-  for (const row of shortlistRows) {
-    lines.push(row.map(csvEscape).join(","));
-  }
-
-  lines.push("");
-  lines.push(csvEscape("section") + "," + csvEscape("detailed_dataset"));
+  // Primary rectangular dataset
   lines.push(detailColumns.map(csvEscape).join(","));
   for (const row of detailRows) {
     lines.push(row.map(csvEscape).join(","));
@@ -1246,7 +1265,10 @@ function buildCsvResponse({ csv, fileName, access, exportType, usedCount }) {
         ),
   };
 
-  return new Response(csv, {
+  // Prepend UTF-8 BOM (\uFEFF) for Microsoft Excel compatibility across Windows & Mac
+  const utf8Csv = csv.startsWith("\uFEFF") ? csv : `\uFEFF${csv}`;
+
+  return new Response(utf8Csv, {
     status: 200,
     headers,
   });
