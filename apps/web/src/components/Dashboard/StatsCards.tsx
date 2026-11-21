@@ -15,7 +15,13 @@ function avgOf(arr, pick) {
   return nums.reduce((a, b) => a + b, 0) / nums.length;
 }
 
-export default function StatsCards({ matchesData, filteredMatches, darkMode }) {
+export default function StatsCards({
+  matchesData,
+  filteredMatches,
+  darkMode,
+  evOnly,
+  setEvOnly,
+}) {
   const allMatches = useMemo(() => {
     return Array.isArray(matchesData?.matches) ? matchesData.matches : [];
   }, [matchesData]);
@@ -28,16 +34,22 @@ export default function StatsCards({ matchesData, filteredMatches, darkMode }) {
   const avgRating = Math.round(avgOf(base, (m) => m?.rating));
 
   let premiumCount = 0;
-  base.forEach((m) => {
-    if (Number(m?.chance) >= 60 && Number(m?.rating) >= 65) premiumCount++;
+  allMatches.forEach((m) => {
+    if (
+      m?.isValueBet ||
+      Number(m?.ev) > 0 ||
+      (Number(m?.chance) >= 60 && Number(m?.rating) >= 65)
+    ) {
+      premiumCount++;
+    }
   });
 
   return (
-    <div className="flex flex-wrap items-center gap-3 mb-5">
+    <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 mb-5">
       {/* Item 1: Total */}
       <div
         className={cx(
-          "flex items-center gap-2 px-4 py-2 rounded-full border shadow-sm backdrop-blur-md transition-colors",
+          "flex items-center gap-2 px-3.5 py-1.5 rounded-full border shadow-sm backdrop-blur-md transition-colors",
           darkMode
             ? "bg-slate-800/60 border-slate-700/60"
             : "bg-white/80 border-slate-200"
@@ -64,7 +76,7 @@ export default function StatsCards({ matchesData, filteredMatches, darkMode }) {
       {/* Item 2: Filtered */}
       <div
         className={cx(
-          "flex items-center gap-2 px-4 py-2 rounded-full border shadow-sm backdrop-blur-md transition-colors",
+          "flex items-center gap-2 px-3.5 py-1.5 rounded-full border shadow-sm backdrop-blur-md transition-colors",
           darkMode
             ? "bg-blue-900/30 border-blue-800/50"
             : "bg-blue-50 border-blue-200"
@@ -91,7 +103,7 @@ export default function StatsCards({ matchesData, filteredMatches, darkMode }) {
       {/* Item 3: Avg Chance */}
       <div
         className={cx(
-          "flex items-center gap-2 px-4 py-2 rounded-full border shadow-sm backdrop-blur-md transition-colors",
+          "flex items-center gap-2 px-3.5 py-1.5 rounded-full border shadow-sm backdrop-blur-md transition-colors",
           darkMode
             ? "bg-emerald-900/30 border-emerald-800/50"
             : "bg-emerald-50 border-emerald-200"
@@ -118,7 +130,7 @@ export default function StatsCards({ matchesData, filteredMatches, darkMode }) {
       {/* Item 4: Avg Rating */}
       <div
         className={cx(
-          "flex items-center gap-2 px-4 py-2 rounded-full border shadow-sm backdrop-blur-md transition-colors",
+          "flex items-center gap-2 px-3.5 py-1.5 rounded-full border shadow-sm backdrop-blur-md transition-colors",
           darkMode
             ? "bg-indigo-900/30 border-indigo-800/50"
             : "bg-indigo-50 border-indigo-200"
@@ -142,21 +154,56 @@ export default function StatsCards({ matchesData, filteredMatches, darkMode }) {
         </span>
       </div>
 
-      {/* Item 5: Premium Targets */}
-      <div
+      {/* Item 5: Interactive +EV Targets Filter Button */}
+      <button
+        type="button"
+        onClick={() => setEvOnly && setEvOnly(!evOnly)}
         className={cx(
-          "flex items-center gap-2 px-4 py-2 rounded-full border shadow-[0_0_15px_rgba(245,158,11,0.15)] backdrop-blur-md transition-all",
-          darkMode
-            ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
-            : "bg-amber-50 border-amber-300 text-amber-700"
+          "flex items-center gap-2 px-3.5 py-1.5 rounded-full border backdrop-blur-md transition-all cursor-pointer select-none active:scale-95 group",
+          evOnly
+            ? "bg-amber-500 text-slate-950 border-amber-400 font-black shadow-[0_0_20px_rgba(245,158,11,0.4)] ring-2 ring-amber-400/60"
+            : darkMode
+              ? "bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:border-amber-500/50"
+              : "bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100/90"
         )}
+        title={
+          evOnly
+            ? "Active +EV filter. Click to show all matches."
+            : "Click to filter for +EV Value Targets only"
+        }
       >
-        <Zap size={14} className={darkMode ? "fill-amber-400" : "fill-amber-500"} />
+        <Zap
+          size={14}
+          className={cx(
+            "transition-transform group-hover:scale-110",
+            evOnly
+              ? "fill-slate-950 text-slate-950"
+              : darkMode
+                ? "fill-amber-400 text-amber-400"
+                : "fill-amber-500 text-amber-600"
+          )}
+        />
         <span className="text-[10px] font-extrabold uppercase tracking-widest">
-          +EV Targets
+          {evOnly ? "Active: +EV Only" : "+EV Targets"}
         </span>
-        <span className="text-sm font-black tabular-nums">{premiumCount}</span>
-      </div>
+        <span
+          className={cx(
+            "text-sm font-black tabular-nums px-1.5 py-0.2 rounded-md",
+            evOnly
+              ? "bg-black/20 text-slate-950"
+              : darkMode
+                ? "bg-amber-500/20 text-amber-300"
+                : "bg-amber-100 text-amber-900"
+          )}
+        >
+          {premiumCount}
+        </span>
+        {evOnly && (
+          <span className="text-[9px] font-bold opacity-75 hover:opacity-100 ml-0.5">
+            ✕
+          </span>
+        )}
+      </button>
     </div>
   );
 }

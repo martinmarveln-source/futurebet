@@ -285,6 +285,8 @@ export default function FutureBetDashboard() {
     displayQuery,
     shownCount,
     baseCount,
+    evOnly,
+    setEvOnly,
   } = useExploreFilters(filteredMatches, isPro);
 
   const [compareMatch, setCompareMatch] = useState(null);
@@ -633,16 +635,16 @@ export default function FutureBetDashboard() {
             className="p-0 overflow-hidden border-0"
           >
             <div className="h-1 w-full bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500" />
-            <div className="p-6 sm:p-8 flex flex-col lg:flex-row gap-8 justify-between relative">
+            <div className="p-4 sm:p-5 lg:p-6 flex flex-col lg:flex-row gap-4 sm:gap-6 justify-between items-start lg:items-center relative">
               <div className="flex-1 relative z-10">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="relative flex h-2.5 w-2.5">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                   </span>
                   <span
                     className={cn(
-                      "text-[10px] font-black uppercase tracking-[0.3em]",
+                      "text-[9px] font-black uppercase tracking-[0.25em]",
                       darkMode ? "text-emerald-400" : "text-emerald-600"
                     )}
                   >
@@ -650,40 +652,40 @@ export default function FutureBetDashboard() {
                   </span>
                 </div>
                 <h1 className="sr-only">Futurebet - AI Football Predictions & VIP Betting Analytics</h1>
-                <h2 className={cn("text-3xl sm:text-4xl font-black tracking-tighter uppercase", darkMode ? "text-white" : "text-slate-900")}>
+                <h2 className={cn("text-2xl sm:text-3xl font-black tracking-tighter uppercase", darkMode ? "text-white" : "text-slate-900")}>
                   COMMAND CENTER
                 </h2>
-                <p className={cn("mt-2 max-w-xl text-sm font-semibold", darkMode ? "text-slate-300" : "text-slate-600")}>
+                <p className={cn("mt-1 max-w-xl text-xs sm:text-sm font-semibold", darkMode ? "text-slate-300" : "text-slate-600")}>
                   Real-time algorithmic match intelligence.
                 </p>
               </div>
 
-              <div className="flex shrink-0 gap-4 sm:gap-8 flex-wrap lg:flex-nowrap relative z-10 bg-black/5 dark:bg-white/[0.04] p-4 rounded-3xl border border-black/5 dark:border-white/10">
-                <div className="flex flex-col justify-center min-w-[100px]">
-                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2">
+              <div className="flex shrink-0 gap-3 sm:gap-6 flex-wrap lg:flex-nowrap relative z-10 bg-black/5 dark:bg-white/[0.04] p-3 sm:p-3.5 rounded-2xl border border-black/5 dark:border-white/10">
+                <div className="flex flex-col justify-center min-w-[95px]">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1.5">
                     Match Engine
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2.5">
                     <div
                       className={cn(
-                        "h-10 w-10 rounded-2xl flex items-center justify-center shadow-inner",
+                        "h-9 w-9 rounded-xl flex items-center justify-center shadow-inner",
                         darkMode
                           ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
                           : "bg-blue-50 text-blue-600 border border-blue-200"
                       )}
                     >
-                      <Gauge size={18} />
+                      <Gauge size={17} />
                     </div>
                     <div>
                       <div
                         className={cn(
-                          "text-xl font-black tabular-nums leading-none",
+                          "text-lg sm:text-xl font-black tabular-nums leading-none",
                           darkMode ? "text-white" : "text-slate-900"
                         )}
                       >
                         {matchesLoading ? "..." : rawMatches.filter((m) => selectors.getISODate(m) >= todayISO).length}
                       </div>
-                      <div className="text-[10px] font-bold text-slate-500 uppercase mt-0.5">
+                      <div className="text-[9px] font-bold text-slate-500 uppercase mt-0.5">
                         Loaded
                       </div>
                     </div>
@@ -692,34 +694,34 @@ export default function FutureBetDashboard() {
 
                 <div
                   className={cn(
-                    "w-px h-12 hidden sm:block my-auto",
+                    "w-px h-10 hidden sm:block my-auto",
                     darkMode ? "bg-white/10" : "bg-slate-200"
                   )}
                 />
 
-                <div className="flex flex-col justify-center min-w-[100px]">
-                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                <div className="flex flex-col justify-center min-w-[95px]">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1.5">
                     Clearance
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2.5">
                     <div
                       className={cn(
-                        "h-10 w-10 rounded-2xl flex items-center justify-center shadow-inner",
+                        "h-9 w-9 rounded-xl flex items-center justify-center shadow-inner",
                         clearanceBadgeColors
                       )}
                     >
-                      <Shield size={18} />
+                      <Shield size={17} />
                     </div>
                     <div>
                       <div
                         className={cn(
-                          "text-xl font-black tabular-nums leading-none uppercase tracking-tight",
+                          "text-lg sm:text-xl font-black tabular-nums leading-none uppercase tracking-tight",
                           darkMode ? "text-white" : "text-slate-900"
                         )}
                       >
                         {accountBadge}
                       </div>
-                      <div className="text-[10px] font-bold text-slate-500 uppercase mt-0.5">
+                      <div className="text-[9px] font-bold text-slate-500 uppercase mt-0.5">
                         Access Tier
                       </div>
                     </div>
@@ -728,40 +730,40 @@ export default function FutureBetDashboard() {
 
                 <div
                   className={cn(
-                    "w-px h-12 hidden sm:block my-auto",
+                    "w-px h-10 hidden sm:block my-auto",
                     darkMode ? "bg-white/10" : "bg-slate-200"
                   )}
                 />
 
-                <div className="flex flex-col justify-center min-w-[100px]">
-                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2">
-                    Cart Capacity
+                <div className="flex flex-col justify-center min-w-[95px]">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1.5">
+                    BetSlip Capacity
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2.5">
                     <div
                       className={cn(
-                        "h-10 w-10 rounded-2xl flex items-center justify-center shadow-inner",
+                        "h-9 w-9 rounded-xl flex items-center justify-center shadow-inner",
                         darkMode
                           ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                           : "bg-emerald-50 text-emerald-600 border border-emerald-200"
                       )}
                     >
-                      <List size={18} />
+                      <List size={17} />
                     </div>
                     <div>
                       <div
                         className={cn(
-                          "text-xl font-black tabular-nums leading-none",
+                          "text-lg sm:text-xl font-black tabular-nums leading-none",
                           darkMode ? "text-white" : "text-slate-900"
                         )}
                       >
                         {betslipCount}
-                        <span className="text-slate-500 text-sm">
+                        <span className="text-slate-500 text-xs sm:text-sm">
                           /{maxMatches}
                         </span>
                       </div>
-                      <div className="text-[10px] font-bold text-slate-500 uppercase mt-0.5">
-                        Active Slots
+                      <div className="text-[9px] font-bold text-slate-500 uppercase mt-0.5">
+                        Queued Legs
                       </div>
                     </div>
                   </div>
@@ -909,6 +911,8 @@ export default function FutureBetDashboard() {
                     matchesError={matchesError}
                     selectedDate={selectedDate}
                     hasKickoffPassed={hasKickoffPassed}
+                    evOnly={evOnly}
+                    setEvOnly={setEvOnly}
                   />
                 ) : activeTab === "compare" ? (
                   <Suspense

@@ -8,6 +8,7 @@ export function useExploreFilters(filteredMatches, isPro) {
   const [oddsFilter, setOddsFilter] = useState("all");
   const [strengthOnly, setStrengthOnly] = useState(false);
   const [ratingBand, setRatingBand] = useState("All");
+  const [evOnly, setEvOnly] = useState(false);
 
   const deferredQuery = useDeferredValue(exploreQuery);
 
@@ -29,6 +30,18 @@ export function useExploreFilters(filteredMatches, isPro) {
       : [];
 
     let list = applyOddsFilters(base, oddsMode, oddsFilter);
+
+    // Interactive +EV filter toggle
+    if (evOnly) {
+      list = list.filter((m) => {
+        return Boolean(
+          m?.isValueBet ||
+          (Number(m?.ev) > 0) ||
+          (Number(m?.chance) >= 60 && Number(m?.rating) >= 65)
+        );
+      });
+    }
+
     list = applyPremiumFilters(
       list,
       isPro,
@@ -43,6 +56,7 @@ export function useExploreFilters(filteredMatches, isPro) {
     isPro,
     strengthOnly,
     ratingBand,
+    evOnly,
     oddsMode,
     oddsFilter,
     passesRatingBand,
@@ -65,6 +79,8 @@ export function useExploreFilters(filteredMatches, isPro) {
     setStrengthOnly,
     ratingBand,
     setRatingBand,
+    evOnly,
+    setEvOnly,
     finalExploreMatches,
     displayQuery,
     shownCount,

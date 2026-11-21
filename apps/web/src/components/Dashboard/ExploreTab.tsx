@@ -40,6 +40,8 @@ export function ExploreTab({
   hasKickoffPassed,
   activeMarket,
   setActiveMarket,
+  evOnly,
+  setEvOnly,
 }) {
   
   return (
@@ -50,6 +52,8 @@ export function ExploreTab({
         matchesData={matchesData}
         filteredMatches={finalExploreMatches}
         darkMode={darkMode}
+        evOnly={evOnly}
+        setEvOnly={setEvOnly}
       />
 
       <div
