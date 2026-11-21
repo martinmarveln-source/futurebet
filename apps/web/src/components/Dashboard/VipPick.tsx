@@ -1443,10 +1443,17 @@ export default function VipPick({ darkMode = false }) {
 
     const escapeCsv = (val) => {
       const s = String(val ?? "");
+      if (s.startsWith('="')) return s;
       if (s.includes(",") || s.includes('"') || s.includes("\n")) {
         return `"${s.replace(/"/g, '""')}"`;
       }
       return s;
+    };
+
+    const formatScoreForCsv = (score) => {
+      if (!score || score === "—") return "—";
+      const s = String(score).trim().replace(/[–:]/g, "-");
+      return `="${s}"`;
     };
 
     const headers = [
@@ -1482,7 +1489,7 @@ export default function VipPick({ darkMode = false }) {
       escapeCsv(`${Math.round(p.rating)}%`),
       escapeCsv(p.valueLabel || "Solid"),
       escapeCsv(p.raw?.ev != null ? `${(Number(p.raw.ev) * 100).toFixed(1)}%` : "—"),
-      escapeCsv(p.predictedScore || "—"),
+      escapeCsv(formatScoreForCsv(p.predictedScore)),
     ]);
 
     const summaryRows = [

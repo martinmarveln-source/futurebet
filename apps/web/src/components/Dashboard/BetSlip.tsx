@@ -451,6 +451,7 @@ export default function BetSlip({ darkMode = false }) {
 
     const escapeCsv = (val) => {
       const s = String(val ?? "");
+      if (s.startsWith('="')) return s;
       if (s.includes(",") || s.includes('"') || s.includes("\n")) {
         return `"${s.replace(/"/g, '""')}"`;
       }

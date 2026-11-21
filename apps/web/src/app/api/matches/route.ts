@@ -155,8 +155,8 @@ function getDateRange(matches) {
 function cleanScoreline(score) {
   if (score === null || score === undefined || score === "") return "";
 
-  const str = String(score).trim().replace(/[–-]/g, ":");
-  const parts = str.split(":").map((p) => p.trim());
+  const str = String(score).trim().replace(/[–:]/g, "-");
+  const parts = str.split("-").map((p) => p.trim());
 
   if (parts.length !== 2) return str;
 
@@ -165,7 +165,7 @@ function cleanScoreline(score) {
 
   if (Number.isNaN(home) || Number.isNaN(away)) return str;
 
-  return `${home}:${away}`;
+  return `${home}-${away}`;
 }
 function csvScoreline(score) {
   const cleaned = cleanScoreline(score);
@@ -192,6 +192,7 @@ function formatPct(value) {
 
 function csvEscape(value) {
   const str = value === null || value === undefined ? "" : String(value);
+  if (str.startsWith('="')) return str;
   const escaped = str.replace(/"/g, '""');
   return `"${escaped}"`;
 }
@@ -1004,93 +1005,51 @@ function buildPremiumCsv(matches, meta = {}) {
   const eliteScoreCount = enriched.filter((m) => m.premiumScore >= 75).length;
 
   const metadata = [
-    ["section", "report_info"],
-    ["report_name", "FutureBet Premium Analytics"],
-    ["generated_at", new Date().toISOString()],
-    ["selected_date", getDateRange(rows)],
-    ["sort_mode", meta?.sortMode || "date"],
-    ["user_tier", meta?.tier || ""],
-    ["exported_matches", String(enriched.length)],
+    ["# FutureBet Premium Analytics Intelligence Report", ""],
+    ["# Generated At", new Date().toISOString()],
+    ["# Selected Date", getDateRange(rows)],
+    ["# Sort Mode", meta?.sortMode || "date"],
+    ["# User Clearance", meta?.tier || "admin"],
+    ["# Exported Matches", String(enriched.length)],
     [
-      "notes",
-      "Includes premium shortlist, value edge, fair odds, conviction, scoreline depth and market context",
+      "# Report Notes",
+      "Includes premium shortlist ranking, value edge, fair odds, conviction depth, and scoreline model",
     ],
+    [],
+    ["# Executive Summary Metrics", "Value"],
+    ["# Average Rating Score", `${avg("rating").toFixed(1)}%`],
+    ["# Average Chance Score", `${avg("chance").toFixed(1)}%`],
+    ["# Average Home Win Probability", `${avg("homeWin").toFixed(1)}%`],
+    ["# Average Draw Probability", `${avg("draw").toFixed(1)}%`],
+    ["# Average Away Win Probability", `${avg("awayWin").toFixed(1)}%`],
+    ["# Average BTTS Probability", `${avg("gg").toFixed(1)}%`],
+    ["# Average Over 2.5 Probability", `${avg("ov25").toFixed(1)}%`],
+    ["# Average Premium Score", avg("premiumScore").toFixed(1)],
+    [
+      "# Peak Premium Score",
+      Math.max(...enriched.map((m) => m.premiumScore), 0).toFixed(1),
+    ],
+    [
+      "# Peak Value Edge",
+      `${Math.max(...enriched.map((m) => m.valueEdgePct), 0).toFixed(1)}%`,
+    ],
+    ["# A+ Confidence Targets", String(aPlusCount)],
+    ["# Low Risk Opportunities", String(lowRiskCount)],
+    ["# Strong / Ultra Conviction Picks", String(strongConvictionCount)],
+    ["# Positive Value (+EV) Plays", String(valuePlayCount)],
+    ["# Elite Premium Score (>=75)", String(eliteScoreCount)],
     [],
   ];
 
-  const summary = [
-    ["section", "executive_summary"],
-    ["avg_rating_score", avg("rating").toFixed(2)],
-    ["avg_chance_score", avg("chance").toFixed(2)],
-    ["avg_home_win_prob", avg("homeWin").toFixed(2)],
-    ["avg_draw_prob", avg("draw").toFixed(2)],
-    ["avg_away_win_prob", avg("awayWin").toFixed(2)],
-    ["avg_btts_prob", avg("gg").toFixed(2)],
-    ["avg_over25_prob", avg("ov25").toFixed(2)],
-    ["avg_premium_score", avg("premiumScore").toFixed(2)],
-    [
-      "max_premium_score",
-      Math.max(...enriched.map((m) => m.premiumScore), 0).toFixed(2),
-    ],
-    [
-      "max_value_edge_pct",
-      Math.max(...enriched.map((m) => m.valueEdgePct), 0).toFixed(2),
-    ],
-    ["a_plus_confidence_count", String(aPlusCount)],
-    ["low_risk_count", String(lowRiskCount)],
-    ["strong_or_ultra_conviction_count", String(strongConvictionCount)],
-    ["positive_value_play_count", String(valuePlayCount)],
-    ["elite_premium_score_count", String(eliteScoreCount)],
-    [],
-  ];
-
-  const shortlistHeader = ["section", "premium_shortlist_top_10"];
-
-  const shortlistColumns = [
-    "rank",
-    "date",
-    "time",
-    "league",
-    "match",
-    "guide",
-    "premium_score",
-    "confidence_tier",
-    "risk_level",
-    "conviction_tier",
-    "selection_prob",
-    "fair_odds",
-    "market_odds",
-    "value_edge_pct",
-    "top_scoreline",
-    "alt_scoreline",
-    "form_momentum",
-    "h2h_lean",
-  ];
-
-  const shortlistRows = premiumShortlist.map((m, index) => [
-    String(index + 1), // rank
-    m.date,
-    m.time,
-    m.fullLeague || m.league || "",
-    m.match || "",
-    normalizeGuide(m),
-    m.premiumScore,
-    m.confidenceTier,
-    m.riskLevel,
-    m.convictionTier,
-    m.selectedProbability.toFixed(2),
-    m.fairOdds ? m.fairOdds.toFixed(2) : "",
-    m.marketOdds ? m.marketOdds.toFixed(2) : "",
-    `${Math.round(m.valueEdgePct)}%`,
-    csvScoreline(m.topScoreline),
-    csvScoreline(m.altScoreline),
-    m.formMomentum,
-    m.h2hLean,
-  ]);
-
-  const shortlistMap = new Map();
-  premiumShortlist.forEach((m, index) => {
-    shortlistMap.set(m.match || m.id || String(index), index + 1);
+  const shortlistRankMap = new Map();
+  premiumShortlist.forEach((m, idx) => {
+    shortlistRankMap.set(m, idx + 1);
+    if (m.match) {
+      shortlistRankMap.set(`${m.date || ""}_${m.time || ""}_${m.match}`, idx + 1);
+    }
+    if (m.id) {
+      shortlistRankMap.set(String(m.id), idx + 1);
+    }
   });
 
   const detailColumns = [
@@ -1154,87 +1113,94 @@ function buildPremiumCsv(matches, meta = {}) {
     "ft_score",
   ];
 
-  const detailRows = enriched.map((m, index) => [
-    String(index + 1),
-    shortlistMap.get(m.match || m.id) ? String(shortlistMap.get(m.match || m.id)) : "",
-    m.date,
-    m.time,
-    m.fullLeague || m.league || "",
-    m.match || "",
-    normalizeGuide(m),
-    m.marketBias,
-    m.selectedProbability.toFixed(2),
-    m.fairOdds ? m.fairOdds.toFixed(2) : "",
-    m.marketOdds ? m.marketOdds.toFixed(2) : "",
-    `${Math.round(m.valueEdgePct)}%`,
-    m.premiumScore,
-    toDecimal(m.rating).toFixed(2),
-    toDecimal(m.chance).toFixed(2),
-    m.confidenceTier,
-    m.riskLevel,
-    `${m.biasStrength}%`,
-    m.convictionTier,
-    m.alignmentScore,
-    csvScoreline(m.topScoreline),
-    toDecimal(m.modelCSPercent || m.scorelineCSPercent || 0).toFixed(2),
-    csvScoreline(m.altScoreline),
-    toDecimal(m.cs2Percent || 0).toFixed(2),
-    toDecimal(m.homeWin).toFixed(2),
-    formatPct(m.draw),
-    formatPct(m.awayWin),
-    formatPct(m.gg),
-    formatPct(m.ng),
-    formatPct(m.ov25),
-    formatPct(m.un25),
+  const detailRows = enriched.map((m, index) => {
+    const rank =
+      shortlistRankMap.get(m) ??
+      (m.match ? shortlistRankMap.get(`${m.date || ""}_${m.time || ""}_${m.match}`) : null) ??
+      (m.id ? shortlistRankMap.get(String(m.id)) : null);
 
-    toNumber(m.hppg),
-    toNumber(m.appg),
-    toNumber(m.hgs),
-    toNumber(m.hgc),
-    toNumber(m.ags),
-    toNumber(m.agc),
-    toNumber(m.avg),
+    return [
+      String(index + 1),
+      rank ? String(rank) : "",
+      m.date,
+      m.time,
+      m.fullLeague || m.league || "",
+      m.match || "",
+      normalizeGuide(m),
+      m.marketBias,
+      m.selectedProbability.toFixed(2),
+      m.fairOdds ? m.fairOdds.toFixed(2) : "",
+      m.marketOdds ? m.marketOdds.toFixed(2) : "",
+      `${Math.round(m.valueEdgePct)}%`,
+      m.premiumScore,
+      toDecimal(m.rating).toFixed(2),
+      toDecimal(m.chance).toFixed(2),
+      m.confidenceTier,
+      m.riskLevel,
+      `${m.biasStrength}%`,
+      m.convictionTier,
+      m.alignmentScore,
+      csvScoreline(m.topScoreline),
+      toDecimal(m.modelCSPercent || m.scorelineCSPercent || 0).toFixed(2),
+      csvScoreline(m.altScoreline),
+      toDecimal(m.cs2Percent || 0).toFixed(2),
+      toDecimal(m.homeWin).toFixed(2),
+      formatPct(m.draw),
+      formatPct(m.awayWin),
+      formatPct(m.gg),
+      formatPct(m.ng),
+      formatPct(m.ov25),
+      formatPct(m.un25),
 
-    m.hForm || "",
-    m.aForm || "",
+      toNumber(m.hppg),
+      toNumber(m.appg),
+      toNumber(m.hgs),
+      toNumber(m.hgc),
+      toNumber(m.ags),
+      toNumber(m.agc),
+      toNumber(m.avg),
 
-    toNumber(m.hPts),
-    toNumber(m.aPts),
+      m.hForm || "",
+      m.aForm || "",
 
-    m.formMomentum,
+      toNumber(m.hPts),
+      toNumber(m.aPts),
 
-    toDecimal(m.H2H_H).toFixed(2),
-    formatPct(m.H2H_D),
-    formatPct(m.H2H_A),
-    formatPct(m.H2H_OV),
-    formatPct(m.H2H_GG),
+      m.formMomentum,
 
-    toNumber(m.H2H_GP),
+      toDecimal(m.H2H_H).toFixed(2),
+      formatPct(m.H2H_D),
+      formatPct(m.H2H_A),
+      formatPct(m.H2H_OV),
+      formatPct(m.H2H_GG),
 
-    m.h2hLean,
-    m.flag || "",
-    m.predictionValidation || "",
+      toNumber(m.H2H_GP),
 
-    toNumber(m.homeOdds) ? toNumber(m.homeOdds).toFixed(2) : "",
-    toNumber(m.drawOdds) ? toNumber(m.drawOdds).toFixed(2) : "",
-    toNumber(m.awayOdds) ? toNumber(m.awayOdds).toFixed(2) : "",
-    toNumber(m.o25Odds) ? toNumber(m.o25Odds).toFixed(2) : "",
-    toNumber(m.u25Odds) ? toNumber(m.u25Odds).toFixed(2) : "",
+      m.h2hLean,
+      m.flag || "",
+      m.predictionValidation || "",
 
-    m.ftScore || "",
-  ]);
+      toNumber(m.homeOdds) ? toNumber(m.homeOdds).toFixed(2) : "",
+      toNumber(m.drawOdds) ? toNumber(m.drawOdds).toFixed(2) : "",
+      toNumber(m.awayOdds) ? toNumber(m.awayOdds).toFixed(2) : "",
+      toNumber(m.o25Odds) ? toNumber(m.o25Odds).toFixed(2) : "",
+      toNumber(m.u25Odds) ? toNumber(m.u25Odds).toFixed(2) : "",
+
+      m.ftScore || "",
+    ];
+  });
 
   const lines = [];
 
-  // Metadata as standard CSV comments (supports pandas comment='#' and Excel)
+  // Metadata & Summary: clean 2-column key-value format prefixed with # for Excel clarity & Pandas comment skipping
   for (const row of metadata) {
-    if (!row || row.length === 0) continue;
-    lines.push("# " + row.map(csvEscape).join(": "));
-  }
-
-  for (const row of summary) {
-    if (!row || row.length === 0) continue;
-    lines.push("# " + row.map(csvEscape).join(": "));
+    if (!row || row.length === 0) {
+      lines.push("#");
+      continue;
+    }
+    const colA = csvEscape(row[0] || "");
+    const colB = row.length > 1 ? csvEscape(row[1] ?? "") : "";
+    lines.push(colB ? `${colA},${colB}` : colA);
   }
 
   // Primary rectangular dataset
