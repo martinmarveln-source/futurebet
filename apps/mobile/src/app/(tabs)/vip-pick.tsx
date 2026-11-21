@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React from "react";
-import { View, Text, ScrollView, TouchableOpacity, Alert } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Alert, Linking } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
@@ -35,7 +35,7 @@ export default function VipPick() {
   } = useQuery({
     queryKey: ["vip-pick"],
     queryFn: async () => {
-      const response = await fetch("/api/vip-pick");
+      const response = await fetch("/api/vip-pick/daily-generate?premium=1&limit=5");
       if (!response.ok) throw new Error("Failed to fetch VIP pick");
       return response.json();
     },
@@ -210,6 +210,7 @@ export default function VipPick() {
             </View>
 
             <TouchableOpacity
+              onPress={() => Linking.openURL('https://futurebet.com.ng')}
               style={{
                 backgroundColor: "#F59E0B",
                 paddingHorizontal: 32,
@@ -338,8 +339,13 @@ export default function VipPick() {
               Loading today's VIP pick...
             </Text>
           </View>
-        ) : vipData?.pick ? (
+        ) : vipData?.picks?.[0] ? (
           <View style={{ paddingHorizontal: 20, paddingVertical: 16 }}>
+            {(() => {
+              const pick = vipData?.picks?.[0];
+              const totalPicks = vipData?.picks?.length ?? 0;
+              return (
+                <>
             {/* VIP Pick Card */}
             <View
               style={{
@@ -377,7 +383,7 @@ export default function VipPick() {
                       fontWeight: "bold",
                     }}
                   >
-                    {vipData.pick.match_name}
+                    {pick.match}
                   </Text>
                   <Text
                     style={{
@@ -385,7 +391,7 @@ export default function VipPick() {
                       fontSize: 14,
                     }}
                   >
-                    {vipData.pick.league}
+                    {pick.league}
                   </Text>
                 </View>
 
@@ -405,7 +411,7 @@ export default function VipPick() {
                       fontWeight: "bold",
                     }}
                   >
-                    {vipData.pick.confidence}%
+                    {pick.chance}%
                   </Text>
                   <Text
                     style={{
@@ -435,7 +441,7 @@ export default function VipPick() {
                     textAlign: "center",
                   }}
                 >
-                  {vipData.pick.prediction}
+                  {pick.pickLabel}
                 </Text>
               </View>
 
@@ -457,7 +463,7 @@ export default function VipPick() {
                       fontWeight: "bold",
                     }}
                   >
-                    {vipData.pick.odds}
+                    {pick.odds ? pick.odds.toFixed(2) : '—'}
                   </Text>
                 </View>
                 <View>
@@ -467,7 +473,7 @@ export default function VipPick() {
                   <Text
                     style={{ color: "white", fontSize: 16, fontWeight: "600" }}
                   >
-                    {vipData.pick.match_time}
+                    {pick.time}
                   </Text>
                 </View>
               </View>
@@ -496,7 +502,7 @@ export default function VipPick() {
                     lineHeight: 20,
                   }}
                 >
-                  {vipData.pick.analysis}
+                  {`Predicted: ${pick.predictedScore || '—'}`}
                 </Text>
               </View>
             </View>
@@ -537,7 +543,7 @@ export default function VipPick() {
                       fontWeight: "bold",
                     }}
                   >
-                    87%
+                    {totalPicks > 0 ? "Live" : "—"}
                   </Text>
                   <Text
                     style={{
@@ -546,7 +552,7 @@ export default function VipPick() {
                       textAlign: "center",
                     }}
                   >
-                    Win Rate
+                    Active
                   </Text>
                 </View>
 
@@ -558,7 +564,7 @@ export default function VipPick() {
                       fontWeight: "bold",
                     }}
                   >
-                    24
+                    {totalPicks}
                   </Text>
                   <Text
                     style={{
@@ -579,7 +585,7 @@ export default function VipPick() {
                       fontWeight: "bold",
                     }}
                   >
-                    +15.3%
+                    —
                   </Text>
                   <Text
                     style={{
@@ -596,6 +602,7 @@ export default function VipPick() {
 
             {/* Action Buttons */}
             <TouchableOpacity
+              onPress={() => Alert.alert('Added to BetSlip', `${pick?.match || 'Pick'} (${pick?.pickLabel || ''}) queued.`)}
               style={{
                 backgroundColor: "#10B981",
                 padding: 16,
@@ -620,6 +627,7 @@ export default function VipPick() {
             </TouchableOpacity>
 
             <TouchableOpacity
+              onPress={() => Linking.openURL('https://futurebet.com.ng')}
               style={{
                 backgroundColor: "#374151",
                 padding: 16,
@@ -641,6 +649,9 @@ export default function VipPick() {
                 View Previous Picks
               </Text>
             </TouchableOpacity>
+                </>
+              );
+            })()}
           </View>
         ) : (
           <View

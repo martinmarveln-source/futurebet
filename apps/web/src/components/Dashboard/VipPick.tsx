@@ -24,6 +24,7 @@ import {
 import { computeDerivedPickFromStats, getBestInGroup, checkIfPickWon } from "@/utils/vipAlgorithm";
 import useUserPermissions from "@/hooks/useUserPermissions";
 import useBetslipStore from "@/store/betslipStore";
+import UpgradeButton from "@/components/Dashboard/UpgradeButton";
 
 /* =====================================================================================
   VIP: chance% -> odds helpers
@@ -586,6 +587,7 @@ const VipPickCard = React.memo(function VipPickCard({
   msRating,
   maxMatches,
   compareDisabled,
+  routeLinks,
 }) {
   const chance = p.chance;
   const rating = p.rating;
@@ -963,6 +965,34 @@ const VipPickCard = React.memo(function VipPickCard({
                 Extra market confirmation is not available for this pick.
               </div>
             )}
+            {routeLinks && (routeLinks.sportyBet || routeLinks.xBet || routeLinks.betway) && (
+              <div className={cn("mt-4 rounded-2xl border p-4", darkMode ? "border-white/10 bg-white/5" : "border-gray-200 bg-white")}>
+                <div className="text-sm font-semibold mb-3">Bet with a Bookmaker</div>
+                <div className="flex flex-wrap gap-2">
+                  {routeLinks.sportyBet && (
+                    <a href={routeLinks.sportyBet} target="_blank" rel="noopener noreferrer"
+                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-green-600 hover:bg-green-700 transition">
+                      SportyBet
+                    </a>
+                  )}
+                  {routeLinks.xBet && (
+                    <a href={routeLinks.xBet} target="_blank" rel="noopener noreferrer"
+                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition">
+                      1xBet
+                    </a>
+                  )}
+                  {routeLinks.betway && (
+                    <a href={routeLinks.betway} target="_blank" rel="noopener noreferrer"
+                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 transition">
+                      Betway
+                    </a>
+                  )}
+                </div>
+                <p className={cn("mt-2 text-[10px]", darkMode ? "text-gray-500" : "text-gray-400")}>
+                  Links open the bookmaker site. Always verify odds before staking.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1289,6 +1319,7 @@ export default function VipPick({ darkMode = false }) {
         compareDisabled,
         hasFormData,
         hasMarketSignal,
+        routeLinks: p.raw?.routeLinks || null,
       };
     });
   }, [picks, isMatchInBetslip, hasKickoffPassed]);
@@ -1497,6 +1528,22 @@ export default function VipPick({ darkMode = false }) {
                 <Pill darkMode={darkMode} tone="green">
                   <Trophy size={14} /> Highest-signal only
                 </Pill>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                <div className={cn("flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold", darkMode ? "bg-amber-500/10 text-amber-300 border border-amber-500/20" : "bg-amber-50 text-amber-800 border border-amber-200")}>
+                  <Crown size={15} />
+                  <span>VIP Intelligence is active today — upgrade to unlock</span>
+                </div>
+                <UpgradeButton plan="premium" className={cn("w-full flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-bold text-white transition active:scale-[0.98]", "bg-gradient-to-br from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600")}>
+                  <Crown size={16} /> Unlock VIP — ₦5,000/month
+                </UpgradeButton>
+                <UpgradeButton plan="silver" className={cn("w-full flex items-center justify-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-semibold transition active:scale-[0.98]", darkMode ? "border-white/10 bg-white/5 hover:bg-white/10 text-gray-200" : "border-gray-200 bg-white hover:bg-gray-50 text-gray-700")}>
+                  Silver Plan (₦3,000/mo) — Filters &amp; Analytics
+                </UpgradeButton>
+                <p className={cn("text-center text-[11px]", darkMode ? "text-gray-500" : "text-gray-400")}>
+                  Premium includes AI Risk Analyzer, AI Slip Builder, VIP Picks &amp; Performance Tracker
+                </p>
               </div>
             </div>
           </div>
@@ -1955,6 +2002,49 @@ export default function VipPick({ darkMode = false }) {
         </div>
       </Card>
 
+      {picksVM.length > 0 && (() => {
+        const banker = picksVM[0];
+        const noOdds = !banker.odds;
+        const bankerAdded = banker.alreadyAdded;
+        return (
+          <div className={cn(
+            "rounded-3xl border-2 overflow-hidden shadow-lg",
+            darkMode ? "border-amber-500/40 bg-gradient-to-br from-amber-500/10 to-yellow-500/5" : "border-amber-400 bg-gradient-to-br from-amber-50 to-yellow-50"
+          )}>
+            <div className={cn("px-5 py-3 flex items-center gap-2 border-b", darkMode ? "border-amber-500/20 bg-amber-500/10" : "border-amber-200 bg-amber-100/80")}>
+              <Crown size={16} className={darkMode ? "text-amber-300" : "text-amber-700"} />
+              <span className={cn("text-xs font-black uppercase tracking-widest", darkMode ? "text-amber-300" : "text-amber-800")}>VIP Banker of the Day</span>
+              <Pill darkMode={darkMode} tone="yellow">🔑 Highest Conviction</Pill>
+            </div>
+            <div className="p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className={cn("text-[15px] font-extrabold truncate", darkMode ? "text-white" : "text-gray-900")}>{banker.match || "—"}</div>
+                  <div className={cn("text-xs mt-1", darkMode ? "text-gray-300" : "text-gray-600")}>{banker.league}{banker.time ? ` • ${banker.time}` : ""}</div>
+                  <div className={cn("mt-2 text-sm", darkMode ? "text-gray-200" : "text-gray-700")}>
+                    Pick: <b>{banker.pickLabel || "—"}</b>
+                    <span className="mx-1 text-gray-400">•</span>
+                    Odds: <b className={banker.odds ? "text-emerald-600" : "text-gray-400"}>{banker.odds ? banker.odds.toFixed(2) : "—"}</b>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Pill darkMode={darkMode} tone="yellow">VIP {Math.round(banker.vipScore)}</Pill>
+                    <Pill darkMode={darkMode} tone="blue">Chance {Math.round(banker.chance)}%</Pill>
+                    {banker.raw?.isValueBet && <Pill darkMode={darkMode} tone="green">⚡ +EV Value Bet</Pill>}
+                  </div>
+                </div>
+                <PrimaryButton
+                  onClick={() => onAdd(banker.raw)}
+                  disabled={noOdds || banker.kickoffPassed || bankerAdded}
+                  className={bankerAdded && !banker.kickoffPassed && !noOdds ? "bg-emerald-600 hover:from-emerald-600 hover:to-emerald-600" : ""}
+                >
+                  {banker.kickoffPassed ? <><Lock size={16} /> Locked</> : noOdds ? <><Lock size={16} /> No Odds</> : bankerAdded ? <><Check size={16} /> Added</> : <><Plus size={16} /> Add Banker</>}
+                </PrimaryButton>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {picksVM.length === 0 ? (
         <Card darkMode={darkMode}>
           <div className="p-6">
@@ -1993,6 +2083,7 @@ export default function VipPick({ darkMode = false }) {
                 msRating={p.msRating}
                 maxMatches={maxMatches}
                 compareDisabled={p.compareDisabled}
+                routeLinks={p.routeLinks}
               />
             );
           })}
