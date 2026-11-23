@@ -10,6 +10,7 @@ import { SlipCardModal } from "@/components/Dashboard/SlipCardModal";
 import { MonteCarloAuditor } from "@/components/Dashboard/MonteCarloAuditor";
 import { LoadBookingCodeModal } from "@/components/Dashboard/LoadBookingCodeModal";
 import { formatNaira } from "@/utils/matchUtils";
+import { toast } from "sonner";
 import {
   Ticket,
   X,
@@ -154,11 +155,18 @@ export default function BetSlip({ darkMode = false }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ matches: validMatches }),
       });
-      const data = await response.json();
+      const contentType = response.headers.get("content-type") || "";
+      let data: any = {};
+      if (contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        throw new Error("AI analysis service is temporarily busy. Please try again.");
+      }
       if (!response.ok) throw new Error(data.error || "Analysis failed");
       setAiFeedback(data.analysis);
-    } catch (err) {
-      alert("AI Analysis Error: " + err.message);
+      toast.success("AI Slip Analysis generated!");
+    } catch (err: any) {
+      toast.error("AI Analysis Error: " + (err.message || "Failed to analyze slip"));
     } finally {
       setAiAnalyzing(false);
     }
@@ -173,7 +181,13 @@ export default function BetSlip({ darkMode = false }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(recommendConfig),
       });
-      const data = await response.json();
+      const contentType = response.headers.get("content-type") || "";
+      let data: any = {};
+      if (contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        throw new Error("AI recommendation service is temporarily busy. Please try again.");
+      }
       if (!response.ok) throw new Error(data.error || "Recommendation failed");
       if (data.matches && Array.isArray(data.matches)) {
         const store = useBetslipStore.getState();
@@ -186,11 +200,13 @@ export default function BetSlip({ darkMode = false }) {
           } catch(e) {}
         }
         if (added > 0) {
-          alert("✅ Added " + added + " AI-recommended match" + (added > 1 ? "es" : "") + " to your betslip!");
+          toast.success("Added " + added + " AI-recommended match" + (added > 1 ? "es" : "") + " to your betslip!");
+        } else {
+          toast.info("Recommended matches are already in your betslip.");
         }
       }
-    } catch (err) {
-      alert("AI Recommend Error: " + err.message);
+    } catch (err: any) {
+      toast.error("AI Recommend Error: " + (err.message || "Failed to generate recommendations"));
     } finally {
       setAiRecommending(false);
     }
