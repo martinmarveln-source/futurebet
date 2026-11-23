@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
+import sql from "@/app/api/utils/sql";
 import { normalizePickDescriptor } from "@/utils/pickEngine";
 
 interface MatchItem {
@@ -201,7 +202,10 @@ export async function POST(req: Request) {
     }, 1);
 
     const formattedOdds = Number(totalOdds.toFixed(2));
-    const bookingCode = generateTicketReference(config.id as BookmakerKey, validMatches);
+    const requestedCode = (body.code || (body as any).ticketId || (body as any).ticketRef || "")
+      .trim()
+      .toUpperCase();
+    const bookingCode = requestedCode || generateTicketReference(config.id as BookmakerKey, validMatches);
 
     // Build clean Fast-Bet slip lines
     const emojiNumbers = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
@@ -254,8 +258,31 @@ export async function POST(req: Request) {
       createdAt: new Date().toISOString(),
     };
 
-    // Cache code for lookup
+    // Cache code for in-memory lookup
     codeCache.set(bookingCode, payload);
+
+    // Persist to Neon Postgres DB if available
+    if (process.env.DATABASE_URL) {
+      try {
+        await sql`
+          CREATE TABLE IF NOT EXISTS futurebet_booking_codes (
+            code TEXT PRIMARY KEY,
+            bookmaker TEXT,
+            total_odds NUMERIC,
+            match_count INT,
+            payload JSONB,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+          );
+        `;
+        await sql`
+          INSERT INTO futurebet_booking_codes (code, bookmaker, total_odds, match_count, payload)
+          VALUES (${bookingCode}, ${config.name}, ${formattedOdds}, ${validMatches.length}, ${JSON.stringify(payload)})
+          ON CONFLICT (code) DO UPDATE SET payload = EXCLUDED.payload;
+        `;
+      } catch (dbErr) {
+        console.warn("DB booking code persist warning:", dbErr);
+      }
+    }
 
     return NextResponse.json(payload);
   } catch (error: any) {
@@ -269,13 +296,30 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const code = searchParams.get("code")?.toUpperCase();
+  const code = (searchParams.get("code") || "").trim().toUpperCase();
 
   if (!code) {
     return NextResponse.json({ error: "Code parameter is required." }, { status: 400 });
   }
 
-  const cached = codeCache.get(code);
+  // 1. Check in-memory cache
+  let cached = codeCache.get(code);
+
+  // 2. Fallback to DB if not found in cache
+  if (!cached && process.env.DATABASE_URL) {
+    try {
+      const rows = await sql`
+        SELECT payload FROM futurebet_booking_codes WHERE UPPER(code) = ${code} LIMIT 1
+      `;
+      if (rows && rows.length > 0 && rows[0]?.payload) {
+        cached = rows[0].payload;
+        codeCache.set(code, cached);
+      }
+    } catch (dbErr) {
+      console.warn("DB query booking code warning:", dbErr);
+    }
+  }
+
   if (!cached) {
     return NextResponse.json({ error: "Booking code expired or not found." }, { status: 404 });
   }

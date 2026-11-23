@@ -8,6 +8,7 @@ import BetslipMarketModal from "@/components/Dashboard/BetslipMarketModal";
 import BookingCodeModal from "@/components/Dashboard/BookingCodeModal";
 import { SlipCardModal } from "@/components/Dashboard/SlipCardModal";
 import { MonteCarloAuditor } from "@/components/Dashboard/MonteCarloAuditor";
+import { LoadBookingCodeModal } from "@/components/Dashboard/LoadBookingCodeModal";
 import { formatNaira } from "@/utils/matchUtils";
 import {
   Ticket,
@@ -25,6 +26,7 @@ import {
   Wand2,
   Download,
   Dice5,
+  ArrowRight,
 } from "lucide-react";
 
 /* =========================
@@ -105,6 +107,24 @@ export default function BetSlip({ darkMode = false }) {
   const [isRouting, setIsRouting] = useState(false);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [slipCardOpen, setSlipCardOpen] = useState(false);
+  const [loadCodeModalOpen, setLoadCodeModalOpen] = useState(false);
+  const [initialLookupCode, setInitialLookupCode] = useState("");
+  const [quickCodeInput, setQuickCodeInput] = useState("");
+
+  // Check URL query parameters for ?slip=FB-XXXXX or ?code=FB-XXXXX
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const codeFromUrl =
+          params.get("slip") || params.get("code") || params.get("ticket");
+        if (codeFromUrl) {
+          setInitialLookupCode(codeFromUrl.toUpperCase().trim());
+          setLoadCodeModalOpen(true);
+        }
+      } catch (e) {}
+    }
+  }, []);
 
   // System Bets State
   const [systemStakes, setSystemStakes] = useState({});
@@ -562,6 +582,24 @@ export default function BetSlip({ darkMode = false }) {
 
         <div className="flex items-center gap-2">
           <button
+            onClick={() => {
+              setInitialLookupCode("");
+              setLoadCodeModalOpen(true);
+            }}
+            className={cn(
+              "px-3.5 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-1.5",
+              darkMode
+                ? "border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300"
+                : "border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700"
+            )}
+            title="Enter FB- Booking Code or shared ticket code to reveal complete matches"
+          >
+            <Ticket size={14} />
+            <span className="hidden sm:inline">Load FB- Code</span>
+            <span className="sm:hidden">Load Code</span>
+          </button>
+
+          <button
             onClick={() => setSlipCardOpen(true)}
             disabled={!total}
             className={cn(
@@ -611,6 +649,78 @@ export default function BetSlip({ darkMode = false }) {
             )}
           >
             Clear All
+          </button>
+        </div>
+      </div>
+
+      {/* QUICK FB- BOOKING CODE REVEAL BAR */}
+      <div
+        className={cn(
+          "rounded-2xl border p-3.5 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm transition-all",
+          darkMode
+            ? "border-amber-500/20 bg-gradient-to-r from-amber-500/[0.08] via-emerald-500/[0.04] to-transparent"
+            : "border-amber-200 bg-gradient-to-r from-amber-50 via-emerald-50/40 to-white"
+        )}
+      >
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div
+            className={cn(
+              "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-inner",
+              darkMode
+                ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                : "bg-amber-100 text-amber-700 border border-amber-200"
+            )}
+          >
+            <Ticket size={18} />
+          </div>
+          <div>
+            <div className="text-xs font-black tracking-tight flex items-center gap-1.5">
+              <span>Have a FutureBet Ticket Code?</span>
+              <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                Reveal Matches
+              </span>
+            </div>
+            <div className={cn("text-[11px] font-medium mt-0.5", darkMode ? "text-slate-400" : "text-slate-500")}>
+              Enter codes like <span className="font-mono text-amber-400 font-bold">FB-2KU3R</span> to unlock all hidden selections and load into BetSlip.
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+          <input
+            type="text"
+            value={quickCodeInput}
+            onChange={(e) => setQuickCodeInput(e.target.value.toUpperCase())}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && quickCodeInput.trim()) {
+                setInitialLookupCode(quickCodeInput.trim());
+                setLoadCodeModalOpen(true);
+              }
+            }}
+            placeholder="e.g. FB-2KU3R"
+            className={cn(
+              "px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold uppercase border outline-none w-full sm:w-36 transition-all",
+              darkMode
+                ? "bg-white/5 border-white/10 text-amber-300 focus:border-amber-400 placeholder:text-slate-600"
+                : "bg-white border-slate-300 text-amber-700 focus:border-amber-500 placeholder:text-slate-400"
+            )}
+          />
+          <button
+            onClick={() => {
+              if (quickCodeInput.trim()) {
+                setInitialLookupCode(quickCodeInput.trim());
+              }
+              setLoadCodeModalOpen(true);
+            }}
+            className={cn(
+              "px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider shrink-0 transition-all flex items-center gap-1.5 shadow-md active:scale-[0.98]",
+              darkMode
+                ? "bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-slate-950 font-black"
+                : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/20"
+            )}
+          >
+            <span>Reveal</span>
+            <ArrowRight size={13} />
           </button>
         </div>
       </div>
@@ -1345,6 +1455,15 @@ export default function BetSlip({ darkMode = false }) {
           </div>
         </div>
       )}
+
+      {/* Load / Reveal Complete Ticket by Booking Code Modal */}
+      <LoadBookingCodeModal
+        open={loadCodeModalOpen}
+        onClose={() => setLoadCodeModalOpen(false)}
+        darkMode={darkMode}
+        initialCode={initialLookupCode}
+        onOpenCardModal={() => setSlipCardOpen(true)}
+      />
 
       {/* Booking Code Modal */}
       <BookingCodeModal

@@ -545,6 +545,40 @@ const useBetslipStore = create(
 
       clearAll: () => set({ matches: [] }),
 
+      loadMatches: (incoming = [], title = "", replace = true) => {
+        if (!Array.isArray(incoming) || incoming.length === 0) return 0;
+        const formatted = incoming.map((m) => ensureMatchShape(m));
+        if (replace) {
+          set({
+            matches: formatted.slice(0, get().maxMatches),
+            slipTitle: title || get().slipTitle || "",
+          });
+          return formatted.length;
+        } else {
+          let addedCount = 0;
+          set((state) => {
+            const existing = [...state.matches];
+            for (const item of formatted) {
+              if (
+                !existing.some(
+                  (x) => normalizeCompare(x.match) === normalizeCompare(item.match)
+                )
+              ) {
+                if (existing.length < state.maxMatches) {
+                  existing.push({ ...item, addedAt: new Date().toISOString() });
+                  addedCount++;
+                }
+              }
+            }
+            return {
+              matches: existing,
+              slipTitle: title || state.slipTitle || "",
+            };
+          });
+          return addedCount;
+        }
+      },
+
       isMatchInBetslip: (matchName) => {
         const nameKey = normalizeCompare(matchName);
         return get().matches.some((m) => normalizeCompare(m.match) === nameKey);

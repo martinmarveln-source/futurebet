@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   X,
@@ -16,6 +16,8 @@ import {
   Square,
   Palette,
   RefreshCw,
+  Eye,
+  ListFilter,
 } from "lucide-react";
 import { toPng, toBlob } from "html-to-image";
 import { toast } from "sonner";
@@ -34,16 +36,89 @@ export function SlipCardModal({
 }) {
   const cardRef = useRef(null);
   const [aspectRatio, setAspectRatio] = useState("story"); // "story" (9:16) | "square" (1:1)
-  const [theme, setTheme] = useState("cyber"); // "cyber" | "gold" | "clean"
+  const [theme, setTheme] = useState("gold"); // "cyber" | "gold" | "clean"
+  const [displayMode, setDisplayMode] = useState("all"); // "all" | "featured"
   const [downloading, setDownloading] = useState(false);
   const [copiedImg, setCopiedImg] = useState(false);
+  const [ticketRef, setTicketRef] = useState("");
 
-  if (!open) return null;
-
-  const validMatches = Array.isArray(matches) ? matches : [];
+  const validMatches = useMemo(() => (Array.isArray(matches) ? matches : []), [matches]);
   const displayOdds = Number(totalOdds || 1).toFixed(2);
   const todayStr = new Date().toISOString().slice(0, 10);
-  const ticketRef = `FB-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+  // Generate stable deterministic ticket code and register it
+  useEffect(() => {
+    if (!open || !validMatches.length) return;
+
+    // Generate stable code from match names and selections
+    const seed = validMatches
+      .map((m) => `${m.match}:${m.selectedMarket}:${m.selectedOption}`)
+      .sort()
+      .join("|");
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      hash = (hash << 5) - hash + seed.charCodeAt(i);
+      hash |= 0;
+    }
+    const charPool = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+    const absVal = Math.abs(hash);
+    let body = "";
+    let temp = absVal;
+    for (let i = 0; i < 5; i++) {
+      body += charPool[temp % charPool.length];
+      temp = Math.floor(temp / charPool.length);
+    }
+    const generatedCode = `FB-${body || "2KU3R"}`;
+    setTicketRef(generatedCode);
+
+    // Auto-register code with backend and localStorage
+    const registerTicket = async () => {
+      try {
+        const res = await fetch("/api/booking-code", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            matches: validMatches,
+            code: generatedCode,
+            ticketId: generatedCode,
+            bookmaker: "SPORTYBET",
+          }),
+        });
+        const data = await res.json();
+        const finalCode = data?.bookingCode || generatedCode;
+        setTicketRef(finalCode);
+
+        // Store into localStorage client history
+        if (typeof window !== "undefined") {
+          try {
+            const raw = localStorage.getItem("futurebet_client_tickets") || "[]";
+            const list = JSON.parse(raw);
+            const exists = list.some((item) => item.code === finalCode);
+            if (!exists) {
+              const updated = [
+                {
+                  code: finalCode,
+                  matches: validMatches,
+                  totalOdds: displayOdds,
+                  matchCount: validMatches.length,
+                  slipTitle,
+                  createdAt: new Date().toISOString(),
+                },
+                ...list,
+              ].slice(0, 30);
+              localStorage.setItem("futurebet_client_tickets", JSON.stringify(updated));
+            }
+          } catch (e) {}
+        }
+      } catch (err) {
+        console.warn("Could not register slip code:", err);
+      }
+    };
+
+    registerTicket();
+  }, [open, validMatches, displayOdds, slipTitle]);
+
+  if (!open) return null;
 
   const handleDownload = async () => {
     if (!cardRef.current) return;
@@ -54,7 +129,7 @@ export function SlipCardModal({
         pixelRatio: 2, // High resolution export
       });
       const link = document.createElement("a");
-      link.download = `futurebet-slip-${todayStr}.png`;
+      link.download = `futurebet-slip-${ticketRef || "ticket"}-${todayStr}.png`;
       link.href = dataUrl;
       link.click();
       toast.success("Slip card downloaded successfully!");
@@ -95,9 +170,23 @@ export function SlipCardModal({
   };
 
   const handleShareWhatsApp = () => {
-    const text = `🔥 Check out my FutureBet AI Verified Slip (${validMatches.length} matches @ ${displayOdds}x total odds)! Generated on https://futurebet.com.ng`;
+    const text = `🔥 Check out my FutureBet AI Verified Slip (${validMatches.length} matches @ ${displayOdds}x total odds)!\n🎫 Ticket Code: ${ticketRef}\nUnlock all selections at https://futurebet.com.ng`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
   };
+
+  // Determine matches to display on the card based on displayMode
+  const maxFeaturedCount = aspectRatio === "story" ? 6 : 4;
+  const matchesToRender =
+    displayMode === "all"
+      ? validMatches
+      : validMatches.slice(0, maxFeaturedCount);
+
+  const hasRemaining =
+    displayMode === "featured" && validMatches.length > maxFeaturedCount;
+  const remainingCount = validMatches.length - maxFeaturedCount;
+
+  // Adaptive compactness: if rendering all matches (>6), make rows sleeker
+  const isCompactRows = displayMode === "all" && matchesToRender.length > 6;
 
   const modalContent = (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5">
@@ -110,7 +199,7 @@ export function SlipCardModal({
       {/* Modal Dialog */}
       <div
         className={cn(
-          "relative w-full max-w-xl rounded-3xl border shadow-2xl overflow-hidden transition-all animate-in zoom-in-95 duration-200 z-10 flex flex-col max-h-[95vh]",
+          "relative w-full max-w-xl rounded-3xl border shadow-2xl overflow-hidden transition-all animate-in zoom-in-95 duration-200 z-10 flex flex-col max-h-[96vh]",
           darkMode ? "bg-slate-950 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"
         )}
       >
@@ -140,68 +229,96 @@ export function SlipCardModal({
           </button>
         </div>
 
-        {/* Toolbar: Aspect Ratio & Theme Selector */}
-        <div className="p-3 sm:p-4 border-b border-slate-800 bg-slate-900/30 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        {/* Toolbar: Aspect Ratio, Theme, & Match Display Mode */}
+        <div className="p-3 sm:p-4 border-b border-slate-800 bg-slate-900/30 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
           {/* Format Toggle */}
-          <div className="flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+          <div className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
             <button
               onClick={() => setAspectRatio("story")}
               className={cn(
-                "px-2.5 py-1.5 rounded-lg text-xs font-black flex items-center gap-1.5 transition-all",
+                "px-2 py-1 rounded-lg text-xs font-black flex items-center gap-1 transition-all",
                 aspectRatio === "story"
                   ? "bg-emerald-500 text-slate-950 shadow-md"
                   : "text-slate-400 hover:text-white"
               )}
             >
-              <Smartphone size={13} /> 9:16 Story
+              <Smartphone size={12} /> 9:16 Story
             </button>
             <button
               onClick={() => setAspectRatio("square")}
               className={cn(
-                "px-2.5 py-1.5 rounded-lg text-xs font-black flex items-center gap-1.5 transition-all",
+                "px-2 py-1 rounded-lg text-xs font-black flex items-center gap-1 transition-all",
                 aspectRatio === "square"
                   ? "bg-emerald-500 text-slate-950 shadow-md"
                   : "text-slate-400 hover:text-white"
               )}
             >
-              <Square size={13} /> 1:1 Square
+              <Square size={12} /> 1:1 Square
             </button>
           </div>
 
           {/* Theme Palette */}
-          <div className="flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
-            <button
-              onClick={() => setTheme("cyber")}
-              className={cn(
-                "px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all",
-                theme === "cyber" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"
-              )}
-            >
-              Cyber Neon
-            </button>
+          <div className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
             <button
               onClick={() => setTheme("gold")}
               className={cn(
-                "px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all",
-                theme === "gold" ? "bg-amber-500 text-slate-950" : "text-slate-400 hover:text-white"
+                "px-2 py-1 rounded-lg text-xs font-bold transition-all",
+                theme === "gold" ? "bg-amber-500 text-slate-950 font-black" : "text-slate-400 hover:text-white"
               )}
             >
               VIP Gold
             </button>
             <button
+              onClick={() => setTheme("cyber")}
+              className={cn(
+                "px-2 py-1 rounded-lg text-xs font-bold transition-all",
+                theme === "cyber" ? "bg-emerald-500 text-slate-950 font-black" : "text-slate-400 hover:text-white"
+              )}
+            >
+              Cyber Neon
+            </button>
+            <button
               onClick={() => setTheme("clean")}
               className={cn(
-                "px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all",
-                theme === "clean" ? "bg-slate-200 text-slate-900" : "text-slate-400 hover:text-white"
+                "px-2 py-1 rounded-lg text-xs font-bold transition-all",
+                theme === "clean" ? "bg-slate-200 text-slate-900 font-black" : "text-slate-400 hover:text-white"
               )}
             >
               Clean Ice
             </button>
           </div>
+
+          {/* MATCH DISPLAY TOGGLE: ALL MATCHES VS FEATURED */}
+          <div className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+            <button
+              onClick={() => setDisplayMode("all")}
+              className={cn(
+                "px-2.5 py-1 rounded-lg text-xs font-black flex items-center gap-1.5 transition-all",
+                displayMode === "all"
+                  ? "bg-amber-500 text-slate-950 shadow-md"
+                  : "text-slate-400 hover:text-white"
+              )}
+              title="Show all selections directly on the card with adaptive sizing"
+            >
+              <Eye size={12} /> All ({validMatches.length})
+            </button>
+            <button
+              onClick={() => setDisplayMode("featured")}
+              className={cn(
+                "px-2.5 py-1 rounded-lg text-xs font-black flex items-center gap-1.5 transition-all",
+                displayMode === "featured"
+                  ? "bg-amber-500 text-slate-950 shadow-md"
+                  : "text-slate-400 hover:text-white"
+              )}
+              title="Show top 6 picks with code reference"
+            >
+              <ListFilter size={12} /> Top 6
+            </button>
+          </div>
         </div>
 
         {/* Card Preview Container */}
-        <div className="p-4 sm:p-6 overflow-y-auto flex-grow flex items-center justify-center bg-black/40">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-grow flex items-center justify-center bg-black/50">
           <div
             ref={cardRef}
             className={cn(
@@ -223,8 +340,8 @@ export function SlipCardModal({
             />
 
             {/* CARD TOP: BRAND & HEADER */}
-            <div className="relative z-10 mb-3">
-              <div className="flex items-center justify-between mb-2">
+            <div className="relative z-10 mb-2">
+              <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2">
                   <div
                     className={cn(
@@ -270,14 +387,20 @@ export function SlipCardModal({
             </div>
 
             {/* CARD MIDDLE: MATCH SELECTIONS LIST */}
-            <div className="relative z-10 space-y-2 flex-grow overflow-hidden my-2">
-              {validMatches.slice(0, aspectRatio === "story" ? 6 : 4).map((m, idx) => {
+            <div
+              className={cn(
+                "relative z-10 flex-grow overflow-hidden my-1",
+                isCompactRows ? "space-y-1.5" : "space-y-2"
+              )}
+            >
+              {matchesToRender.map((m, idx) => {
                 const score = m.cScore || m.predictedScore || m.likelyCS || m.c_score;
                 return (
                   <div
                     key={idx}
                     className={cn(
-                      "p-2.5 rounded-xl border backdrop-blur-md flex items-center justify-between gap-2 text-left",
+                      "rounded-xl border backdrop-blur-md flex items-center justify-between gap-2 text-left",
+                      isCompactRows ? "p-1.5 px-2.5" : "p-2.5",
                       theme === "cyber"
                         ? "bg-white/[0.03] border-white/10"
                         : theme === "gold"
@@ -286,16 +409,30 @@ export function SlipCardModal({
                     )}
                   >
                     <div className="truncate flex-1">
-                      <div className="text-[11px] font-black truncate">{m.match}</div>
-                      <div className="text-[9px] text-slate-400 flex items-center gap-1.5 truncate">
+                      <div
+                        className={cn(
+                          "font-black truncate",
+                          isCompactRows ? "text-[10px]" : "text-[11px]"
+                        )}
+                      >
+                        {m.match}
+                      </div>
+                      <div
+                        className={cn(
+                          "text-slate-400 flex items-center gap-1.5 truncate",
+                          isCompactRows ? "text-[8px]" : "text-[9px]"
+                        )}
+                      >
                         <span>{m.league || "Football"}</span>
                         {score && <span className="text-amber-400 font-bold">• Score {score}</span>}
                       </div>
                     </div>
+
                     <div className="text-right shrink-0">
                       <div
                         className={cn(
-                          "text-[10px] font-black uppercase px-2 py-0.5 rounded-lg border",
+                          "font-black uppercase rounded-lg border",
+                          isCompactRows ? "text-[9px] px-1.5 py-0.5" : "text-[10px] px-2 py-0.5",
                           theme === "cyber"
                             ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
                             : theme === "gold"
@@ -306,7 +443,12 @@ export function SlipCardModal({
                         {m.selectedMarket}: {m.selectedOption}
                       </div>
                       {Number(m.odds) > 1 && (
-                        <div className="text-[9px] font-bold text-slate-400 mt-0.5">
+                        <div
+                          className={cn(
+                            "font-bold text-slate-400 mt-0.5",
+                            isCompactRows ? "text-[8px]" : "text-[9px]"
+                          )}
+                        >
                           @{Number(m.odds).toFixed(2)}
                         </div>
                       )}
@@ -314,9 +456,16 @@ export function SlipCardModal({
                   </div>
                 );
               })}
-              {validMatches.length > (aspectRatio === "story" ? 6 : 4) && (
-                <div className="text-center text-[9px] font-bold text-slate-400 uppercase tracking-widest pt-0.5">
-                  + {validMatches.length - (aspectRatio === "story" ? 6 : 4)} more picks in ticket
+
+              {/* REMAINING PICKS BANNER (IF IN FEATURED MODE) */}
+              {hasRemaining && (
+                <div className="text-center p-2 rounded-xl bg-amber-500/[0.06] border border-amber-500/20 mt-1 space-y-0.5">
+                  <div className="text-[10px] font-black uppercase tracking-wider text-amber-300">
+                    + {remainingCount} more picks in ticket
+                  </div>
+                  <div className="text-[8px] font-bold text-slate-400">
+                    Enter code <span className="font-mono text-emerald-400 font-black">{ticketRef}</span> on futurebet.com.ng to unlock all {validMatches.length} selections
+                  </div>
                 </div>
               )}
             </div>
@@ -351,13 +500,15 @@ export function SlipCardModal({
                 </div>
               </div>
 
-              {/* Watermark & Verification */}
-              <div className="flex items-center justify-between text-[8px] font-bold text-slate-400 tracking-wider">
+              {/* Watermark & Clear Booking Code Reference */}
+              <div className="flex items-center justify-between text-[9px] font-bold text-slate-400 tracking-wider px-1">
                 <span className="flex items-center gap-1">
-                  <ShieldCheck size={10} className="text-emerald-400" />
+                  <ShieldCheck size={12} className="text-emerald-400" />
                   futurebet.com.ng
                 </span>
-                <span className="font-mono">{ticketRef}</span>
+                <span className="font-mono text-amber-300 font-black bg-white/[0.06] px-2 py-0.5 rounded border border-white/10">
+                  {ticketRef}
+                </span>
               </div>
             </div>
           </div>
@@ -366,7 +517,7 @@ export function SlipCardModal({
         {/* Footer Actions */}
         <div className="p-4 sm:p-5 border-t border-slate-800 bg-slate-900/60 flex flex-wrap items-center justify-between gap-3 shrink-0">
           <div className="text-xs text-slate-400 font-semibold hidden sm:block">
-            Ready to post directly to your socials
+            Ticket <span className="font-mono text-amber-400 font-bold">{ticketRef}</span> registered & ready to post
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
