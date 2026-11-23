@@ -29,9 +29,13 @@ import {
   Settings,
   Play,
   RefreshCw,
+  ArrowLeftRight,
+  Check,
 } from "lucide-react";
 import UpgradeButton from "./UpgradeButton";
 import { TacticalPitchVisualizer } from "./TacticalPitchVisualizer";
+import useBetslipStore from "@/store/betslipStore";
+import { toast } from "sonner";
 const cn = (...classes) => classes.filter(Boolean).join(" ");
 
 const clamp = (value, min = 0, max = 100) =>
@@ -1323,61 +1327,7 @@ function PremiumShell({ darkMode, children }) {
   );
 }
 
-function HeaderStat({ darkMode, icon: Icon, label, value, tone = "purple" }) {
-  const toneClass =
-    tone === "amber"
-      ? darkMode
-        ? "text-amber-200"
-        : "text-amber-700"
-      : tone === "blue"
-      ? darkMode
-        ? "text-blue-200"
-        : "text-blue-700"
-      : tone === "emerald"
-      ? darkMode
-        ? "text-emerald-200"
-        : "text-emerald-700"
-      : darkMode
-      ? "text-purple-200"
-      : "text-purple-700";
 
-  return (
-    <div
-      className={cn(
-        "rounded-2xl border p-3 backdrop-blur-sm",
-        darkMode
-          ? "border-white/10 bg-white/5"
-          : "border-white/80 bg-white/80 shadow-sm"
-      )}
-    >
-      <div className="flex items-center gap-3">
-        <div
-          className={cn(
-            "flex h-10 w-10 items-center justify-center rounded-xl border",
-            darkMode
-              ? "border-white/10 bg-white/5"
-              : "border-gray-200 bg-white",
-            toneClass
-          )}
-        >
-          <Icon size={16} />
-        </div>
-
-        <div className="min-w-0">
-          <div
-            className={cn(
-              "text-[10px] font-bold uppercase tracking-[0.18em]",
-              darkMode ? "text-gray-400" : "text-gray-500"
-            )}
-          >
-            {label}
-          </div>
-          <div className="text-sm font-extrabold truncate">{value}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function CompareIndicator({ valueA, valueB, higherIsBetter = true }) {
   const numA = Number(valueA);
@@ -2779,6 +2729,164 @@ export default function TeamCompare({ darkMode = false }) {
 
   const canCompare = Boolean(teamA && teamB && statsA && statsB && insight);
 
+  const { isMatchInBetslip } = useBetslipStore();
+
+  const upcomingFixtures = useMemo(() => {
+    if (!safeMatchesData?.length) return [];
+    const list = [];
+    const seen = new Set();
+    for (const m of safeMatchesData) {
+      const teams = parseTeamsFromMatch(m?.match);
+      if (teams.length >= 2) {
+        const key = `${teams[0]}-${teams[1]}`.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push({
+            home: teams[0],
+            away: teams[1],
+            league: String(m?.fullLeague || m?.league || "").trim(),
+            country: String(m?.country || "").trim(),
+            time: String(m?.time || "").trim(),
+            date: String(m?.date || "").trim(),
+            match: m?.match,
+            rawMatch: m,
+          });
+        }
+      }
+      if (list.length >= 10) break;
+    }
+    return list;
+  }, [safeMatchesData]);
+
+  const handleSelectQuickMatch = useCallback(
+    (item) => {
+      const hNorm = item.home.toLowerCase().trim();
+      const aNorm = item.away.toLowerCase().trim();
+
+      const foundA = allTeamsList.find(
+        (t) => t.team.toLowerCase().trim() === hNorm
+      );
+      const foundB = allTeamsList.find(
+        (t) => t.team.toLowerCase().trim() === aNorm
+      );
+
+      setTeamA(foundA?.team || item.home);
+      setCountryA(foundA?.country || item.country || "");
+      setLeagueA(foundA?.league || item.league || "");
+
+      setTeamB(foundB?.team || item.away);
+      setCountryB(foundB?.country || item.country || "");
+      setLeagueB(foundB?.league || item.league || "");
+    },
+    [allTeamsList]
+  );
+
+  const handleSwapTeams = useCallback(() => {
+    const tempT = teamA;
+    const tempC = countryA;
+    const tempL = leagueA;
+    setTeamA(teamB);
+    setCountryA(countryB);
+    setLeagueA(leagueB);
+    setTeamB(tempT);
+    setCountryB(tempC);
+    setLeagueB(tempL);
+  }, [teamA, countryA, leagueA, teamB, countryB, leagueB]);
+
+  const matchingFixture = useMemo(() => {
+    if (!teamA || !teamB || !safeMatchesData?.length) return null;
+    const a = teamA.toLowerCase().trim();
+    const b = teamB.toLowerCase().trim();
+    return (
+      safeMatchesData.find((m) => {
+        const title = String(m?.match || "").toLowerCase().trim();
+        return (
+          (title.includes(a) && title.includes(b)) ||
+          (title.includes(b) && title.includes(a))
+        );
+      }) || null
+    );
+  }, [teamA, teamB, safeMatchesData]);
+
+  const matchKey = matchingFixture?.match || `${teamA} vs ${teamB}`;
+  const isInBetslip = useMemo(() => {
+    if (!isMatchInBetslip) return false;
+    return isMatchInBetslip(matchKey) || isMatchInBetslip(`${teamA} vs ${teamB}`);
+  }, [isMatchInBetslip, matchKey, teamA, teamB]);
+
+  const handleAddVerdictToBetslip = useCallback(() => {
+    if (!canCompare || !insight) return;
+    const store = useBetslipStore.getState();
+
+    if (isInBetslip) {
+      store.removeMatch?.(matchKey);
+      store.removeMatch?.(`${teamA} vs ${teamB}`);
+      toast.info(`Removed ${teamA} vs ${teamB} from BetSlip`);
+      return;
+    }
+
+    if (!store.canAddMore?.()) {
+      toast.error("BetSlip is full. Remove a pick to add a new one.");
+      return;
+    }
+
+    let market = "1X2";
+    let option = "Home";
+    let odds = 1.90;
+
+    if (insight.strongerSide === teamA) {
+      market = "1X2";
+      option = "Home";
+      odds = Number(matchingFixture?.homeOdds) || 1.85;
+    } else if (insight.strongerSide === teamB) {
+      market = "1X2";
+      option = "Away";
+      odds = Number(matchingFixture?.awayOdds) || 2.10;
+    } else if (insight.goalsLean === "Over 2.5 Goals") {
+      market = "Over 2.5";
+      option = "Yes";
+      odds = Number(matchingFixture?.o25Odds) || 1.80;
+    } else if (insight.bttsLean === "BTTS: Yes") {
+      market = "BTTS";
+      option = "Yes";
+      odds = Number(matchingFixture?.bttsYesOdds) || 1.75;
+    } else {
+      market = "Double Chance";
+      option = "Home or Draw";
+      odds = Number(matchingFixture?.dc1X) || 1.40;
+    }
+
+    if (matchingFixture) {
+      try {
+        const computed = store.computeOddsForSelection?.(matchingFixture, market, option);
+        if (computed && Number(computed) > 1) {
+          odds = Number(Number(computed).toFixed(2));
+        }
+      } catch {}
+    }
+
+    const payload = {
+      ...(matchingFixture || {}),
+      match: matchKey,
+      league: leagueA || matchingFixture?.league || "Matchup Lab",
+      country: countryA || matchingFixture?.country || "",
+      selectedMarket: market,
+      selectedOption: option,
+      odds: odds,
+    };
+
+    try {
+      const added = store.addMatch?.(payload);
+      if (added) {
+        toast.success(`Added ${option} @ ${odds.toFixed(2)} to BetSlip`);
+      } else {
+        toast.error("Could not add match to BetSlip.");
+      }
+    } catch {
+      toast.error("Failed to add to BetSlip.");
+    }
+  }, [canCompare, insight, isInBetslip, matchKey, matchingFixture, teamA, teamB, leagueA, countryA]);
+
   if (matchesLoading) {
     return (
       <PremiumShell darkMode={darkMode}>
@@ -2982,135 +3090,83 @@ export default function TeamCompare({ darkMode = false }) {
   return (
     <PremiumShell darkMode={darkMode}>
       <div className="space-y-4">
-        {/* Hero */}
+        {/* Streamlined AI Matchup Lab Header */}
         <div
           className={cn(
-            "relative overflow-hidden rounded-3xl border p-5 sm:p-6 lg:p-7",
+            "relative overflow-hidden rounded-2xl border px-4 py-3.5 sm:px-6 sm:py-4 transition-all",
             darkMode
-              ? "border-white/10 bg-gradient-to-br from-white/10 via-white/[0.04] to-purple-500/[0.10]"
-              : "border-white/80 bg-gradient-to-br from-white via-purple-50 to-amber-50/70 shadow-lg shadow-purple-100/40"
+              ? "border-white/10 bg-gradient-to-r from-purple-950/30 via-slate-900/60 to-purple-900/20 shadow-sm"
+              : "border-purple-100 bg-gradient-to-r from-white via-purple-50/40 to-amber-50/30 shadow-sm"
           )}
         >
-          <div className="pointer-events-none absolute inset-0">
-            <div
-              className={cn(
-                "absolute top-0 right-0 h-44 w-44 rounded-full blur-3xl",
-                darkMode ? "bg-purple-500/10" : "bg-purple-200/70"
-              )}
-            />
-            <div
-              className={cn(
-                "absolute bottom-0 left-0 h-36 w-36 rounded-full blur-3xl",
-                darkMode ? "bg-amber-400/10" : "bg-amber-200/70"
-              )}
-            />
-          </div>
-
-          <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-            <div className="max-w-3xl">
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[10px] font-bold tracking-[0.18em]",
-                    darkMode
-                      ? "bg-purple-500/20 text-purple-200"
-                      : "bg-purple-100 text-purple-700"
-                  )}
-                >
-                  <Sparkles size={12} />
-                  AI MATCHUP LAB
-                </span>
-
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[10px] font-bold tracking-[0.18em]",
-                    darkMode
-                      ? "bg-amber-400/20 text-amber-200"
-                      : "bg-amber-100 text-amber-700"
-                  )}
-                >
-                  <Crown size={12} />
-                  SILVER+ ACCESS
-                </span>
-              </div>
-
-              <h2 className="text-2xl font-black tracking-tight sm:text-3xl xl:text-4xl">
-                Compare Teams Like a Premium Analyst
-              </h2>
-
-              <p
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
                 className={cn(
-                  "mt-3 max-w-2xl text-sm leading-relaxed sm:text-base",
-                  darkMode ? "text-gray-300" : "text-gray-600"
+                  "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-black tracking-widest uppercase",
+                  darkMode
+                    ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                    : "bg-purple-100 text-purple-700 border border-purple-200"
                 )}
               >
-                Run a polished cross-league comparison using table strength,
-                form, scoring environment, model confidence, and explainable AI
-                insight — all in one premium matchup workspace.
-              </p>
+                <Sparkles size={11} />
+                AI MATCHUP LAB
+              </span>
 
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <div
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-xs sm:text-sm",
-                    darkMode
-                      ? "border-white/10 bg-white/5 text-gray-200"
-                      : "border-white/80 bg-white/80 text-gray-700"
-                  )}
-                >
-                  <Shield size={14} className="text-emerald-500" />
-                  {canCompare
-                    ? "Comparison ready — premium verdicts unlocked below."
-                    : "Pick Team A and Team B to unlock the premium verdict panel."}
-                </div>
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase",
+                  darkMode
+                    ? "bg-amber-400/15 text-amber-300 border border-amber-400/30"
+                    : "bg-amber-100 text-amber-800 border border-amber-200"
+                )}
+              >
+                <Crown size={11} />
+                SILVER+ ACCESS
+              </span>
 
-                <button
-                  type="button"
-                  onClick={() => setShowGuide((prev) => !prev)}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-xs sm:text-sm font-semibold transition",
-                    darkMode
-                      ? "border-white/10 bg-white/5 text-gray-200 hover:bg-white/10"
-                      : "border-white/80 bg-white/80 text-gray-700 hover:bg-white"
-                  )}
-                >
-                  <BookOpen size={14} />
-                  {showGuide ? "Hide Guide" : "Open Guide"}
-                </button>
-              </div>
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold",
+                  canCompare
+                    ? darkMode
+                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                      : "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                    : darkMode
+                    ? "bg-white/5 text-gray-400 border border-white/10"
+                    : "bg-gray-100 text-gray-600 border border-gray-200"
+                )}
+              >
+                <Shield size={11} className={canCompare ? "text-emerald-500" : "text-gray-400"} />
+                {canCompare ? "Comparison Active" : "Select 2 Teams"}
+              </span>
             </div>
 
-            <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:max-w-md">
-              <HeaderStat
-                darkMode={darkMode}
-                icon={Crown}
-                label="Access"
-                value="Silver+ premium"
-                tone="amber"
-              />
-              <HeaderStat
-                darkMode={darkMode}
-                icon={Target}
-                label="Focus"
-                value="Cross-league edge"
-                tone="blue"
-              />
-              <HeaderStat
-                darkMode={darkMode}
-                icon={BarChart3}
-                label="Coverage"
-                value="Table • Form • Market • AI"
-                tone="purple"
-              />
-              <HeaderStat
-                darkMode={darkMode}
-                icon={Shield}
-                label="Status"
-                value={canCompare ? "Ready to compare" : "Awaiting 2 teams"}
-                tone="emerald"
-              />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowGuide((prev) => !prev)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors",
+                  darkMode
+                    ? "border-white/10 bg-white/5 text-gray-200 hover:bg-white/10"
+                    : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 shadow-xs"
+                )}
+              >
+                <BookOpen size={13} />
+                {showGuide ? "Hide Guide" : "Methodology Guide"}
+              </button>
             </div>
           </div>
+
+          <p
+            className={cn(
+              "mt-2 text-xs sm:text-sm font-normal",
+              darkMode ? "text-gray-400" : "text-gray-600"
+            )}
+          >
+            Algorithmic head-to-head engine with normalized table power, momentum ratings, tactical metrics, and expected value simulation.
+          </p>
         </div>
         {showGuide && (
           <div
@@ -3235,47 +3291,155 @@ export default function TeamCompare({ darkMode = false }) {
             </div>
           </div>
         )}
-        {/* Spotight Search Cards */}
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <TeamSearchSpotlight
-            darkMode={darkMode}
-            title="Team A"
-            tone="blue"
-            selectedTeam={teamA}
-            selectedCountry={countryA}
-            selectedLeague={leagueA}
-            allTeams={allTeamsList}
-            onSelect={(t, c, l) => {
-              setTeamA(t);
-              setCountryA(c);
-              setLeagueA(l);
-            }}
-            onClear={() => {
-              setTeamA("");
-              setCountryA("");
-              setLeagueA("");
-            }}
-          />
+        {/* Quick Picks Carousel */}
+        {upcomingFixtures.length > 0 && (
+          <div
+            className={cn(
+              "rounded-2xl border p-3 sm:p-3.5",
+              darkMode ? "border-white/10 bg-white/[0.03]" : "border-gray-200/80 bg-white shadow-xs"
+            )}
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-500">
+                <Sparkles size={13} />
+                <span>Trending Upcoming Matchups</span>
+                <span
+                  className={cn(
+                    "text-[10px] font-normal lowercase tracking-normal px-1.5 py-0.5 rounded-md",
+                    darkMode ? "bg-white/5 text-gray-400" : "bg-gray-100 text-gray-500"
+                  )}
+                >
+                  1-click compare
+                </span>
+              </div>
+              <span className={cn("text-[11px]", darkMode ? "text-gray-400" : "text-gray-500")}>
+                {upcomingFixtures.length} matches ready
+              </span>
+            </div>
 
-          <TeamSearchSpotlight
-            darkMode={darkMode}
-            title="Team B"
-            tone="purple"
-            selectedTeam={teamB}
-            selectedCountry={countryB}
-            selectedLeague={leagueB}
-            allTeams={allTeamsList}
-            onSelect={(t, c, l) => {
-              setTeamB(t);
-              setCountryB(c);
-              setLeagueB(l);
-            }}
-            onClear={() => {
-              setTeamB("");
-              setCountryB("");
-              setLeagueB("");
-            }}
-          />
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+              {upcomingFixtures.map((fixture) => {
+                const isSelected =
+                  (teamA?.toLowerCase() === fixture.home.toLowerCase() &&
+                    teamB?.toLowerCase() === fixture.away.toLowerCase()) ||
+                  (teamA?.toLowerCase() === fixture.away.toLowerCase() &&
+                    teamB?.toLowerCase() === fixture.home.toLowerCase());
+
+                return (
+                  <button
+                    key={`${fixture.home}-${fixture.away}`}
+                    type="button"
+                    onClick={() => handleSelectQuickMatch(fixture)}
+                    className={cn(
+                      "flex shrink-0 items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all",
+                      isSelected
+                        ? darkMode
+                          ? "border-amber-400/60 bg-amber-500/20 text-amber-200 font-bold ring-1 ring-amber-400/40"
+                          : "border-amber-400 bg-amber-50 text-amber-900 font-bold ring-1 ring-amber-400/50 shadow-xs"
+                        : darkMode
+                        ? "border-white/10 bg-white/5 text-gray-300 hover:border-white/20 hover:bg-white/10"
+                        : "border-gray-200 bg-gray-50/80 text-gray-700 hover:border-gray-300 hover:bg-gray-100"
+                    )}
+                  >
+                    <span className="font-semibold">{fixture.home}</span>
+                    <span className="text-[10px] opacity-50 uppercase font-black">vs</span>
+                    <span className="font-semibold">{fixture.away}</span>
+                    {fixture.time && (
+                      <span
+                        className={cn(
+                          "ml-1 text-[10px] font-medium opacity-75 rounded px-1",
+                          darkMode ? "bg-black/30 text-gray-400" : "bg-white text-gray-500 border border-gray-200"
+                        )}
+                      >
+                        {fixture.time}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Spotlight Search Cards with Center Swap Button */}
+        <div className="relative">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <TeamSearchSpotlight
+              darkMode={darkMode}
+              title="Team A (Home Side)"
+              tone="blue"
+              selectedTeam={teamA}
+              selectedCountry={countryA}
+              selectedLeague={leagueA}
+              allTeams={allTeamsList}
+              onSelect={(t, c, l) => {
+                setTeamA(t);
+                setCountryA(c);
+                setLeagueA(l);
+              }}
+              onClear={() => {
+                setTeamA("");
+                setCountryA("");
+                setLeagueA("");
+              }}
+            />
+
+            <TeamSearchSpotlight
+              darkMode={darkMode}
+              title="Team B (Away Side)"
+              tone="purple"
+              selectedTeam={teamB}
+              selectedCountry={countryB}
+              selectedLeague={leagueB}
+              allTeams={allTeamsList}
+              onSelect={(t, c, l) => {
+                setTeamB(t);
+                setCountryB(c);
+                setLeagueB(l);
+              }}
+              onClear={() => {
+                setTeamB("");
+                setCountryB("");
+                setLeagueB("");
+              }}
+            />
+          </div>
+
+          {/* Desktop Floating Center Swap Button */}
+          {Boolean(teamA || teamB) && (
+            <button
+              type="button"
+              onClick={handleSwapTeams}
+              title="Swap Home and Away teams"
+              className={cn(
+                "hidden xl:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 h-10 w-10 items-center justify-center rounded-full border shadow-md transition-all hover:scale-110 active:scale-95 group",
+                darkMode
+                  ? "border-purple-400/30 bg-slate-900 text-purple-300 hover:border-purple-400 hover:bg-slate-800"
+                  : "border-purple-200 bg-white text-purple-600 hover:border-purple-300 hover:bg-purple-50 shadow-purple-200/50"
+              )}
+            >
+              <ArrowLeftRight size={16} className="transition-transform group-hover:rotate-180 duration-300" />
+            </button>
+          )}
+
+          {/* Mobile Swap Pill */}
+          {Boolean(teamA || teamB) && (
+            <div className="flex xl:hidden justify-center -mt-2 -mb-2 relative z-10">
+              <button
+                type="button"
+                onClick={handleSwapTeams}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold shadow-xs transition-transform active:scale-95",
+                  darkMode
+                    ? "border-purple-400/30 bg-slate-900 text-purple-300 hover:bg-slate-800"
+                    : "border-purple-200 bg-white text-purple-700 hover:bg-purple-50"
+                )}
+              >
+                <ArrowLeftRight size={13} />
+                Swap Sides
+              </button>
+            </div>
+          )}
         </div>
 
         {canCompare ? (
@@ -3348,28 +3512,41 @@ export default function TeamCompare({ darkMode = false }) {
 
                   <div
                     className={cn(
-                      "text-sm font-bold uppercase tracking-wider mb-6",
+                      "text-sm font-bold uppercase tracking-wider mb-3",
                       darkMode ? "text-gray-400" : "text-gray-500"
                     )}
                   >
                     {insight.mainEdge}
                   </div>
+
+                  {leagueA && leagueB && leagueA.toLowerCase() !== leagueB.toLowerCase() && (
+                    <div
+                      className={cn(
+                        "mb-4 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-medium border",
+                        darkMode
+                          ? "bg-blue-500/10 text-blue-300 border-blue-500/20"
+                          : "bg-blue-50 text-blue-700 border-blue-200"
+                      )}
+                    >
+                      <span>🌐 Cross-League Calibrated: Normalized for competition weight between {leagueA} and {leagueB}.</span>
+                    </div>
+                  )}
                 </div>
 
-                <div className="relative z-10 mt-8">
+                <div className="relative z-10 mt-6">
                   <p
                     className={cn(
-                      "text-sm leading-relaxed mb-6 max-w-md font-medium",
+                      "text-sm leading-relaxed mb-5 max-w-md font-medium",
                       darkMode ? "text-gray-300" : "text-gray-700"
                     )}
                   >
                     {insight.overview}
                   </p>
 
-                  <div className="flex flex-wrap gap-3">
+                  <div className="flex flex-wrap gap-2.5">
                     <span
                       className={cn(
-                        "inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold",
+                        "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold",
                         darkMode
                           ? "bg-amber-500/20 text-amber-200 border border-amber-500/30"
                           : "bg-amber-100 text-amber-800 border border-amber-200"
@@ -3380,7 +3557,7 @@ export default function TeamCompare({ darkMode = false }) {
                     </span>
                     <span
                       className={cn(
-                        "inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold",
+                        "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold",
                         insight.riskLevel === "High"
                           ? darkMode
                             ? "bg-rose-500/20 text-rose-200 border border-rose-500/30"
@@ -3393,6 +3570,39 @@ export default function TeamCompare({ darkMode = false }) {
                       <Activity size={14} />
                       Risk: {insight.riskLevel}
                     </span>
+                  </div>
+
+                  {/* 1-Click BetSlip Action */}
+                  <div className="mt-6 pt-4 border-t border-amber-500/20 flex flex-wrap items-center justify-between gap-3">
+                    <div className="text-xs">
+                      <span className={darkMode ? "text-gray-400" : "text-gray-500"}>Suggested Play: </span>
+                      <span className="font-bold text-amber-500">{insight.saferAngle || insight.mainEdge}</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleAddVerdictToBetslip}
+                      className={cn(
+                        "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider transition-all active:scale-95 shadow-sm",
+                        isInBetslip
+                          ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20"
+                          : darkMode
+                          ? "bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black shadow-amber-500/20"
+                          : "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-amber-500/30"
+                      )}
+                    >
+                      {isInBetslip ? (
+                        <>
+                          <Check size={14} className="stroke-[3]" />
+                          In BetSlip
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles size={14} />
+                          + Add Verdict to BetSlip
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>
