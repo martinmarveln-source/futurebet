@@ -3,6 +3,7 @@ import "./global.css";
 import { Providers } from "./providers";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { ReferralTracker } from "@/components/ReferralTracker";
+import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import { Suspense } from "react";
 
 export const viewport: Viewport = {
@@ -159,17 +160,41 @@ export default function RootLayout({
         <Providers>
           <div className="flex flex-col min-h-screen">
             <main className="flex-1">{children}</main>
-            <footer className="py-8 bg-slate-50 dark:bg-[#030712] border-t border-slate-200 dark:border-slate-800/60 text-sm text-slate-500 dark:text-slate-400">
-              <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-6">
-                <a href="/terms" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Terms & Conditions</a>
-                <a href="/privacy" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Privacy Policy</a>
-                <a href="/disclaimer" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Disclaimer</a>
-                <span className="hidden sm:inline text-slate-300 dark:text-slate-700">|</span>
-                <span>© {new Date().getFullYear()} FutureBet. All rights reserved.</span>
+            <footer className="py-10 bg-slate-50 dark:bg-[#030712] border-t border-slate-200 dark:border-slate-800/80 text-xs text-slate-500 dark:text-slate-400">
+              <div className="max-w-7xl mx-auto px-4 flex flex-col items-center gap-5">
+                {/* 18+ and Compliance Notice */}
+                <div className="flex flex-wrap items-center justify-center gap-3 text-center">
+                  <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[11px] font-black text-amber-600 dark:text-amber-400">
+                    🔞 18+ ONLY
+                  </span>
+                  <span className="font-medium text-slate-600 dark:text-slate-400">
+                    Not a Gambling Operator • Purely Statistical Insights • Bet Responsibly
+                  </span>
+                </div>
+
+                {/* Legal Links */}
+                <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-2 font-medium">
+                  <a href="/terms" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Terms of Service</a>
+                  <a href="/privacy" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Privacy Policy (NDPA & GDPR)</a>
+                  <a href="/disclaimer" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Legal Disclaimer</a>
+                  <a href="/responsible-gaming" className="hover:text-emerald-600 dark:hover:text-emerald-400 font-semibold transition-colors flex items-center gap-1">
+                    <span>Responsible Gaming</span>
+                  </a>
+                </div>
+
+                {/* Statutory Disclaimer & Helpline Note */}
+                <p className="max-w-4xl text-center text-[11px] leading-relaxed text-slate-400 dark:text-slate-500">
+                  FutureBet (futurebet.com.ng) is an independent sports analytics and computational intelligence platform. FutureBet is not a bookmaker, does not accept or place bets, and does not operate gambling pools. All predictions, odds references, and performance ratings are algorithmic probabilities intended strictly for entertainment and informational purposes. Past performance is no guarantee of future results. Please gamble responsibly. If you or someone you know is experiencing gambling-related issues, confidential help is available via <a href="https://gamblealert.org" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">GambleAlert Nigeria</a> or <a href="https://www.begambleaware.org" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">BeGambleAware</a>.
+                </p>
+
+                <div className="text-[11px] text-slate-400 dark:text-slate-500">
+                  © {new Date().getFullYear()} FutureBet Analytics. All rights reserved. Registered under applicable digital service and commercial laws.
+                </div>
               </div>
             </footer>
           </div>
           <InstallPrompt />
+          <CookieConsentBanner />
           <Suspense fallback={null}>
             <ReferralTracker />
           </Suspense>

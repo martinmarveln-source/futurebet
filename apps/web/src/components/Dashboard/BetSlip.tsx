@@ -1452,6 +1452,23 @@ export default function BetSlip({ darkMode = false }) {
                 )}
               </button>
             </div>
+
+            {/* Legal Liability & 18+ Micro-Disclaimer */}
+            <div className="mt-2.5 px-1 text-center">
+              <p
+                className={cn(
+                  "text-[10px] leading-tight flex items-center justify-center gap-1.5 font-medium",
+                  darkMode ? "text-gray-500" : "text-gray-400"
+                )}
+              >
+                <span className="font-bold border rounded px-1 text-[9px] border-amber-500/50 text-amber-500">
+                  18+
+                </span>
+                <span>
+                  Not a bookmaker • Probabilities are informational • Gamble responsibly
+                </span>
+              </p>
+            </div>
           </div>
         </div>
       )}

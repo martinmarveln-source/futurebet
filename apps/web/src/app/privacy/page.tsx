@@ -1,48 +1,158 @@
-import React from 'react';
-import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import React from "react";
+import Link from "next/link";
+import { ArrowLeft, ShieldCheck } from "lucide-react";
 
 export const metadata = {
-  title: 'Privacy Policy - FutureBet',
-  description: 'Privacy Policy for FutureBet.',
+  title: "Privacy Policy - FutureBet",
+  description: "Privacy policy, data protection governance (NDPA / GDPR), and user rights on FutureBet.",
 };
 
 export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#030712] dark:text-slate-200 py-12 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="max-w-3xl mx-auto">
-        <Link href="/" className="inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline mb-8">
+      <div className="max-w-4xl mx-auto">
+        <Link
+          href="/"
+          className="inline-flex items-center text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline mb-8"
+        >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Home
+          Back to Dashboard
         </Link>
-        <h1 className="text-3xl font-bold mb-6 text-slate-900 dark:text-white">Privacy Policy</h1>
-        
-        <div className="space-y-6 text-slate-700 dark:text-slate-300 leading-relaxed">
-          <p>Last updated: August 2026</p>
 
-          <section>
-            <h2 className="text-xl font-semibold mb-3 text-slate-900 dark:text-white">1. Information We Collect</h2>
-            <p>We collect information you provide directly to us, such as when you create an account, subscribe to our premium services, or contact support. This includes your email address, username, and payment information (processed securely via our payment partners).</p>
+        {/* Header */}
+        <div className="mb-10 pb-6 border-b border-slate-200 dark:border-slate-800">
+          <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-3.5 py-1 text-xs font-bold text-blue-600 dark:text-blue-400 mb-4">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            NDPA 2023 & GDPR DATA GOVERNANCE
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
+            Privacy & Data Protection Policy
+          </h1>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            Last Updated: November 2026 • Compliant with the Nigeria Data Protection Act (NDPA 2023) and GDPR
+          </p>
+        </div>
+
+        <div className="space-y-8 text-slate-700 dark:text-slate-300 leading-relaxed text-sm sm:text-base">
+          {/* Introduction */}
+          <section className="rounded-2xl border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/40 p-6 sm:p-8 shadow-xs">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-3">
+              1. Overview & Commitment
+            </h2>
+            <p className="mb-3">
+              FutureBet ("we", "us", or "our"), operating via <strong>futurebet.com.ng</strong>, is committed to safeguarding the privacy and personal data of our users. We process personal information transparently and securely in accordance with the <strong>Nigeria Data Protection Act 2023 (NDPA)</strong>, the <strong>Nigeria Data Protection Regulation (NDPR)</strong>, and international data standards including the <strong>General Data Protection Regulation (GDPR)</strong>.
+            </p>
+            <p>
+              This Privacy Policy explains what information we collect, the lawful basis for its collection, how it is used, and the legal rights available to you regarding your personal data.
+            </p>
           </section>
 
-          <section>
-            <h2 className="text-xl font-semibold mb-3 text-slate-900 dark:text-white">2. How We Use Your Information</h2>
-            <p>We use the information we collect to operate, maintain, and improve our services, communicate with you, process transactions, and personalize your experience on FutureBet.</p>
+          {/* Data Collected */}
+          <section className="rounded-2xl border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/40 p-6 sm:p-8 shadow-xs">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-3">
+              2. Information We Collect
+            </h2>
+            <p className="mb-4">
+              We collect information to deliver algorithmic analysis, manage user authorization, and maintain platform security:
+            </p>
+            <div className="space-y-3">
+              <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40">
+                <strong>A. Personal Identifiers:</strong> Name, email address, username, and account credentials provided upon registration.
+              </div>
+              <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40">
+                <strong>B. Transactional & Subscription Data:</strong> Subscription tier, plan duration, transaction timestamps, and tokenized payment identifiers generated by our secure payment gateway (Paystack). <em>We never store credit card numbers or banking PINs.</em>
+              </div>
+              <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40">
+                <strong>C. Usage & Telemetry:</strong> IP addresses, browser types, device fingerprints, operating systems, and page interaction metrics used solely for security auditing and load balancing.
+              </div>
+              <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40">
+                <strong>D. User Saved Data:</strong> Simulated tickets logged in your BetSlip tracker and custom team comparison preferences.
+              </div>
+            </div>
           </section>
 
-          <section>
-            <h2 className="text-xl font-semibold mb-3 text-slate-900 dark:text-white">3. Data Security</h2>
-            <p>We implement appropriate technical and organizational measures to protect your personal data against unauthorized access, alteration, disclosure, or destruction.</p>
+          {/* Lawful Basis */}
+          <section className="rounded-2xl border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/40 p-6 sm:p-8 shadow-xs">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-3">
+              3. Lawful Basis for Processing
+            </h2>
+            <p className="mb-3">
+              Under NDPA and GDPR guidelines, we only process personal information where a lawful basis exists:
+            </p>
+            <ul className="space-y-2 list-disc list-inside">
+              <li><strong>Performance of Contract:</strong> To authenticate your account, maintain your subscription, and deliver real-time AI analytics.</li>
+              <li><strong>Legitimate Interests:</strong> To detect fraud, prevent automated scraping, protect system integrity, and optimize algorithmic delivery.</li>
+              <li><strong>Legal Compliance:</strong> To comply with tax, corporate, anti-money laundering, and digital regulatory obligations in Nigeria.</li>
+              <li><strong>Consent:</strong> Where you have opted into promotional communications or analytics cookies.</li>
+            </ul>
           </section>
 
-          <section>
-            <h2 className="text-xl font-semibold mb-3 text-slate-900 dark:text-white">4. Cookies and Tracking</h2>
-            <p>We use cookies and similar tracking technologies to track activity on our service and hold certain information, ensuring a smooth authentication process and customized user preferences.</p>
+          {/* Payment Gateways */}
+          <section className="rounded-2xl border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/40 p-6 sm:p-8 shadow-xs">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-3">
+              4. Payment Gateways & Financial Security
+            </h2>
+            <p className="mb-3">
+              All payment transactions for premium subscriptions are routed directly through PCI-DSS Level 1 certified processors (including <strong>Paystack</strong>).
+            </p>
+            <p>
+              Your sensitive financial details (card numbers, expiry dates, CVVs) never touch or reside on FutureBet servers. We only receive secure confirmation tokens indicating successful or failed subscription renewals.
+            </p>
           </section>
 
-          <section>
-            <h2 className="text-xl font-semibold mb-3 text-slate-900 dark:text-white">5. Contact Us</h2>
-            <p>If you have any questions about this Privacy Policy, please contact us through the support channels provided on our platform.</p>
+          {/* User Data Rights */}
+          <section className="rounded-2xl border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/40 p-6 sm:p-8 shadow-xs">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-3">
+              5. Your Legal Rights (NDPA & GDPR)
+            </h2>
+            <p className="mb-4">
+              You possess statutory rights regarding the personal information we hold about you:
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40">
+                <strong>Right to Access:</strong> Request a copy of the personal information stored in your profile.
+              </div>
+              <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40">
+                <strong>Right to Rectification:</strong> Correct any inaccurate or incomplete personal details.
+              </div>
+              <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40">
+                <strong>Right to Erasure ("To Be Forgotten"):</strong> Request complete deletion of your account and associated telemetry data.
+              </div>
+              <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40">
+                <strong>Right to Restrict Processing:</strong> Request a temporary pause or restriction on data usage.
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 mt-4">
+              To exercise any of these rights, submit a written request to <span className="font-mono text-blue-500">privacy@futurebet.com.ng</span>. We respond to all verified statutory requests within 30 days.
+            </p>
+          </section>
+
+          {/* Cookies */}
+          <section className="rounded-2xl border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/40 p-6 sm:p-8 shadow-xs">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-3">
+              6. Cookies & Tracking Technologies
+            </h2>
+            <p className="mb-3">
+              FutureBet utilizes essential authentication cookies and encrypted session tokens to maintain login states, preserve user dark-mode preferences, and prevent session hijacking.
+            </p>
+            <p>
+              You can instruct your browser to refuse all cookies or notify you when a cookie is sent. However, refusing essential cookies may restrict access to authenticated premium features and betslip tracking.
+            </p>
+          </section>
+
+          {/* Data Protection Officer Contact */}
+          <section className="rounded-2xl border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/40 p-6 sm:p-8 shadow-xs">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-3">
+              7. Contact Our Data Governance Team
+            </h2>
+            <p className="mb-2">
+              For questions regarding this policy, data privacy inquiries, or regulatory communications:
+            </p>
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 space-y-1 text-sm font-medium">
+              <p>Email: <a href="mailto:privacy@futurebet.com.ng" className="text-blue-500 hover:underline">privacy@futurebet.com.ng</a></p>
+              <p>Support: <a href="mailto:support@futurebet.com.ng" className="text-blue-500 hover:underline">support@futurebet.com.ng</a></p>
+              <p>Jurisdiction: Lagos, Federal Republic of Nigeria</p>
+            </div>
           </section>
         </div>
       </div>
