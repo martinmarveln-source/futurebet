@@ -1001,14 +1001,14 @@ export default function FutureBetDashboard() {
         />
 
         {/* --- WEEKLY PERFORMANCE REPORT --- */}
-        {(isAdmin || isPremium || isSilver) && (
-          <WeeklyPerformanceReport 
-            userName={user?.name ? user.name.split(' ')[0] : (user?.first_name || "there")}
-            isPremium={isPremium}
-            isSilver={isSilver}
-            isAdmin={isAdmin}
-          />
-        )}
+        <WeeklyPerformanceReport 
+          userName={user?.name ? user.name.split(' ')[0] : (user?.first_name || "there")}
+          isPremium={isPremium}
+          isSilver={isSilver}
+          isAdmin={isAdmin}
+          setActiveTab={setActiveTab}
+          darkMode={darkMode}
+        />
 
         <div className="h-28 sm:h-32" />
 
