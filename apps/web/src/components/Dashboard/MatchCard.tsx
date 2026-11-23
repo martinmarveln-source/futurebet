@@ -31,6 +31,11 @@ import useUser from "@/utils/useUser";
 import { useQuery } from "@tanstack/react-query";
 import useBetslipStore from "@/store/betslipStore";
 import { marketProb } from "@/utils/matchUtils";
+import MatchCardHeader from "./MatchCard/MatchCardHeader";
+import TeamMatchup from "./MatchCard/TeamMatchup";
+import InteractiveOddsStrip from "./MatchCard/InteractiveOddsStrip";
+import ValueEdgeGauge from "./MatchCard/ValueEdgeGauge";
+import GoalSpectrumGauge from "./MatchCard/GoalSpectrumGauge";
 
 
 import dynamic from "next/dynamic";
@@ -1398,6 +1403,57 @@ export function calculateHistWinRateForMatch(match: any, archiveData: any[]) {
   };
 }
 
+const liveOddsCache = new Map();
+let lastOddsHistoryRef = null;
+
+function getCachedLiveOdds(oddsHistory, matchName) {
+  if (!oddsHistory?.length || !matchName) return null;
+  if (oddsHistory !== lastOddsHistoryRef) {
+    liveOddsCache.clear();
+    lastOddsHistoryRef = oddsHistory;
+  }
+  const matchStr = String(matchName).toLowerCase().trim();
+  if (liveOddsCache.has(matchStr)) {
+    return liveOddsCache.get(matchStr);
+  }
+
+  const matchRows = oddsHistory.filter((row) => {
+    const home = String(row["Home Team"] || "").toLowerCase().trim();
+    const away = String(row["Away Team"] || "").toLowerCase().trim();
+    if (!home || !away) return false;
+
+    const parts = matchStr.split(/\s+vs\s+|\s+-\s+/);
+    const mHome = (parts[0] || matchStr).trim();
+    const mAway = (parts[1] || "").trim();
+
+    const homeMatch = home.includes(mHome) || mHome.includes(home);
+    const awayMatch = away.includes(mAway) || mAway.includes(away);
+    const isReversed =
+      (home.includes(mAway) || mAway.includes(home)) &&
+      (away.includes(mHome) || mHome.includes(away));
+
+    return (homeMatch && awayMatch) || isReversed;
+  });
+
+  if (!matchRows.length) {
+    liveOddsCache.set(matchStr, null);
+    return null;
+  }
+
+  matchRows.sort(
+    (a, b) => new Date(a["Time Checked"]) - new Date(b["Time Checked"])
+  );
+  const newest = matchRows[matchRows.length - 1];
+
+  const h = Number(newest["Home Odds"]);
+  const d = Number(newest["Draw Odds"]);
+  const a = Number(newest["Away Odds"]);
+
+  const res = h > 1 && d > 1 && a > 1 ? { home: h, draw: d, away: a } : null;
+  liveOddsCache.set(matchStr, res);
+  return res;
+}
+
 /* =============================================================================
   Main MatchCard Component
 ============================================================================= */
@@ -1433,40 +1489,10 @@ export default function MatchCard({
 
   const mlStats = useMemo(() => calculateHistWinRateForMatch(match, archiveData), [archiveData, match?.chance, match?.rating, match?.pick]);
 
-  const live1X2 = useMemo(() => {
-    if (!oddsHistory.length || !match?.match) return null;
-    const matchStr = String(match.match).toLowerCase();
-    const matchRows = oddsHistory.filter((row) => {
-      const home = String(row["Home Team"] || "").toLowerCase().trim();
-      const away = String(row["Away Team"] || "").toLowerCase().trim();
-      if (!home || !away) return false;
-      
-      const parts = matchStr.split(/\s+vs\s+|\s+-\s+/);
-      const mHome = (parts[0] || matchStr).trim();
-      const mAway = (parts[1] || "").trim();
-      
-      const homeMatch = home.includes(mHome) || mHome.includes(home);
-      const awayMatch = away.includes(mAway) || mAway.includes(away);
-      const isReversed = (home.includes(mAway) || mAway.includes(home)) && (away.includes(mHome) || mHome.includes(away));
-      
-      return (homeMatch && awayMatch) || isReversed;
-    });
-    if (!matchRows.length) return null;
-
-    matchRows.sort(
-      (a, b) => new Date(a["Time Checked"]) - new Date(b["Time Checked"])
-    );
-    const newest = matchRows[matchRows.length - 1];
-
-    const h = Number(newest["Home Odds"]);
-    const d = Number(newest["Draw Odds"]);
-    const a = Number(newest["Away Odds"]);
-
-    if (h > 1 && d > 1 && a > 1) {
-      return { home: h, draw: d, away: a };
-    }
-    return null;
-  }, [oddsHistory, match?.match]);
+  const live1X2 = useMemo(
+    () => getCachedLiveOdds(oddsHistory, match?.match),
+    [oddsHistory, match?.match]
+  );
 
   const odds1X2 = useMemo(
     () => ({
@@ -2038,6 +2064,26 @@ export default function MatchCard({
 
   const dcOdds = getDoubleChanceOdds(match);
 
+  const fbComputed = useMemo(() => {
+    const fbChance = Math.round(Number(chance) || 0);
+    const fbRating = Math.round(Number(ratingPercentage) || 0);
+    const fbPts = Math.abs(Number(match?.hPts || 0) - Number(match?.aPts || 0));
+    const fbStab = Math.min(100, Math.round((fbPts / 15) * 100));
+    const fbTrust = Math.round(fbChance * 0.5 + fbRating * 0.5);
+    const fbRaw = Math.round(fbChance * 0.35 + fbRating * 0.30 + fbStab * 0.20 + fbTrust * 0.15);
+    const score = Math.max(0, Math.min(100, fbRaw));
+    const tier = score >= 85 ? { label: "Elite", cls: "bg-purple-500/20 border-purple-500/40 text-purple-300" }
+      : score >= 70 ? { label: "High", cls: "bg-emerald-500/20 border-emerald-500/40 text-emerald-300" }
+      : score >= 50 ? { label: "Medium", cls: "bg-amber-500/20 border-amber-500/40 text-amber-300" }
+      : { label: "Low", cls: "bg-slate-500/10 border-slate-500/20 text-slate-400" };
+    return { score, tier };
+  }, [chance, ratingPercentage, match?.hPts, match?.aPts]);
+
+  const rawMatchStr = String(match?.match || match?.fixture || "");
+  const parts = rawMatchStr.includes(" - ") ? rawMatchStr.split(" - ") : rawMatchStr.split("-");
+  const hTeam = (parts[0] || "Home").trim();
+  const aTeam = (parts[1] || "Away").trim();
+
   const rawFtScore = match?.ft_score || match?.raw_data?.ftScore || match?.ftScore;
   const globalFtScore = rawFtScore && rawFtScore !== "#N/A" ? rawFtScore : null;
   const actualMarket = recommended ? recommended.market : (marketText || "");
@@ -2064,204 +2110,51 @@ export default function MatchCard({
         accent={ratingColor}
         isSystemMatch={isSystemMatch}
       >
-        <div ref={cardRef} className="relative flex flex-col gap-3">
-          {isSystemMatch && (
-            <div
-              className={cn(
-                "absolute -top-4 sm:-top-5 -left-4 sm:-left-5 -right-4 sm:-right-5 px-4 py-2 border-b flex items-center justify-between z-10",
-                darkMode
-                  ? "bg-amber-500/20 border-amber-500/30 text-amber-300"
-                  : "bg-gradient-to-r from-amber-400 to-yellow-500 border-amber-500 text-amber-950"
-              )}
-            >
-              <div className="flex items-center gap-2">
-                <Target
-                  size={16}
-                  className={darkMode ? "text-amber-400" : "text-amber-900"}
-                />
-                <span className="text-[11px] font-black uppercase tracking-[0.2em]">
-                  +EV SYSTEM MATCH DETECTED
-                </span>
-              </div>
-              <span className="text-xs font-black">Value Play</span>
-            </div>
-          )}
+        <div ref={cardRef} className="relative flex flex-col gap-3.5">
+          {/* === UPGRADE 1: CONSOLIDATED HEADER === */}
+          <MatchCardHeader
+            league={safeStr(match?.fullLeague) || safeStr(match?.league) || "League"}
+            country={safeStr(match?.country)}
+            date={safeStr(match?.date)}
+            time={safeStr(match?.time)}
+            kickoffPassed={kickoffPassed}
+            band={band}
+            bandColor={ratingColor}
+            fbScore={fbComputed.score}
+            fbTier={fbComputed.tier}
+            pickStrength={pickStrength}
+            convictionTier={localConvictionTier}
+            convictionStrength={localConvictionStrength}
+            isSystemMatch={isSystemMatch}
+            canSeeAdvancedData={canSeeAdvancedData}
+            darkMode={darkMode}
+            onOpenH2H={() => setShowComparison(true)}
+            showH2H={canSeeAdvancedData}
+          />
+
+          {/* === UPGRADE 2: TEAM MATCHUP WITH MONOGRAM CRESTS === */}
+          <TeamMatchup
+            homeTeam={hTeam}
+            awayTeam={aTeam}
+            homeLogo={match?.homeLogo || match?.hLogo || match?.home_logo}
+            awayLogo={match?.awayLogo || match?.aLogo || match?.away_logo}
+            homeForm={match?.hForm || match?.form?.homeStr}
+            awayForm={match?.aForm || match?.form?.awayStr}
+            ftScore={globalFtScore}
+            wonStatus={wonStatus}
+            kickoffPassed={kickoffPassed}
+            predictedScore={canSeePredictedScore ? match?.cScore || match?.predictedScore : null}
+            canSeePredictedScore={canSeePredictedScore}
+            isSystemMatch={isSystemMatch}
+            darkMode={darkMode}
+          />
 
           <div
             className={cn(
-              "flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3",
-              isSystemMatch && "mt-8"
+              "flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3"
             )}
           >
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2 mb-2">
-                <span className={pill(darkMode, bandPillKind)}>
-                  <Sparkles size={14} />
-                  {band} band
-                </span>
-                <span className={pill(darkMode, "default")}>
-                  <Timer size={14} />
-                  {safeStr(match?.date) || "—"} • {safeStr(match?.time) || "—"}
-                </span>
-                {canSeeAdvancedData && pickStrength ? (
-                  <span className={pill(darkMode, pickStrength.kind)}>
-                    <ShieldAlert size={14} />
-                    Strength: {pickStrength.label}
-                  </span>
-                ) : null}
-                {localConvictionTier && (
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${getConvictionColor(
-                      localConvictionTier
-                    )}`}
-                  >
-                    Conviction: {localConvictionTier} ({localConvictionStrength}%)
-                  </span>
-                )}
-                {/* ===== FB SCORE BADGE & H2H BUTTON (PREMIUM ONLY) ===== */}
-                {canSeeAdvancedData && (
-                  <>
-                    {(() => {
-                      const fbChance = Math.round(Number(chance) || 0);
-                      const fbRating = Math.round(Number(ratingPercentage) || 0);
-                      const fbPts = Math.abs(Number(match?.hPts || 0) - Number(match?.aPts || 0));
-                      const fbStab = Math.min(100, Math.round((fbPts / 15) * 100));
-                      const fbTrust = Math.round(fbChance * 0.5 + fbRating * 0.5);
-                      const fbRaw = Math.round(fbChance * 0.35 + fbRating * 0.30 + fbStab * 0.20 + fbTrust * 0.15);
-                      const fbScore = Math.max(0, Math.min(100, fbRaw));
-                      const fbTier = fbScore >= 85 ? { label: "Elite", cls: "bg-purple-500/20 border-purple-500/40 text-purple-300" }
-                        : fbScore >= 70 ? { label: "High", cls: "bg-emerald-500/20 border-emerald-500/40 text-emerald-300" }
-                        : fbScore >= 50 ? { label: "Medium", cls: "bg-amber-500/20 border-amber-500/40 text-amber-300" }
-                        : { label: "Low", cls: "bg-slate-500/10 border-slate-500/20 text-slate-400" };
-                      return (
-                        <span
-                          title={`FutureBet Score: ${fbScore}/100 (${fbTier.label})\nChance: ${fbChance}% · Rating: ${fbRating}% · Stability: ${fbStab}% · Trust: ${fbTrust}%`}
-                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-black border cursor-help select-none ${fbTier.cls}`}
-                        >
-                          ⚡ FB {fbScore}
-                        </span>
-                      );
-                    })()}
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); setShowComparison(true); }}
-                      title="Quick Head-to-Head Comparison"
-                      className={cn(
-                        "inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-black border transition-colors",
-                        darkMode
-                          ? "bg-blue-500/10 border-blue-500/30 text-blue-300 hover:bg-blue-500/20"
-                          : "bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100"
-                      )}
-                    >
-                      H2H
-                    </button>
-                  </>
-                )}
-                {!user ? (
-                  <span className={pill(darkMode, "premium")}>
-                    Sign in for BetSlip
-                  </span>
-                ) : null}
-              </div>
-
-              {(() => {
-                const rawMatchStr = String(
-                  match?.match || match?.fixture || ""
-                );
-                const parts = rawMatchStr.includes(" - ")
-                  ? rawMatchStr.split(" - ")
-                  : rawMatchStr.split("-");
-                const hTeam = (parts[0] || "Home").trim();
-                const aTeam = (parts[1] || "Away").trim();
-                const rawFtScore = match?.ft_score || match?.raw_data?.ftScore || match?.ftScore;
-                const ftScore = rawFtScore && rawFtScore !== "#N/A" ? rawFtScore : null;
-                return (
-                  <div className="mb-4 mt-2">
-                    <div className="flex justify-center mb-3">
-                      <span
-                        className={cn(
-                          "text-[9px] sm:text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border shadow-sm",
-                          darkMode
-                            ? "bg-white/5 border-white/10 text-gray-400"
-                            : "bg-white border-gray-200 text-gray-500"
-                        )}
-                      >
-                        {safeStr(match?.fullLeague) ||
-                          safeStr(match?.league) ||
-                          "League"}
-                      </span>
-                    </div>
-                    <div
-                      className={cn(
-                        "flex items-center justify-between p-4 sm:p-5 rounded-[24px] border shadow-sm relative overflow-hidden",
-                        darkMode
-                          ? "bg-gradient-to-b from-white/[0.05] to-transparent border-white/10"
-                          : "bg-gradient-to-b from-gray-50 to-white border-gray-200"
-                      )}
-                    >
-                      {isSystemMatch && (
-                        <div
-                          className={cn(
-                            "absolute inset-0 pointer-events-none opacity-[0.05]",
-                            darkMode ? "bg-amber-400" : "bg-amber-500"
-                          )}
-                        />
-                      )}
-                      <div className="flex flex-col items-center gap-2.5 flex-1 w-[40%] relative z-10">
-                        <span
-                          className={cn(
-                            "text-sm sm:text-base font-black text-center leading-tight line-clamp-2",
-                            darkMode ? "text-white" : "text-gray-900"
-                          )}
-                        >
-                          {hTeam}
-                        </span>
-                        <VisualFormGuide
-                          formStr={match?.hForm || match?.form?.homeStr}
-                        />
-                      </div>
-                      <div className="flex flex-col items-center justify-center shrink-0 px-2 relative z-10">
-                        <div
-                          className={cn(
-                            "h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-black italic shadow-inner ring-4",
-                            darkMode
-                              ? "bg-gray-900 ring-gray-800 text-gray-500"
-                              : "bg-gray-100 ring-white text-gray-400"
-                          )}
-                        >
-                          VS
-                        </div>
-                        {(isAdmin || isPremium) && ftScore && (
-                          <div
-                            className={cn(
-                              "mt-2 px-2 py-0.5 rounded text-[10px] font-black border tracking-wider",
-                              darkMode
-                                ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400"
-                                : "bg-emerald-50 border-emerald-200 text-emerald-700"
-                            )}
-                          >
-                            FT: {ftScore}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex flex-col items-center gap-2.5 flex-1 w-[40%] relative z-10">
-                        <span
-                          className={cn(
-                            "text-sm sm:text-base font-black text-center leading-tight line-clamp-2",
-                            darkMode ? "text-white" : "text-gray-900"
-                          )}
-                        >
-                          {aTeam}
-                        </span>
-                        <VisualFormGuide
-                          formStr={match?.aForm || match?.form?.awayStr}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
               <div
                 className={cn(
                   "mt-3 rounded-[24px] border p-4 sm:p-5 transition-all shadow-sm relative overflow-hidden",
@@ -2475,176 +2368,37 @@ export default function MatchCard({
                         ))}
                     </div>
 
-                    {/* === 2. VALUE EDGE VISUALIZER === */}
-                    {canSeeAdvancedData && (
-                      <ValueEdgeVisualizer
-                        modelProb={
-                          activeSelection
-                            ? resolveProbabilityForSelection(
-                                match,
-                                activeSelection.market,
-                                activeSelection.option
-                              )
-                            : null
-                        }
-                        odds={pickOdds}
-                        darkMode={darkMode}
-                      />
+                    {/* === UPGRADE 3: MODEL VS. MARKET VALUE EDGE GAUGE === */}
+                    {canSeeAdvancedData && pickOdds && (
+                      <div className="mt-3">
+                        <ValueEdgeGauge
+                          modelProb={
+                            activeSelection
+                              ? resolveProbabilityForSelection(
+                                  match,
+                                  activeSelection.market,
+                                  activeSelection.option
+                                )
+                              : chance
+                          }
+                          odds={pickOdds}
+                          selectionLabel={recommended ? formatSelectionLabel(recommended) : "Primary Pick"}
+                          darkMode={darkMode}
+                          canSeeAdvancedData={canSeeAdvancedData}
+                        />
+                      </div>
                     )}
 
-                    {/* === 3. NEW 1X2 MARKET GRID — only shown when real odds exist === */}
-                    {(odds1X2.home > 0 || odds1X2.draw > 0 || odds1X2.away > 0) && (
-                    <div
-                      className={cn(
-                        "mt-6 pt-5 border-t",
-                        darkMode ? "border-white/10" : "border-gray-200"
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "text-[10px] font-black uppercase tracking-widest opacity-80 mb-3 flex items-center",
-                          darkMode ? "text-gray-300" : "text-gray-600"
-                        )}
-                      >
-                        1X2 Market Context
-                        {odds1X2?.isLive && (
-                          <span className="text-emerald-500 animate-pulse ml-2 text-[9px] bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>{" "}
-                            LIVE
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2">
-                        <div
-                          className={cn(
-                            "rounded-2xl border p-2 flex flex-col items-center justify-center transition-all",
-                            darkMode
-                              ? "bg-white/[0.02] border-white/10"
-                              : "bg-gray-50 border-gray-200"
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              "text-[9px] font-black uppercase tracking-widest opacity-50 mb-0.5",
-                              darkMode ? "text-gray-400" : "text-gray-500"
-                            )}
-                          >
-                            1
-                          </span>
-                          {canSeeAdvancedData ? (
-                            <span
-                              className={cn(
-                                "text-sm sm:text-base font-black tabular-nums tracking-tight",
-                                darkMode ? "text-white" : "text-gray-900"
-                              )}
-                            >
-                              {odds1X2?.home > 0
-                                ? odds1X2.home.toFixed(2)
-                                : "—"}
-                            </span>
-                          ) : (
-                            <span
-                              className="flex items-center gap-1 cursor-pointer mt-0.5"
-                              onClick={() =>
-                                toast.error(
-                                  "🔒 Upgrade to Pro to see exact live odds!"
-                                )
-                              }
-                            >
-                              <span className="text-sm font-black blur-[4px] opacity-40 select-none">
-                                2.15
-                              </span>
-                            </span>
-                          )}
-                        </div>
-                        <div
-                          className={cn(
-                            "rounded-2xl border p-2 flex flex-col items-center justify-center transition-all",
-                            darkMode
-                              ? "bg-white/[0.02] border-white/10"
-                              : "bg-gray-50 border-gray-200"
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              "text-[9px] font-black uppercase tracking-widest opacity-50 mb-0.5",
-                              darkMode ? "text-gray-400" : "text-gray-500"
-                            )}
-                          >
-                            X
-                          </span>
-                          {canSeeAdvancedData ? (
-                            <span
-                              className={cn(
-                                "text-sm sm:text-base font-black tabular-nums tracking-tight",
-                                darkMode ? "text-white" : "text-gray-900"
-                              )}
-                            >
-                              {odds1X2?.draw > 0
-                                ? odds1X2.draw.toFixed(2)
-                                : "—"}
-                            </span>
-                          ) : (
-                            <span
-                              className="flex items-center gap-1 cursor-pointer mt-0.5"
-                              onClick={() =>
-                                toast.error(
-                                  "🔒 Upgrade to Pro to see exact live odds!"
-                                )
-                              }
-                            >
-                              <span className="text-sm font-black blur-[4px] opacity-40 select-none">
-                                3.40
-                              </span>
-                            </span>
-                          )}
-                        </div>
-                        <div
-                          className={cn(
-                            "rounded-2xl border p-2 flex flex-col items-center justify-center transition-all",
-                            darkMode
-                              ? "bg-white/[0.02] border-white/10"
-                              : "bg-gray-50 border-gray-200"
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              "text-[9px] font-black uppercase tracking-widest opacity-50 mb-0.5",
-                              darkMode ? "text-gray-400" : "text-gray-500"
-                            )}
-                          >
-                            2
-                          </span>
-                          {canSeeAdvancedData ? (
-                            <span
-                              className={cn(
-                                "text-sm sm:text-base font-black tabular-nums tracking-tight",
-                                darkMode ? "text-white" : "text-gray-900"
-                              )}
-                            >
-                              {odds1X2?.away > 0
-                                ? odds1X2.away.toFixed(2)
-                                : "—"}
-                            </span>
-                          ) : (
-                            <span
-                              className="flex items-center gap-1 cursor-pointer mt-0.5"
-                              onClick={() =>
-                                toast.error(
-                                  "🔒 Upgrade to Pro to see exact live odds!"
-                                )
-                              }
-                            >
-                              <span className="text-sm font-black blur-[4px] opacity-40 select-none">
-                                3.10
-                              </span>
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    )} {/* end odds1X2 guard */}
+                    {/* === UPGRADE 4: INTERACTIVE MULTI-MARKET ODDS STRIP === */}
+                    <InteractiveOddsStrip
+                      match={match}
+                      darkMode={darkMode}
+                      canSeeAdvancedData={canSeeAdvancedData}
+                      isPro={isPro}
+                      user={user}
+                      kickoffPassed={kickoffPassed}
+                      defaultMarket={activeMarket || "1X2"}
+                    />
 
                     {/* === 4. LIVE STEAM & HISTORICAL STATS === */}
                     {canSeeAdvancedData && activeSelection && (
@@ -3012,6 +2766,17 @@ export default function MatchCard({
                   }
                 >
                   <div className="space-y-3">
+                    <GoalSpectrumGauge
+                      ov15={extendedOvers.over15 || match?.ov15 || 75}
+                      ov25={match?.ov25}
+                      ov35={extendedOvers.over35 || match?.ov35}
+                      ov45={extendedOvers.over45 || match?.ov45}
+                      gg={match?.gg}
+                      ng={match?.ng}
+                      avgGoals={match?.avg}
+                      darkMode={darkMode}
+                    />
+
                     <Meter
                       darkMode={darkMode}
                       label="Over 1.5"
