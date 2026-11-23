@@ -9,7 +9,7 @@ import BookingCodeModal from "@/components/Dashboard/BookingCodeModal";
 import { SlipCardModal } from "@/components/Dashboard/SlipCardModal";
 import { MonteCarloAuditor } from "@/components/Dashboard/MonteCarloAuditor";
 import { LoadBookingCodeModal } from "@/components/Dashboard/LoadBookingCodeModal";
-import { formatNaira } from "@/utils/matchUtils";
+import { formatNaira, formatSlipMarketLabel } from "@/utils/matchUtils";
 import { toast } from "sonner";
 import {
   Ticket,
@@ -446,7 +446,7 @@ export default function BetSlip({ darkMode = false }) {
         lines.push(`📅 ${dateStr}`);
       }
 
-      lines.push(`🎯 ${m.selectedMarket}: ${m.selectedOption}`);
+      lines.push(`🎯 ${formatSlipMarketLabel(m.selectedMarket, m.selectedOption)}`);
       
       if (Number(m.odds) > 0) {
         let chanceNum = Number(m.chance) || Number(m.confidence) || 0;

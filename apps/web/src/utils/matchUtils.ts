@@ -876,3 +876,77 @@ export function formatNaira(amount) {
     maximumFractionDigits: 0,
   }).format(num).replace("NGN", "₦").trim();
 }
+
+/**
+ * Formats market & option to standardized concise betting notation:
+ * 1. Home Win -> Home
+ * 2. Draw -> Draw
+ * 3. Away Win -> Away
+ * 4. Over 2.5 Yes -> Over 2.5
+ * 5. Over 2.5 No -> Under 2.5
+ * 6. BTTS Yes -> GG
+ * 7. BTTS No -> NG
+ * 8. Home or Draw -> 1X
+ * 9. Home or Away -> 12
+ * 10. Draw or Away -> X2
+ * etc.
+ */
+export function formatSlipMarketLabel(selectedMarket = "", selectedOption = "") {
+  const m = String(selectedMarket || "").trim();
+  const o = String(selectedOption || "").trim();
+  const combined = `${m} ${o}`.toLowerCase().replace(/[:\-_]/g, " ");
+
+  // 1X2 / Match Winner
+  if (combined.includes("home win") || (m === "1X2" && o.toLowerCase() === "home")) return "Home";
+  if (combined.includes("away win") || (m === "1X2" && o.toLowerCase() === "away")) return "Away";
+  if (combined.includes("draw") && !combined.includes("double chance") && !combined.includes("or draw")) return "Draw";
+
+  // Double Chance
+  if (combined.includes("home or draw") || combined.includes("1x")) return "1X";
+  if (combined.includes("home or away") || combined.includes("12") || combined.includes("1 2")) return "12";
+  if (combined.includes("draw or away") || combined.includes("x2") || combined.includes("x 2")) return "X2";
+
+  // Both Teams To Score (BTTS)
+  if (combined.includes("btts") || combined.includes("both teams to score") || combined.includes("gg") || combined.includes("ng")) {
+    if (combined.includes("no") || combined.includes("ng")) return "NG";
+    if (combined.includes("yes") || combined.includes("gg")) return "GG";
+  }
+
+  // Over / Under 2.5
+  if (combined.includes("2.5") || combined.includes("25")) {
+    if (combined.includes("under") || combined.includes("no") || combined.includes("un25")) return "Under 2.5";
+    if (combined.includes("over") || combined.includes("yes") || combined.includes("ov25")) return "Over 2.5";
+  }
+
+  // Over / Under 1.5
+  if (combined.includes("1.5") || combined.includes("15")) {
+    if (combined.includes("under") || combined.includes("no") || combined.includes("un15")) return "Under 1.5";
+    if (combined.includes("over") || combined.includes("yes") || combined.includes("ov15")) return "Over 1.5";
+  }
+
+  // Over / Under 3.5
+  if (combined.includes("3.5") || combined.includes("35")) {
+    if (combined.includes("under") || combined.includes("no") || combined.includes("un35")) return "Under 3.5";
+    if (combined.includes("over") || combined.includes("yes") || combined.includes("ov35")) return "Over 3.5";
+  }
+
+  // Over / Under 4.5
+  if (combined.includes("4.5") || combined.includes("45")) {
+    if (combined.includes("under") || combined.includes("no") || combined.includes("un45")) return "Under 4.5";
+    if (combined.includes("over") || combined.includes("yes") || combined.includes("ov45")) return "Over 4.5";
+  }
+
+  // Correct Score
+  if (m.toLowerCase().includes("correct score") || m.toLowerCase() === "cs") {
+    return `CS ${o}`;
+  }
+
+  // Fallback: If option is already clean (e.g. "Home", "Away", "Draw", "Over 2.5"), return option
+  if (o) {
+    if (o.toLowerCase() === "home" || o.toLowerCase() === "away" || o.toLowerCase() === "draw") return o;
+    if (m && o !== "Yes" && o !== "No") return `${m}: ${o}`;
+    return o;
+  }
+
+  return m || "Pick";
+}

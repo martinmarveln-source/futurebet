@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import useBetslipStore from "@/store/betslipStore";
+import { formatSlipMarketLabel } from "@/utils/matchUtils";
 
 function cn(...c) {
   return c.filter(Boolean).join(" ");
@@ -200,7 +201,7 @@ export function LoadBookingCodeModal({
         ticketData.matches
           .map(
             (m, i) =>
-              `${i + 1}. ${m.match} - ${m.selectedMarket}: ${m.selectedOption} (@${m.odds})`
+              `${i + 1}. ${m.match} - ${formatSlipMarketLabel(m.selectedMarket, m.selectedOption)} (@${m.odds})`
           )
           .join("\n");
 
@@ -427,7 +428,7 @@ export function LoadBookingCodeModal({
                           : "bg-white border-slate-200 hover:border-slate-300"
                       )}
                     >
-                      <div className="flex items-center gap-3 truncate">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <span
                           className={cn(
                             "w-6 h-6 rounded-lg flex items-center justify-center text-xs font-mono font-black shrink-0",
@@ -438,33 +439,59 @@ export function LoadBookingCodeModal({
                         >
                           {idx + 1}
                         </span>
-                        <div className="truncate">
-                          <div className="text-xs font-black truncate">{m.match}</div>
-                          <div className="text-[10px] text-slate-400 flex items-center gap-1.5 truncate">
-                            <span>{m.league || "Football"}</span>
-                            {score && (
-                              <span className="text-amber-400 font-bold">• Score {score}</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                        {(() => {
+                          const formattedMarket = formatSlipMarketLabel(m.selectedMarket, m.selectedOption);
+                          const country = (m.country || m.Country || m.leagueCountry || "").trim();
+                          let league = (m.fullLeague || m.league || m.League || "").trim();
+                          league = league.replace(/Intl\s*-\s*/g, "").replace(/World\s*-\s*/g, "").trim();
+                          const countryLeague = country && league ? `${country} • ${league}` : league || country || "Football";
 
-                      <div className="text-right shrink-0">
-                        <div
-                          className={cn(
-                            "text-[11px] font-black uppercase px-2.5 py-1 rounded-xl border shadow-sm",
-                            darkMode
-                              ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
-                              : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          )}
-                        >
-                          {m.selectedMarket}: {m.selectedOption}
-                        </div>
-                        {Number(m.odds) > 1 && (
-                          <div className="text-[10px] font-bold text-slate-400 mt-0.5">
-                            @{Number(m.odds).toFixed(2)}
-                          </div>
-                        )}
+                          let dateVal = String(m.dateRaw || m.date || m.dateISO || "").trim();
+                          if (dateVal.length > 10) dateVal = dateVal.slice(0, 10);
+
+                          let timeVal = String(m.time || m.match_time || m.kickoff_at || m.kickoff || "").trim();
+                          if (timeVal.includes("T")) {
+                            timeVal = timeVal.split("T")[1].slice(0, 5);
+                          } else if (timeVal && timeVal.split(":").length >= 2) {
+                            timeVal = timeVal.slice(0, 5);
+                          }
+
+                          const dateTimeStr = dateVal && timeVal ? `${dateVal} • ${timeVal}` : timeVal || dateVal || "";
+                          const oddsNum = Number(m.odds || m.homeOdds || 0);
+
+                          return (
+                            <>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-xs font-black truncate" title={m.match}>{m.match}</div>
+                                <div className="text-[10px] text-slate-400 flex flex-wrap items-center gap-1.5 mt-0.5">
+                                  <span className="text-slate-300 font-semibold">{countryLeague}</span>
+                                  {dateTimeStr && <span>• {dateTimeStr}</span>}
+                                  {score && (
+                                    <span className="text-amber-400 font-bold">• Score {score}</span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="text-right shrink-0">
+                                <div
+                                  className={cn(
+                                    "text-[11px] font-black uppercase px-2.5 py-1 rounded-xl border shadow-sm",
+                                    darkMode
+                                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                                      : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  )}
+                                >
+                                  {formattedMarket}
+                                </div>
+                                {oddsNum > 1 && (
+                                  <div className="text-[10px] font-bold text-slate-400 mt-0.5">
+                                    @{oddsNum.toFixed(2)}
+                                  </div>
+                                )}
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   );

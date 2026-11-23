@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { toPng, toBlob } from "html-to-image";
 import { toast } from "sonner";
+import { formatSlipMarketLabel } from "@/utils/matchUtils";
 
 function cn(...c) {
   return c.filter(Boolean).join(" ");
@@ -395,12 +396,31 @@ export function SlipCardModal({
             >
               {matchesToRender.map((m, idx) => {
                 const score = m.cScore || m.predictedScore || m.likelyCS || m.c_score;
+                const formattedMarket = formatSlipMarketLabel(m.selectedMarket, m.selectedOption);
+                const country = (m.country || m.Country || m.leagueCountry || "").trim();
+                let league = (m.fullLeague || m.league || m.League || "").trim();
+                league = league.replace(/Intl\s*-\s*/g, "").replace(/World\s*-\s*/g, "").trim();
+                const countryLeague = country && league ? `${country} • ${league}` : league || country || "Football";
+
+                let dateVal = String(m.dateRaw || m.date || m.dateISO || "").trim();
+                if (dateVal.length > 10) dateVal = dateVal.slice(0, 10);
+
+                let timeVal = String(m.time || m.match_time || m.kickoff_at || m.kickoff || "").trim();
+                if (timeVal.includes("T")) {
+                  timeVal = timeVal.split("T")[1].slice(0, 5);
+                } else if (timeVal && timeVal.split(":").length >= 2) {
+                  timeVal = timeVal.slice(0, 5);
+                }
+
+                const dateTimeStr = dateVal && timeVal ? `${dateVal} • ${timeVal}` : timeVal || dateVal || "";
+                const oddsNum = Number(m.odds || m.homeOdds || 0);
+
                 return (
                   <div
                     key={idx}
                     className={cn(
-                      "rounded-xl border backdrop-blur-md flex items-center justify-between gap-2 text-left",
-                      isCompactRows ? "p-1.5 px-2.5" : "p-2.5",
+                      "rounded-xl border backdrop-blur-md flex items-center justify-between gap-2.5 text-left transition-all",
+                      isCompactRows ? "p-1.5 px-2" : "p-2 px-2.5",
                       theme === "cyber"
                         ? "bg-white/[0.03] border-white/10"
                         : theme === "gold"
@@ -408,30 +428,36 @@ export function SlipCardModal({
                         : "bg-white/5 border-white/10"
                     )}
                   >
-                    <div className="truncate flex-1">
+                    <div className="min-w-0 flex-1">
                       <div
                         className={cn(
-                          "font-black truncate",
+                          "font-black tracking-tight leading-snug break-words",
                           isCompactRows ? "text-[10px]" : "text-[11px]"
                         )}
+                        title={m.match}
                       >
                         {m.match}
                       </div>
                       <div
                         className={cn(
-                          "text-slate-400 flex items-center gap-1.5 truncate",
+                          "text-slate-400 flex flex-wrap items-center gap-1.5 mt-0.5 font-medium leading-none",
                           isCompactRows ? "text-[8px]" : "text-[9px]"
                         )}
                       >
-                        <span>{m.league || "Football"}</span>
+                        <span className="text-slate-300 font-semibold">{countryLeague}</span>
+                        {dateTimeStr && (
+                          <span className="text-slate-400 font-medium">
+                            • {dateTimeStr}
+                          </span>
+                        )}
                         {score && <span className="text-amber-400 font-bold">• Score {score}</span>}
                       </div>
                     </div>
 
-                    <div className="text-right shrink-0">
+                    <div className="text-right shrink-0 flex flex-col items-end justify-center">
                       <div
                         className={cn(
-                          "font-black uppercase rounded-lg border",
+                          "font-black uppercase rounded-lg border text-center shadow-xs tracking-wide",
                           isCompactRows ? "text-[9px] px-1.5 py-0.5" : "text-[10px] px-2 py-0.5",
                           theme === "cyber"
                             ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
@@ -440,16 +466,21 @@ export function SlipCardModal({
                             : "bg-blue-500/20 text-blue-200 border-blue-500/30"
                         )}
                       >
-                        {m.selectedMarket}: {m.selectedOption}
+                        {formattedMarket}
                       </div>
-                      {Number(m.odds) > 1 && (
+                      {oddsNum > 1 && (
                         <div
                           className={cn(
-                            "font-bold text-slate-400 mt-0.5",
-                            isCompactRows ? "text-[8px]" : "text-[9px]"
+                            "font-bold mt-0.5",
+                            isCompactRows ? "text-[8px]" : "text-[9px]",
+                            theme === "cyber"
+                              ? "text-emerald-400/90"
+                              : theme === "gold"
+                              ? "text-amber-400/90"
+                              : "text-blue-300"
                           )}
                         >
-                          @{Number(m.odds).toFixed(2)}
+                          @{oddsNum.toFixed(2)}
                         </div>
                       )}
                     </div>

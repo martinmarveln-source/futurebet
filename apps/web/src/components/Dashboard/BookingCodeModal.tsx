@@ -18,6 +18,7 @@ import {
   Bot,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatSlipMarketLabel } from "@/utils/matchUtils";
 
 function cn(...c) {
   return c.filter(Boolean).join(" ");
@@ -412,42 +413,64 @@ export default function BookingCodeModal({
               <span className="text-[10px] text-slate-500">Click 'Find' to view on {currentBookieConfig.name}</span>
             </div>
             <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-              {displayMatches.map((m, idx) => (
-                <div
-                  key={idx}
-                  className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs flex items-center justify-between gap-3 hover:border-slate-700 transition-colors"
-                >
-                  <div className="truncate flex-1">
-                    <div className="font-bold text-white truncate">{m.match}</div>
-                    <div className="text-[10px] text-slate-400 truncate">
-                      {m.league || "Football"} {m.time ? `• ${m.time}` : ""} {m.date ? `• ${m.date}` : ""}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <div className="text-right">
-                      <div className="text-emerald-400 font-black text-xs">
-                        {m.selectedMarket}: {m.selectedOption}
+              {displayMatches.map((m, idx) => {
+                const formattedMarket = formatSlipMarketLabel(m.selectedMarket, m.selectedOption);
+                const country = (m.country || m.Country || m.leagueCountry || "").trim();
+                let league = (m.fullLeague || m.league || m.League || "").trim();
+                league = league.replace(/Intl\s*-\s*/g, "").replace(/World\s*-\s*/g, "").trim();
+                const countryLeague = country && league ? `${country} • ${league}` : league || country || "Football";
+
+                let dateVal = String(m.dateRaw || m.date || m.dateISO || "").trim();
+                if (dateVal.length > 10) dateVal = dateVal.slice(0, 10);
+
+                let timeVal = String(m.time || m.match_time || m.kickoff_at || m.kickoff || "").trim();
+                if (timeVal.includes("T")) {
+                  timeVal = timeVal.split("T")[1].slice(0, 5);
+                } else if (timeVal && timeVal.split(":").length >= 2) {
+                  timeVal = timeVal.slice(0, 5);
+                }
+
+                const dateTimeStr = dateVal && timeVal ? `${dateVal} • ${timeVal}` : timeVal || dateVal || "";
+                const oddsNum = Number(m.odds || m.homeOdds || 0);
+
+                return (
+                  <div
+                    key={idx}
+                    className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs flex items-center justify-between gap-3 hover:border-slate-700 transition-colors"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-white truncate" title={m.match}>{m.match}</div>
+                      <div className="text-[10px] text-slate-400 flex flex-wrap items-center gap-1.5 mt-0.5">
+                        <span className="text-slate-300 font-medium">{countryLeague}</span>
+                        {dateTimeStr && <span>• {dateTimeStr}</span>}
                       </div>
-                      {Number(m.odds) > 1 && (
-                        <div className="text-[10px] text-slate-400 font-bold">
-                          @{Number(m.odds).toFixed(2)}
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="text-right">
+                        <div className="text-emerald-400 font-black text-xs uppercase px-2 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                          {formattedMarket}
                         </div>
+                        {oddsNum > 1 && (
+                          <div className="text-[10px] text-slate-400 font-bold mt-0.5">
+                            @{oddsNum.toFixed(2)}
+                          </div>
+                        )}
+                      </div>
+                      {m.bookieSearchUrl && (
+                        <a
+                          href={m.bookieSearchUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors"
+                          title={`Search ${m.match} on ${currentBookieConfig.name}`}
+                        >
+                          <Search size={12} />
+                        </a>
                       )}
                     </div>
-                    {m.bookieSearchUrl && (
-                      <a
-                        href={m.bookieSearchUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors"
-                        title={`Search ${m.match} on ${currentBookieConfig.name}`}
-                      >
-                        <Search size={12} />
-                      </a>
-                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
