@@ -51,19 +51,46 @@ export function useHomeData(rawMatches, selectors) {
   );
 
   const bestToday = useMemo(() => {
-    return rawMatches
+    let todayMatches = rawMatches
       .filter(isBestCandidate)
-      .filter((m) => selectors.getISODate(m) === todayISO)
-      .sort(bestSort)
-      .slice(0, 20);
+      .filter((m) => selectors.getISODate(m) === todayISO);
+
+    // Intelligent fallback: if no matches have the exact ✅ flag for today,
+    // take the top algorithmic rated matches for today so the tab is never empty
+    if (todayMatches.length === 0) {
+      todayMatches = rawMatches
+        .filter((m) => selectors.getISODate(m) === todayISO)
+        .filter(
+          (m) =>
+            (selectors.getChance(m) || 0) >= 55 ||
+            (selectors.getRating(m) || 0) >= 50
+        );
+    }
+
+    return todayMatches.sort(bestSort).slice(0, 20);
   }, [rawMatches, isBestCandidate, selectors, todayISO, bestSort]);
 
   const bestWeek = useMemo(() => {
-    const seen = new Set();
-    return rawMatches
+    let weekMatches = rawMatches
       .filter(isBestCandidate)
       .filter((m) => isInCurrentWeek(selectors.getISODate(m)))
-      .filter((m) => selectors.getISODate(m) !== todayISO)
+      .filter((m) => selectors.getISODate(m) !== todayISO);
+
+    // Intelligent fallback: if no matches have the exact ✅ flag for this week,
+    // take the top algorithmic rated matches for the week
+    if (weekMatches.length === 0) {
+      weekMatches = rawMatches
+        .filter((m) => isInCurrentWeek(selectors.getISODate(m)))
+        .filter((m) => selectors.getISODate(m) !== todayISO)
+        .filter(
+          (m) =>
+            (selectors.getChance(m) || 0) >= 55 ||
+            (selectors.getRating(m) || 0) >= 50
+        );
+    }
+
+    const seen = new Set();
+    return weekMatches
       .sort(bestSort)
       .filter((m) => {
         const key = selectors.getMatchTitle(m);

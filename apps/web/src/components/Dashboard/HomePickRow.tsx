@@ -9,6 +9,7 @@ import {
 } from "@/utils/matchUtils";
 import { Chip, ProgressBar } from "./PremiumUI";
 import useBetslipStore from "@/store/betslipStore";
+import { normalizePickDescriptor, resolveOddsForSelection } from "@/utils/pickEngine";
 
 export const HomePickRow = memo(function HomePickRow({
   m,
@@ -53,19 +54,67 @@ export const HomePickRow = memo(function HomePickRow({
   const fairOdds = fairOddsFromPickMarket(m);
   const marketLabel = getPick(m) || getTips(m) || "Main";
 
+  // 1. Resolve normalized market & option
+  const normalizedSelection = normalizePickDescriptor(marketLabel);
+  const targetMarket =
+    normalizedSelection?.market ||
+    (marketLabel && marketLabel.includes(" - ") ? marketLabel.split(" - ")[0] : null);
+  const targetOption =
+    normalizedSelection?.option ||
+    (marketLabel && marketLabel.includes(" - ") ? marketLabel.split(" - ")[1] : null);
+
+  // 2. Cascade through real odds sources
   let realOdds = null;
-  if (marketLabel && marketLabel.includes(" - ")) {
-    const [market, option] = marketLabel.split(" - ");
-    realOdds = useBetslipStore.getState().computeOddsForSelection(m, market, option);
-  } else if (marketLabel === "Over 2.5") {
-    realOdds = useBetslipStore.getState().computeOddsForSelection(m, "Over 2.5", "Yes");
-  } else if (marketLabel === "BTTS - Yes" || marketLabel === "BTTS YES") {
-    realOdds = useBetslipStore.getState().computeOddsForSelection(m, "BTTS", "Yes");
-  } else if (marketLabel === "BTTS - No" || marketLabel === "BTTS NO") {
-    realOdds = useBetslipStore.getState().computeOddsForSelection(m, "BTTS", "No");
+
+  // A. Check direct match pickOdds from backend
+  const pickOddsNum = Number(m?.pickOdds);
+  if (Number.isFinite(pickOddsNum) && pickOddsNum > 1) {
+    realOdds = Number(pickOddsNum.toFixed(2));
   }
 
-  const noRealOdds = realOdds === null || realOdds === undefined || realOdds === 0;
+  // B. Check resolveOddsForSelection
+  if (!realOdds && targetMarket && targetOption) {
+    const rOdds = resolveOddsForSelection(m, targetMarket, targetOption);
+    const rNum = Number(rOdds);
+    if (Number.isFinite(rNum) && rNum > 1) {
+      realOdds = Number(rNum.toFixed(2));
+    }
+  }
+
+  // C. Check computeOddsForSelection from betslip store
+  if (!realOdds && targetMarket && targetOption) {
+    const cOdds = useBetslipStore.getState().computeOddsForSelection(m, targetMarket, targetOption);
+    const cNum = Number(cOdds);
+    if (Number.isFinite(cNum) && cNum > 1) {
+      realOdds = Number(cNum.toFixed(2));
+    }
+  }
+
+  // D. Fallback to direct bookmaker odds on match object
+  if (!realOdds) {
+    const directFallback = Number(m?.odds || m?.bookmakerOdds || m?.bestOdds || m?.raw_data?.odds);
+    if (Number.isFinite(directFallback) && directFallback > 1) {
+      realOdds = Number(directFallback.toFixed(2));
+    }
+  }
+
+  // E. Fallback to model-derived fair odds if bookmaker odds not yet feed-synced
+  if (!realOdds && fairOdds) {
+    const fNum = Number(fairOdds);
+    if (Number.isFinite(fNum) && fNum > 1) {
+      realOdds = Number(fNum.toFixed(2));
+    }
+  }
+
+  const noRealOdds = !realOdds || realOdds <= 1;
+
+  // Value edge calculation
+  const fairNum = Number(fairOdds);
+  const hasEdge = Number.isFinite(fairNum) && fairNum > 0 && realOdds && realOdds > fairNum;
+  const edgePct = hasEdge ? Math.round(((realOdds - fairNum) / fairNum) * 100) : 0;
+
+  // Predicted score display
+  const predictedScore = m?.cScore || m?.predictedScore || m?.likelyCS || m?.c_score;
 
   const riskNote = (() => {
     const chanceN = Number(chance) || 0;
@@ -162,8 +211,13 @@ export const HomePickRow = memo(function HomePickRow({
               VIP {vipScore}
             </Chip>
             <Chip tone="blue" darkMode={darkMode}>
-              {marketLabel}
+              {normalizedSelection?.label || marketLabel}
             </Chip>
+            {predictedScore && (
+              <Chip tone="gray" darkMode={darkMode}>
+                Score {predictedScore}
+              </Chip>
+            )}
             {fairOdds && (
               <Chip tone="gray" darkMode={darkMode}>
                 Fair {fairOdds}
@@ -172,6 +226,11 @@ export const HomePickRow = memo(function HomePickRow({
             <Chip tone={realOdds ? "green" : "gray"} darkMode={darkMode}>
               Odds {realOdds ? realOdds.toFixed(2) : "—"}
             </Chip>
+            {edgePct > 0 && (
+              <Chip tone="green" darkMode={darkMode}>
+                +{edgePct}% Edge
+              </Chip>
+            )}
           </div>
         </div>
 
@@ -267,7 +326,16 @@ export const HomePickRow = memo(function HomePickRow({
           {/* Action Strip */}
           <div className="w-full sm:w-[130px] shrink-0 flex flex-row sm:flex-col items-center justify-end gap-2.5">
             <button
-              onClick={() => onAdd(m)}
+              onClick={() =>
+                onAdd({
+                  ...m,
+                  odds: realOdds,
+                  selectedMarket: targetMarket || "1X2",
+                  selectedOption: targetOption || "Home",
+                  initialMarket: targetMarket || "1X2",
+                  initialOption: targetOption || "Home",
+                })
+              }
               disabled={!canAdd || noRealOdds}
               title={
                 !user

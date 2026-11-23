@@ -1,9 +1,11 @@
 // @ts-nocheck
-import { memo } from "react";
-import { cn } from "@/utils/matchUtils";
+import { memo, useMemo, useCallback } from "react";
+import { cn, fairOddsFromPickMarket } from "@/utils/matchUtils";
 import { Chip } from "./PremiumUI";
 import { HomePickRow } from "./HomePickRow";
-import { Calendar, Sparkles, Target, ArrowRight } from "lucide-react";
+import { Calendar, Sparkles, Target, ArrowRight, Layers, PlusCircle } from "lucide-react";
+import useBetslipStore from "@/store/betslipStore";
+import { normalizePickDescriptor, resolveOddsForSelection } from "@/utils/pickEngine";
 
 export const HomeCard = memo(function HomeCard({
   title,
@@ -35,6 +37,85 @@ export const HomeCard = memo(function HomeCard({
   const avgRating = count
     ? Math.round(list.reduce((a, m) => a + (getRating(m) || 0), 0) / count)
     : 0;
+
+  // Combined accumulator odds calculation for top picks
+  const { accaOdds, accaCount } = useMemo(() => {
+    if (!Array.isArray(list) || list.length === 0)
+      return { accaOdds: null, accaCount: 0 };
+    let mult = 1;
+    let validCount = 0;
+    for (const m of list.slice(0, 5)) {
+      const pick =
+        (selectors.getPick ? selectors.getPick(m) : m?.pick) ||
+        (selectors.getTips ? selectors.getTips(m) : m?.tips);
+      const norm = normalizePickDescriptor(pick);
+      let odds = Number(m?.pickOdds);
+      if (!odds && norm)
+        odds = Number(resolveOddsForSelection(m, norm.market, norm.option));
+      if (!odds && norm)
+        odds = Number(
+          useBetslipStore.getState().computeOddsForSelection(m, norm.market, norm.option)
+        );
+      if (!odds)
+        odds = Number(
+          m?.odds || m?.bookmakerOdds || m?.bestOdds || fairOddsFromPickMarket(m)
+        );
+      if (Number.isFinite(odds) && odds > 1) {
+        mult *= odds;
+        validCount++;
+      }
+    }
+    return {
+      accaOdds: validCount >= 2 ? mult.toFixed(2) : null,
+      accaCount: validCount,
+    };
+  }, [list, selectors]);
+
+  // Quick 1-click "Add All" to BetSlip
+  const handleAddAllToSlip = useCallback(() => {
+    if (!user) {
+      alert("Sign in to add picks to BetSlip.");
+      return;
+    }
+    if (!Array.isArray(list) || list.length === 0) return;
+    const addMatch = useBetslipStore.getState().addMatch;
+
+    for (const m of list) {
+      if (isMatchInBetslip(m?.match) || hasKickoffPassed(m)) continue;
+      if (!canAddMore()) break;
+
+      const pick =
+        (selectors.getPick ? selectors.getPick(m) : m?.pick) ||
+        (selectors.getTips ? selectors.getTips(m) : m?.tips) ||
+        "Main";
+      const norm = normalizePickDescriptor(pick);
+      const targetMarket = norm?.market || "1X2";
+      const targetOption = norm?.option || "Home";
+
+      let odds = Number(m?.pickOdds);
+      if (!odds && norm)
+        odds = Number(resolveOddsForSelection(m, norm.market, norm.option));
+      if (!odds && norm)
+        odds = Number(
+          useBetslipStore.getState().computeOddsForSelection(m, norm.market, norm.option)
+        );
+      if (!odds)
+        odds = Number(
+          m?.odds || m?.bookmakerOdds || m?.bestOdds || fairOddsFromPickMarket(m)
+        );
+
+      if (Number.isFinite(odds) && odds > 1) {
+        addMatch({
+          ...m,
+          odds: Number(odds.toFixed(2)),
+          selectedMarket: targetMarket,
+          selectedOption: targetOption,
+          initialMarket: targetMarket,
+          initialOption: targetOption,
+        });
+      }
+    }
+  }, [user, list, isMatchInBetslip, hasKickoffPassed, canAddMore, selectors]);
 
   return (
     <div
@@ -112,23 +193,54 @@ export const HomeCard = memo(function HomeCard({
                     : "bg-blue-50 border-blue-200 text-blue-700"
                 )}
               >
-                <Sparkles size={14} className="opacity-70" /> Rating {avgRating}
-                %
+                <Sparkles size={14} className="opacity-70" /> Rating {avgRating}%
               </div>
+              {accaOdds && (
+                <div
+                  className={cn(
+                    "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black border shadow-sm",
+                    darkMode
+                      ? "bg-purple-500/15 border-purple-500/30 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.15)]"
+                      : "bg-purple-50 border-purple-200 text-purple-700"
+                  )}
+                  title={`Combined accumulator odds for top ${accaCount} picks`}
+                >
+                  <Layers size={14} className="opacity-70" /> Top {accaCount} Acca ~{accaOdds}x
+                </div>
+              )}
             </div>
           </div>
 
-          <button
-            onClick={onExplore}
-            className={cn(
-              "shrink-0 inline-flex items-center justify-center gap-2 text-xs font-black px-5 py-3.5 rounded-2xl border transition-all active:scale-[0.99]",
-              darkMode
-                ? "bg-white/5 border-white/10 hover:bg-white/10 text-white"
-                : "bg-gray-900 border-gray-900 hover:bg-black text-white shadow-lg shadow-gray-900/20"
+          <div className="flex flex-wrap items-center gap-2">
+            {count > 0 && (
+              <button
+                onClick={handleAddAllToSlip}
+                disabled={!user || !canAddMore()}
+                className={cn(
+                  "shrink-0 inline-flex items-center justify-center gap-1.5 text-xs font-black px-4 py-3.5 rounded-2xl border transition-all active:scale-[0.99]",
+                  !user || !canAddMore()
+                    ? "opacity-50 cursor-not-allowed bg-gray-100 text-gray-400 border-gray-200 dark:bg-white/5 dark:text-gray-500 dark:border-white/5"
+                    : darkMode
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.15)]"
+                    : "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 shadow-sm"
+                )}
+                title={!user ? "Sign in to add picks" : "Add all available picks to BetSlip"}
+              >
+                <PlusCircle size={15} /> Add All ({count})
+              </button>
             )}
-          >
-            Explore All <ArrowRight size={14} />
-          </button>
+            <button
+              onClick={onExplore}
+              className={cn(
+                "shrink-0 inline-flex items-center justify-center gap-2 text-xs font-black px-5 py-3.5 rounded-2xl border transition-all active:scale-[0.99]",
+                darkMode
+                  ? "bg-white/5 border-white/10 hover:bg-white/10 text-white"
+                  : "bg-gray-900 border-gray-900 hover:bg-black text-white shadow-lg shadow-gray-900/20"
+              )}
+            >
+              Explore All <ArrowRight size={14} />
+            </button>
+          </div>
         </div>
 
         <div className="mt-6 grid gap-3">

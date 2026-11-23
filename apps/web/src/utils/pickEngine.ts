@@ -153,6 +153,24 @@ export function normalizePickDescriptor(input = "") {
     return { market: "Over 3.5", option: "Yes", label: "Over 3.5" };
   if (["UN35", "U35", "UNDER35"].includes(token) || token.includes("UNDER35"))
     return { market: "Under 3.5", option: "Yes", label: "Under 3.5" };
+  if (
+    ["1X", "DC1X", "H1X"].includes(token) ||
+    token.includes("HOMEORDRAW") ||
+    token.includes("1X")
+  )
+    return { market: "Double Chance", option: "Home or Draw", label: "Double Chance — 1X" };
+  if (
+    ["X2", "DCX2", "HX2"].includes(token) ||
+    token.includes("DRAWORAWAY") ||
+    token.includes("X2")
+  )
+    return { market: "Double Chance", option: "Draw or Away", label: "Double Chance — X2" };
+  if (
+    ["12", "DC12", "H12"].includes(token) ||
+    token.includes("HOMEORAWAY") ||
+    token.includes("12")
+  )
+    return { market: "Double Chance", option: "Home or Away", label: "Double Chance — 12" };
   return null;
 }
 

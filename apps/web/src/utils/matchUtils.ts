@@ -706,11 +706,30 @@ export const marketProbFromPick = (m) => {
   if (raw.includes("away win") || raw === "away") return m?.awayWin;
   if (raw.includes("draw") || raw === "x") return m?.draw;
 
+  if (raw.includes("1x") || raw.includes("home or draw"))
+    return (Number(m?.homeWin) || 0) + (Number(m?.draw) || 0);
+  if (raw.includes("x2") || raw.includes("draw or away"))
+    return (Number(m?.draw) || 0) + (Number(m?.awayWin) || 0);
+  if (raw.includes("12") || raw.includes("home or away"))
+    return (Number(m?.homeWin) || 0) + (Number(m?.awayWin) || 0);
+
   if (raw.includes("un2.5") || raw.includes("under 2.5") || raw === "u2.5")
     return m?.un25;
 
   if (raw.includes("ov2.5") || raw.includes("over 2.5") || raw === "o2.5")
     return m?.ov25;
+
+  if (raw.includes("un1.5") || raw.includes("under 1.5") || raw === "u1.5")
+    return m?.un15 || (m?.ov15 ? 100 - Number(m.ov15) : undefined);
+
+  if (raw.includes("ov1.5") || raw.includes("over 1.5") || raw === "o1.5")
+    return m?.ov15;
+
+  if (raw.includes("un3.5") || raw.includes("under 3.5") || raw === "u3.5")
+    return m?.un35 || (m?.ov35 ? 100 - Number(m.ov35) : undefined);
+
+  if (raw.includes("ov3.5") || raw.includes("over 3.5") || raw === "o3.5")
+    return m?.ov35;
 
   if (
     raw.includes("gg") ||

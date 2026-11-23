@@ -570,6 +570,8 @@ export default function FutureBetDashboard() {
           open={showHomeSlipModal}
           darkMode={darkMode}
           matchName={pendingSlipMatch?.match}
+          initialMarket={pendingSlipMatch?.selectedMarket || pendingSlipMatch?.initialMarket}
+          initialOption={pendingSlipMatch?.selectedOption || pendingSlipMatch?.initialOption}
           onClose={closeHomeSlipModal}
           onConfirm={(data) => confirmHomeSlipAdd(data, addMatch, maxMatches)}
         />

@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { cn, fairOddsFromChance, valueTagFromVip } from "@/utils/matchUtils";
 import { Chip } from "./PremiumUI";
+import useBetslipStore from "@/store/betslipStore";
+import { normalizePickDescriptor, resolveOddsForSelection } from "@/utils/pickEngine";
 
 export const PremiumBrief = memo(function PremiumBrief({
   darkMode,
@@ -23,7 +25,7 @@ export const PremiumBrief = memo(function PremiumBrief({
   onExplore,
   onOpenAutoPick,
 }) {
-  const { getChance, getRating, getMatchTitle, getLeague } = selectors;
+  const { getChance, getRating, getMatchTitle, getLeague, getPick, getTips } = selectors;
 
   const summary = useMemo(() => {
     const todayCount = Array.isArray(bestToday) ? bestToday.length : 0;
@@ -61,6 +63,38 @@ export const PremiumBrief = memo(function PremiumBrief({
   const topLeague = summary.top ? getLeague(summary.top) : "—";
   const topFair = summary.top ? fairOddsFromChance(summary.topChance) : "—";
   const topValue = valueTagFromVip(summary.vipScore);
+
+  const topPick = summary.top
+    ? (getPick ? getPick(summary.top) : summary.top?.pick) ||
+      (getTips ? getTips(summary.top) : summary.top?.tips)
+    : null;
+  const topNorm = topPick ? normalizePickDescriptor(topPick) : null;
+  const topMarket = topNorm?.market;
+  const topOption = topNorm?.option;
+
+  const topOdds = useMemo(() => {
+    if (!summary.top) return null;
+    const m = summary.top;
+    const directPickOdds = Number(m?.pickOdds);
+    if (Number.isFinite(directPickOdds) && directPickOdds > 1)
+      return directPickOdds.toFixed(2);
+    if (topMarket && topOption) {
+      const ro = resolveOddsForSelection(m, topMarket, topOption);
+      if (Number.isFinite(Number(ro)) && Number(ro) > 1) return Number(ro).toFixed(2);
+      const co = useBetslipStore.getState().computeOddsForSelection(m, topMarket, topOption);
+      if (Number.isFinite(Number(co)) && Number(co) > 1) return Number(co).toFixed(2);
+    }
+    const direct = Number(m?.odds || m?.bookmakerOdds || m?.bestOdds);
+    if (Number.isFinite(direct) && direct > 1) return direct.toFixed(2);
+    if (topFair && Number(topFair) > 1) return Number(topFair).toFixed(2);
+    return null;
+  }, [summary.top, topMarket, topOption, topFair]);
+
+  const topScore =
+    summary.top?.cScore ||
+    summary.top?.predictedScore ||
+    summary.top?.likelyCS ||
+    summary.top?.c_score;
 
   return (
     <section
@@ -198,9 +232,24 @@ export const PremiumBrief = memo(function PremiumBrief({
                   VIP{" "}
                   {Number.isFinite(summary.vipScore) ? summary.vipScore : "—"}
                 </Chip>
+                {topPick && (
+                  <Chip tone="blue" darkMode={darkMode}>
+                    {topNorm?.label || topPick}
+                  </Chip>
+                )}
+                {topScore && (
+                  <Chip tone="gray" darkMode={darkMode}>
+                    Score {topScore}
+                  </Chip>
+                )}
                 <Chip tone="gray" darkMode={darkMode}>
                   Fair {topFair}
                 </Chip>
+                {topOdds && (
+                  <Chip tone="green" darkMode={darkMode}>
+                    Odds {topOdds}
+                  </Chip>
+                )}
               </div>
             </div>
 
