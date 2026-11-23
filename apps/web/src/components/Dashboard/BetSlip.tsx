@@ -213,6 +213,15 @@ export default function BetSlip({ darkMode = false }) {
     });
   }, [matches]);
 
+  const totalOdds = useMemo(() => {
+    if (!validMatches || validMatches.length === 0) return 1;
+    const prod = validMatches.reduce((acc, m) => {
+      const o = Number(m?.odds);
+      return acc * (Number.isFinite(o) && o > 0 ? o : 1);
+    }, 1);
+    return Number(prod.toFixed(2));
+  }, [validMatches]);
+
   const systemBets = useMemo(() => {
     const types = [];
     const n = validMatches.length;
@@ -480,6 +489,9 @@ export default function BetSlip({ darkMode = false }) {
       escapeCsv(m.chance ? `${m.chance}%` : "—"),
       escapeCsv(m.rating ? `${m.rating}%` : "—"),
     ]);
+
+    const singleStake = grandTotalStake || totalKellyStake || 0;
+    const potentialWin = grandMaxReturn || (totalOdds * singleStake);
 
     const summaryRows = [
       [],
