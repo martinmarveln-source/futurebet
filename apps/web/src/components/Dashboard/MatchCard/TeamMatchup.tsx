@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { memo } from "react";
 import TeamCrest from "./TeamCrest";
-import { Check, X, Lock } from "lucide-react";
+import { Check, X, Timer } from "lucide-react";
 
 function cn(...c: any[]) {
   return c.filter(Boolean).join(" ");
@@ -61,11 +61,10 @@ interface TeamMatchupProps {
   awayLogo?: string | null;
   homeForm?: string;
   awayForm?: string;
+  matchTime?: string | null;
   ftScore?: string | null;
   wonStatus?: boolean | null;
   kickoffPassed?: boolean;
-  predictedScore?: string | null;
-  canSeePredictedScore?: boolean;
   isSystemMatch?: boolean;
   darkMode?: boolean;
 }
@@ -77,11 +76,10 @@ export const TeamMatchup = memo(function TeamMatchup({
   awayLogo,
   homeForm,
   awayForm,
+  matchTime,
   ftScore,
   wonStatus,
   kickoffPassed = false,
-  predictedScore,
-  canSeePredictedScore = true,
   isSystemMatch = false,
   darkMode = true,
 }: TeamMatchupProps) {
@@ -148,16 +146,16 @@ export const TeamMatchup = memo(function TeamMatchup({
                     : "bg-gray-100 border-gray-300 text-gray-900"
                 )}
               >
-                {ftScore}
+                FT: {ftScore}
               </div>
 
               {/* Settlement Outcome Stamp */}
               {wonStatus === true ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">
                   <Check size={10} strokeWidth={3} /> Pick Won
                 </span>
               ) : wonStatus === false ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-500 border border-rose-500/30">
                   <X size={10} strokeWidth={3} /> Pick Lost
                 </span>
               ) : (
@@ -178,23 +176,22 @@ export const TeamMatchup = memo(function TeamMatchup({
               >
                 VS
               </div>
-              {predictedScore && (
+              {matchTime ? (
                 <span
                   className={cn(
-                    "text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded border select-none",
+                    "text-[10px] font-bold tabular-nums px-2 py-0.5 rounded-md border flex items-center gap-1 select-none",
                     darkMode
-                      ? "bg-white/[0.03] border-white/10 text-gray-300"
-                      : "bg-gray-50 border-gray-200 text-gray-600"
+                      ? "bg-white/[0.04] border-white/10 text-gray-300"
+                      : "bg-gray-100 border-gray-200 text-gray-700"
                   )}
-                  title={canSeePredictedScore ? "Predicted Most Likely Scoreline" : "Upgrade to Pro to see predicted score"}
+                  title="Scheduled Kickoff Time"
                 >
-                  {canSeePredictedScore ? (
-                    `CS ${predictedScore}`
-                  ) : (
-                    <span className="flex items-center gap-1 text-amber-500">
-                      <Lock size={9} /> Pro
-                    </span>
-                  )}
+                  <Timer size={10} className="opacity-70" />
+                  {matchTime.length === 5 ? matchTime : matchTime.slice(0, 5)}
+                </span>
+              ) : (
+                <span className="text-[9px] font-bold uppercase tracking-wider opacity-40">
+                  Upcoming
                 </span>
               )}
             </div>

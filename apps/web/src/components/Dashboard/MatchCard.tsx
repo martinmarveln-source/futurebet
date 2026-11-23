@@ -2072,12 +2072,35 @@ export default function MatchCard({
     const fbTrust = Math.round(fbChance * 0.5 + fbRating * 0.5);
     const fbRaw = Math.round(fbChance * 0.35 + fbRating * 0.30 + fbStab * 0.20 + fbTrust * 0.15);
     const score = Math.max(0, Math.min(100, fbRaw));
-    const tier = score >= 85 ? { label: "Elite", cls: "bg-purple-500/20 border-purple-500/40 text-purple-300" }
-      : score >= 70 ? { label: "High", cls: "bg-emerald-500/20 border-emerald-500/40 text-emerald-300" }
-      : score >= 50 ? { label: "Medium", cls: "bg-amber-500/20 border-amber-500/40 text-amber-300" }
-      : { label: "Low", cls: "bg-slate-500/10 border-slate-500/20 text-slate-400" };
+    const tier = score >= 85
+      ? {
+          label: "Elite",
+          cls: darkMode
+            ? "bg-purple-500/20 border-purple-500/40 text-purple-300"
+            : "bg-purple-100 border-purple-300 text-purple-900 font-black",
+        }
+      : score >= 70
+      ? {
+          label: "High",
+          cls: darkMode
+            ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300"
+            : "bg-emerald-100 border-emerald-300 text-emerald-900 font-black",
+        }
+      : score >= 50
+      ? {
+          label: "Medium",
+          cls: darkMode
+            ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
+            : "bg-amber-100 border-amber-300 text-amber-900 font-black",
+        }
+      : {
+          label: "Low",
+          cls: darkMode
+            ? "bg-slate-500/10 border-slate-500/20 text-slate-400"
+            : "bg-slate-100 border-slate-300 text-slate-700 font-bold",
+        };
     return { score, tier };
-  }, [chance, ratingPercentage, match?.hPts, match?.aPts]);
+  }, [chance, ratingPercentage, match?.hPts, match?.aPts, darkMode]);
 
   const rawMatchStr = String(match?.match || match?.fixture || "");
   const parts = rawMatchStr.includes(" - ") ? rawMatchStr.split(" - ") : rawMatchStr.split("-");
@@ -2140,11 +2163,10 @@ export default function MatchCard({
             awayLogo={match?.awayLogo || match?.aLogo || match?.away_logo}
             homeForm={match?.hForm || match?.form?.homeStr}
             awayForm={match?.aForm || match?.form?.awayStr}
+            matchTime={safeStr(match?.time)}
             ftScore={globalFtScore}
             wonStatus={wonStatus}
             kickoffPassed={kickoffPassed}
-            predictedScore={canSeePredictedScore ? match?.cScore || match?.predictedScore : null}
-            canSeePredictedScore={canSeePredictedScore}
             isSystemMatch={isSystemMatch}
             darkMode={darkMode}
           />
@@ -2695,11 +2717,6 @@ export default function MatchCard({
                   darkMode={darkMode}
                 />
                 <SmallStat
-                  k="Draw %"
-                  v={`${pct(match?.draw)}%`}
-                  darkMode={darkMode}
-                />
-                <SmallStat
                   k="Home %"
                   v={`${pct(match?.homeWin)}%`}
                   darkMode={darkMode}
@@ -2710,10 +2727,14 @@ export default function MatchCard({
                   darkMode={darkMode}
                 />
                 <SmallStat
-                  k="League"
-                  v={safeStr(match?.fullLeague || match?.league) || "—"}
+                  k="Draw %"
+                  v={`${pct(match?.draw)}%`}
                   darkMode={darkMode}
-                  className="col-span-2 text-xs"
+                />
+                <SmallStat
+                  k="BTTS %"
+                  v={match?.gg ? `${pct(match.gg)}%` : "—"}
+                  darkMode={darkMode}
                 />
               </div>
 

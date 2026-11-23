@@ -86,19 +86,24 @@ export const MatchCardHeader = memo(function MatchCardHeader({
             "rounded-xl px-3 py-1.5 flex items-center justify-between border shadow-sm transition-all",
             darkMode
               ? "bg-amber-500/15 border-amber-500/30 text-amber-300"
-              : "bg-gradient-to-r from-amber-50 to-amber-100 border-amber-300 text-amber-900"
+              : "bg-gradient-to-r from-amber-100 via-amber-50 to-amber-100 border-amber-300 text-amber-950 font-black"
           )}
         >
           <div className="flex items-center gap-2">
             <Target
               size={14}
-              className={darkMode ? "text-amber-400" : "text-amber-700 animate-pulse"}
+              className={darkMode ? "text-amber-400" : "text-amber-800 animate-pulse"}
             />
             <span className="text-[10px] font-black uppercase tracking-[0.18em]">
               +EV System Value Play
             </span>
           </div>
-          <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20">
+          <span className={cn(
+            "text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border",
+            darkMode
+              ? "bg-amber-500/20 border-amber-500/30 text-amber-300"
+              : "bg-amber-200/90 border-amber-300 text-amber-950"
+          )}>
             High Edge
           </span>
         </div>
@@ -113,7 +118,7 @@ export const MatchCardHeader = memo(function MatchCardHeader({
               "text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg border flex items-center gap-1.5 transition-colors",
               darkMode
                 ? "bg-white/[0.04] border-white/10 text-gray-300"
-                : "bg-gray-100/80 border-gray-200 text-gray-700"
+                : "bg-gray-100/90 border-gray-200 text-gray-800"
             )}
             title={country ? `${country} - ${league}` : league}
           >
@@ -127,10 +132,10 @@ export const MatchCardHeader = memo(function MatchCardHeader({
               kickoffPassed
                 ? darkMode
                   ? "text-rose-400 bg-rose-500/10"
-                  : "text-rose-600 bg-rose-50"
+                  : "text-rose-700 bg-rose-50 font-bold"
                 : darkMode
                 ? "text-gray-400 bg-white/[0.02]"
-                : "text-gray-500 bg-gray-50"
+                : "text-gray-600 bg-gray-50 font-medium"
             )}
           >
             <Timer size={12} className="opacity-70 shrink-0" />
@@ -144,14 +149,14 @@ export const MatchCardHeader = memo(function MatchCardHeader({
           {band && (
             <span
               className={cn(
-                "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border select-none",
+                "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold border select-none",
                 darkMode
                   ? "bg-white/[0.03] border-white/10 text-gray-300"
-                  : "bg-gray-50 border-gray-200 text-gray-600"
+                  : "bg-amber-50/90 border-amber-200 text-amber-900"
               )}
               title={`${band} Rating Band`}
             >
-              <Sparkles size={11} className={darkMode ? "text-amber-400" : "text-amber-500"} />
+              <Sparkles size={11} className={darkMode ? "text-amber-400" : "text-amber-600"} />
               <span>{band} Band</span>
             </span>
           )}
