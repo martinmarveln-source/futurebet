@@ -293,14 +293,7 @@ export default function BetSlip({ darkMode = false }) {
       return;
     }
 
-    if (missingSelection) {
-      alert(
-        "Please ensure all matches have a market and option selected before generating a booking code."
-      );
-      return;
-    }
-
-    if (!validMatches || validMatches.length === 0) {
+    if (!matches || matches.length === 0) {
       alert("Please add at least one match to your betslip first.");
       return;
     }
@@ -1264,10 +1257,10 @@ export default function BetSlip({ darkMode = false }) {
 
               <button
                 onClick={handleRouteToBookie}
-                disabled={missingSelection || isRouting}
+                disabled={matches.length === 0 || isRouting}
                 className={cn(
                   "w-2/3 py-3.5 rounded-r-2xl text-sm font-black transition-all active:scale-[0.98] shadow-lg flex items-center justify-center gap-2 relative overflow-hidden",
-                  missingSelection
+                  matches.length === 0
                     ? "bg-gray-400 text-white opacity-50 cursor-not-allowed"
                     : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/20 hover:shadow-emerald-500/40"
                 )}
@@ -1290,7 +1283,7 @@ export default function BetSlip({ darkMode = false }) {
       <BookingCodeModal
         open={bookingModalOpen}
         onClose={() => setBookingModalOpen(false)}
-        matches={validMatches}
+        matches={validMatches.length > 0 ? validMatches : matches}
         initialBookmaker={selectedBookie}
         darkMode={darkMode}
         stake={grandTotalStake || totalKellyStake || 0}

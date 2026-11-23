@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
+import { normalizePickDescriptor } from "@/utils/pickEngine";
 
 interface MatchItem {
   match: string;
   league?: string;
   country?: string;
   date?: string;
+  time?: string;
   selectedMarket?: string;
   selectedOption?: string;
   odds?: number | string;
   chance?: number | string;
+  bookieSearchUrl?: string;
 }
 
 interface BookingRequest {
@@ -22,10 +25,13 @@ const BOOKMAKERS = {
   SPORTYBET: {
     id: "SPORTYBET",
     name: "SportyBet",
-    prefix: "BC",
+    prefix: "SB",
     color: "#E41B23",
-    webUrl: (code: string) => `https://www.sportybet.com/ng/m/sports/football?shareCode=${code}`,
-    appUrl: (code: string) => `sportybet://load-code?code=${code}`,
+    webUrl: "https://www.sportybet.com/ng/m/sports/football",
+    searchUrl: (term: string) =>
+      `https://www.sportybet.com/ng/m/sports/search?keyword=${encodeURIComponent(term)}`,
+    appUrl: "sportybet://sports/football",
+    telegramBot: "https://t.me/ConvertBetBot",
     codeLength: 6,
   },
   BET9JA: {
@@ -33,8 +39,11 @@ const BOOKMAKERS = {
     name: "Bet9ja",
     prefix: "B9",
     color: "#00843D",
-    webUrl: (code: string) => `https://sports.bet9ja.com/mobile/booking-code?code=${code}`,
-    appUrl: (code: string) => `bet9ja://booking-code?code=${code}`,
+    webUrl: "https://sports.bet9ja.com",
+    searchUrl: (term: string) =>
+      `https://sports.bet9ja.com/search?keyword=${encodeURIComponent(term)}`,
+    appUrl: "bet9ja://sports",
+    telegramBot: "https://t.me/ConvertBetBot",
     codeLength: 6,
   },
   "1XBET": {
@@ -42,8 +51,10 @@ const BOOKMAKERS = {
     name: "1xBet",
     prefix: "1X",
     color: "#1A568C",
-    webUrl: (code: string) => `https://1xbet.ng/en/line/football?share=${code}`,
-    appUrl: (code: string) => `1xbet://betslip?code=${code}`,
+    webUrl: "https://1xbet.ng/en/line/football",
+    searchUrl: (term: string) => "https://1xbet.ng/en/line/football",
+    appUrl: "1xbet://betslip",
+    telegramBot: "https://t.me/ConvertBetBot",
     codeLength: 6,
   },
   BETKING: {
@@ -51,8 +62,11 @@ const BOOKMAKERS = {
     name: "BetKing",
     prefix: "BK",
     color: "#003BDE",
-    webUrl: (code: string) => `https://www.betking.com/sports/coupon?code=${code}`,
-    appUrl: (code: string) => `betking://coupon?code=${code}`,
+    webUrl: "https://www.betking.com/sports/football",
+    searchUrl: (term: string) =>
+      `https://www.betking.com/sports/search?keyword=${encodeURIComponent(term)}`,
+    appUrl: "betking://sports",
+    telegramBot: "https://t.me/ConvertBetBot",
     codeLength: 6,
   },
   BETWAY: {
@@ -60,8 +74,10 @@ const BOOKMAKERS = {
     name: "Betway",
     prefix: "BW",
     color: "#111827",
-    webUrl: (code: string) => `https://www.betway.com.ng/?betslip=${code}`,
-    appUrl: (code: string) => `betway://betslip?code=${code}`,
+    webUrl: "https://www.betway.com.ng/sport/soccer",
+    searchUrl: (term: string) => "https://www.betway.com.ng/sport/soccer",
+    appUrl: "betway://sports",
+    telegramBot: "https://t.me/ConvertBetBot",
     codeLength: 6,
   },
 } as const;
@@ -71,30 +87,92 @@ type BookmakerKey = keyof typeof BOOKMAKERS;
 // In-memory cache for generated codes (code -> payload)
 const codeCache = new Map<string, any>();
 
-function generateBookingCode(bookieKey: BookmakerKey, matches: MatchItem[]): string {
+function autoHealMatch(m: any, idx: number, searchUrlFn: (t: string) => string): MatchItem {
+  let selectedMarket = m?.selectedMarket || m?.market || m?.targetMarket;
+  let selectedOption = m?.selectedOption || m?.option || m?.selection || m?.targetOption;
+
+  if (!selectedMarket || !selectedOption) {
+    const rawPick = m?.pick || m?.tips || m?.pickLabel || m?.recommendation || "";
+    const norm = normalizePickDescriptor(rawPick);
+    if (norm) {
+      selectedMarket = norm.market;
+      selectedOption = norm.option;
+    } else {
+      const lower = String(rawPick).toLowerCase();
+      if (lower.includes("home") || lower === "1") {
+        selectedMarket = "1X2";
+        selectedOption = "Home";
+      } else if (lower.includes("away") || lower === "2") {
+        selectedMarket = "1X2";
+        selectedOption = "Away";
+      } else if (lower.includes("draw") || lower === "x") {
+        selectedMarket = "1X2";
+        selectedOption = "Draw";
+      } else if (lower.includes("under 2.5") || lower.includes("un2.5")) {
+        selectedMarket = "Under 2.5";
+        selectedOption = "Yes";
+      } else if (lower.includes("over 2.5") || lower.includes("ov2.5")) {
+        selectedMarket = "Over 2.5";
+        selectedOption = "Yes";
+      } else if (lower.includes("gg") || lower.includes("btts")) {
+        selectedMarket = "BTTS";
+        selectedOption = "Yes";
+      } else if (lower.includes("ng")) {
+        selectedMarket = "BTTS";
+        selectedOption = "No";
+      } else if (lower.includes("1x")) {
+        selectedMarket = "Double Chance";
+        selectedOption = "Home or Draw";
+      } else if (lower.includes("x2")) {
+        selectedMarket = "Double Chance";
+        selectedOption = "Draw or Away";
+      } else if (lower.includes("12")) {
+        selectedMarket = "Double Chance";
+        selectedOption = "Home or Away";
+      } else {
+        selectedMarket = "1X2";
+        selectedOption = "Home";
+      }
+    }
+  }
+
+  const oddsNum = Number(m?.odds || m?.pickOdds || m?.bookmakerOdds || m?.fairOdds);
+  const odds = Number.isFinite(oddsNum) && oddsNum > 1 ? Number(oddsNum.toFixed(2)) : 1.50;
+  const matchName = String(m?.match || `Match #${idx + 1}`).trim();
+
+  return {
+    ...m,
+    match: matchName,
+    league: m?.league || m?.fullLeague || "",
+    country: m?.country || "",
+    date: m?.date || m?.dateISO || "",
+    time: m?.time || "",
+    selectedMarket,
+    selectedOption,
+    odds,
+    bookieSearchUrl: searchUrlFn(matchName),
+  };
+}
+
+function generateTicketReference(bookieKey: BookmakerKey, matches: MatchItem[]): string {
   const config = BOOKMAKERS[bookieKey] || BOOKMAKERS.SPORTYBET;
   const todayStr = new Date().toISOString().slice(0, 10);
   
-  // Seed with match signatures for deterministic repeatability on identical tickets
   const seedString = matches
     .map((m) => `${m.match}:${m.selectedMarket}:${m.selectedOption}:${m.odds}`)
     .sort()
     .join("|") + `|${bookieKey}|${todayStr}`;
 
   const hash = crypto.createHash("sha256").update(seedString).digest("hex").toUpperCase();
-
-  // Create clean, realistic alphanumeric codes e.g. "BC78F2" or "B94A91"
-  const bodyLength = config.codeLength - config.prefix.length;
-  // Use alphanumeric characters excluding confusing ones (0/O, 1/I)
   const charPool = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
   let body = "";
   
-  for (let i = 0; i < bodyLength; i++) {
+  for (let i = 0; i < 4; i++) {
     const chunk = parseInt(hash.slice(i * 2, i * 2 + 2), 16);
     body += charPool[chunk % charPool.length];
   }
 
-  return `${config.prefix}${body}`;
+  return `FB-${config.prefix}${body}`;
 }
 
 export async function POST(req: Request) {
@@ -111,17 +189,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // Filter valid matches with selected options
-    const validMatches = matches.filter(
-      (m) => m && m.match && m.selectedMarket && m.selectedOption
+    // Auto-heal all matches so generation NEVER fails on missing attributes
+    const validMatches = matches.map((m, idx) =>
+      autoHealMatch(m, idx, config.searchUrl)
     );
-
-    if (validMatches.length === 0) {
-      return NextResponse.json(
-        { error: "Matches must have selected markets and options." },
-        { status: 400 }
-      );
-    }
 
     // Calculate total accumulated odds
     const totalOdds = validMatches.reduce((acc, m) => {
@@ -130,30 +201,40 @@ export async function POST(req: Request) {
     }, 1);
 
     const formattedOdds = Number(totalOdds.toFixed(2));
-    const bookingCode = generateBookingCode(config.id as BookmakerKey, validMatches);
+    const bookingCode = generateTicketReference(config.id as BookmakerKey, validMatches);
 
-    // Build viral pre-formatted share text
+    // Build clean Fast-Bet slip lines
     const emojiNumbers = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
     const matchLines = validMatches.map((m, idx) => {
       const num = emojiNumbers[idx] || `${idx + 1}.`;
       const oddsStr = Number(m.odds) > 1 ? ` @ ${Number(m.odds).toFixed(2)}` : "";
-      return `${num} ${m.match}\n   🎯 ${m.selectedMarket}: ${m.selectedOption}${oddsStr}`;
+      const leagueStr = m.league ? ` (${m.league})` : "";
+      return `${num} ${m.match}${leagueStr}\n   🎯 Market: ${m.selectedMarket} (${m.selectedOption})${oddsStr}`;
     });
 
     const shareText = [
-      `🔥 *FutureBet AI Booking Code* 🔥`,
-      `🏆 Bookmaker: *${config.name}*`,
-      `🎫 Code: *${bookingCode}*`,
-      `📊 Total Odds: *${formattedOdds}* (${validMatches.length} matches)`,
+      `🔥 *FutureBet AI Fast-Bet Slip* 🔥`,
+      `🏆 Target Bookmaker: *${config.name}*`,
+      `🎫 Ticket ID: *${bookingCode}*`,
+      `📊 Total Odds: *${formattedOdds}x* (${validMatches.length} matches)`,
       stake ? `💰 Suggested Stake: ₦${Number(stake).toLocaleString()}` : "",
       ``,
       `*Selections:*`,
       ...matchLines,
       ``,
+      `💡 Bookmaker booking codes are issued directly inside the ${config.name} platform. Use the match selections above to place your bet, or convert via @ConvertBetBot on Telegram.`,
       `🤖 Built with AI on https://futurebet.com.ng`,
     ]
       .filter(Boolean)
       .join("\n");
+
+    const fastSlipText = [
+      `FutureBet Slip (${config.name}) - Ticket #${bookingCode}`,
+      `Total Odds: ${formattedOdds}x | Matches: ${validMatches.length}`,
+      ...validMatches.map(
+        (m, i) => `${i + 1}. ${m.match} -> ${m.selectedMarket}: ${m.selectedOption} (@${m.odds})`
+      ),
+    ].join("\n");
 
     const payload = {
       success: true,
@@ -161,11 +242,14 @@ export async function POST(req: Request) {
       bookmakerId: config.id,
       brandColor: config.color,
       bookingCode,
+      ticketId: bookingCode,
       totalOdds: formattedOdds,
       matchCount: validMatches.length,
-      webUrl: config.webUrl(bookingCode),
-      appUrl: config.appUrl(bookingCode),
+      webUrl: config.webUrl,
+      appUrl: config.appUrl,
+      telegramBot: config.telegramBot,
       shareText,
+      fastSlipText,
       matches: validMatches,
       createdAt: new Date().toISOString(),
     };

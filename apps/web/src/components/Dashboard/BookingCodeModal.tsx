@@ -14,6 +14,8 @@ import {
   ArrowRight,
   ShieldCheck,
   RefreshCw,
+  Search,
+  Bot,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -22,11 +24,51 @@ function cn(...c) {
 }
 
 const BOOKIES = [
-  { id: "SPORTYBET", name: "SportyBet", color: "bg-red-600", text: "text-red-500", border: "border-red-500/30", badge: "Sporty" },
-  { id: "BET9JA", name: "Bet9ja", color: "bg-emerald-600", text: "text-emerald-500", border: "border-emerald-500/30", badge: "Bet9ja" },
-  { id: "1XBET", name: "1xBet", color: "bg-sky-600", text: "text-sky-500", border: "border-sky-500/30", badge: "1xBet" },
-  { id: "BETKING", name: "BetKing", color: "bg-blue-600", text: "text-blue-500", border: "border-blue-500/30", badge: "BetKing" },
-  { id: "BETWAY", name: "Betway", color: "bg-zinc-800", text: "text-zinc-400", border: "border-zinc-500/30", badge: "Betway" },
+  {
+    id: "SPORTYBET",
+    name: "SportyBet",
+    color: "bg-red-600",
+    text: "text-red-500",
+    border: "border-red-500/30",
+    badge: "Sporty",
+    webUrl: "https://www.sportybet.com/ng/m/sports/football",
+  },
+  {
+    id: "BET9JA",
+    name: "Bet9ja",
+    color: "bg-emerald-600",
+    text: "text-emerald-500",
+    border: "border-emerald-500/30",
+    badge: "Bet9ja",
+    webUrl: "https://sports.bet9ja.com",
+  },
+  {
+    id: "1XBET",
+    name: "1xBet",
+    color: "bg-sky-600",
+    text: "text-sky-500",
+    border: "border-sky-500/30",
+    badge: "1xBet",
+    webUrl: "https://1xbet.ng/en/line/football",
+  },
+  {
+    id: "BETKING",
+    name: "BetKing",
+    color: "bg-blue-600",
+    text: "text-blue-500",
+    border: "border-blue-500/30",
+    badge: "BetKing",
+    webUrl: "https://www.betking.com/sports/football",
+  },
+  {
+    id: "BETWAY",
+    name: "Betway",
+    color: "bg-zinc-800",
+    text: "text-zinc-400",
+    border: "border-zinc-500/30",
+    badge: "Betway",
+    webUrl: "https://www.betway.com.ng/sport/soccer",
+  },
 ];
 
 export default function BookingCodeModal({
@@ -97,17 +139,43 @@ export default function BookingCodeModal({
   };
 
   const handleCopyCode = async () => {
-    if (!bookingData?.bookingCode) return;
+    const code = bookingData?.bookingCode || bookingData?.ticketId;
+    if (!code) return;
     try {
-      await navigator.clipboard.writeText(bookingData.bookingCode);
+      await navigator.clipboard.writeText(code);
       setCopied(true);
-      toast.success(`${bookingData.bookmaker} code copied!`, {
-        description: `Code ${bookingData.bookingCode} is ready to paste into your bookmaker app.`,
+      toast.success(`Ticket ID ${code} copied!`, {
+        description: `Ready to reference or share.`,
       });
       setTimeout(() => setCopied(false), 2500);
     } catch (err) {
       toast.error("Failed to copy code to clipboard");
     }
+  };
+
+  const handleCopyFastSlip = async () => {
+    const textToCopy = bookingData?.fastSlipText || bookingData?.shareText;
+    if (!textToCopy) return;
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      setCopied(true);
+      toast.success("Fast-Bet Slip copied to clipboard!", {
+        description: `Ready to stake on ${currentBookieConfig.name}.`,
+      });
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      toast.error("Failed to copy slip text");
+    }
+  };
+
+  const handleOpenConverter = () => {
+    if (bookingData?.shareText) {
+      navigator.clipboard?.writeText?.(bookingData.shareText);
+    }
+    toast.info("Opening @ConvertBetBot on Telegram...", {
+      description: "Slip copied to clipboard. Paste into the bot to get a native code.",
+    });
+    window.open("https://t.me/ConvertBetBot", "_blank", "noopener,noreferrer");
   };
 
   const handleCopyShareText = async () => {
@@ -135,6 +203,7 @@ export default function BookingCodeModal({
   if (!mounted || !open) return null;
 
   const currentBookieConfig = BOOKIES.find((b) => b.id === selectedBookie) || BOOKIES[0];
+  const displayMatches = bookingData?.matches || matches || [];
 
   const modalContent = (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
@@ -161,13 +230,13 @@ export default function BookingCodeModal({
             </div>
             <div>
               <h3 className="text-base font-black tracking-tight flex items-center gap-2">
-                1-Click Booking Code
+                1-Click Booking & Bet Router
                 <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  Live Sync
+                  Live Router
                 </span>
               </h3>
               <p className="text-xs text-slate-400">
-                Load this exact AI ticket directly into your sportsbook
+                Load your AI ticket directly into {currentBookieConfig.name}
               </p>
             </div>
           </div>
@@ -209,7 +278,7 @@ export default function BookingCodeModal({
         </div>
 
         {/* Body Content */}
-        <div className="p-5 overflow-y-auto space-y-5 flex-grow">
+        <div className="p-5 overflow-y-auto space-y-4 flex-grow">
           {/* Main Booking Code Display Card */}
           <div
             className={cn(
@@ -223,68 +292,86 @@ export default function BookingCodeModal({
             <div className="flex items-center justify-between text-xs text-slate-400 mb-3 font-semibold">
               <span className="flex items-center gap-1.5">
                 <ShieldCheck size={14} className="text-emerald-400" />
-                Verified for {currentBookieConfig.name}
+                Formatted for {currentBookieConfig.name}
               </span>
               <span>
-                {matches.length} Matches • {bookingData?.totalOdds || 0} Total Odds
+                {displayMatches.length} Matches • {bookingData?.totalOdds || 0}x Total Odds
               </span>
             </div>
 
             {/* Code Box */}
-            <div className="py-3 flex flex-col items-center justify-center">
+            <div className="py-2 flex flex-col items-center justify-center">
               {loading ? (
                 <div className="flex items-center gap-2 py-4 text-emerald-400 text-sm font-bold animate-pulse">
                   <RefreshCw size={18} className="animate-spin" />
-                  Generating {currentBookieConfig.name} Code...
+                  Routing {currentBookieConfig.name} Slip...
                 </div>
               ) : (
                 <>
-                  <div className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                    Booking Code
+                  <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                    FutureBet AI Ticket ID
                   </div>
                   <div
                     onClick={handleCopyCode}
-                    className="cursor-pointer group flex items-center gap-3 bg-black/40 hover:bg-black/60 border border-emerald-500/40 hover:border-emerald-400 px-6 py-3 rounded-2xl transition-all shadow-inner"
-                    title="Click to copy"
+                    className="cursor-pointer group flex items-center gap-3 bg-black/40 hover:bg-black/60 border border-emerald-500/40 hover:border-emerald-400 px-6 py-2.5 rounded-2xl transition-all shadow-inner"
+                    title="Click to copy ticket ID"
                   >
-                    <span className="font-mono text-3xl sm:text-4xl font-black tracking-widest text-emerald-400 group-hover:scale-105 transition-transform">
-                      {bookingData?.bookingCode || "------"}
+                    <span className="font-mono text-2xl sm:text-3xl font-black tracking-widest text-emerald-400 group-hover:scale-105 transition-transform">
+                      {bookingData?.bookingCode || "FB-TICKET"}
                     </span>
-                    <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-                      {copied ? <Check size={16} /> : <Copy size={16} />}
+                    <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                      {copied ? <Check size={15} /> : <Copy size={15} />}
                     </div>
                   </div>
                   <p className="text-[11px] text-slate-400 mt-2">
                     {copied ? (
-                      <span className="text-emerald-400 font-bold">✓ Copied to clipboard!</span>
+                      <span className="text-emerald-400 font-bold">✓ Fast slip copied to clipboard!</span>
                     ) : (
-                      "Click code or button below to copy"
+                      "Click above or use buttons below to stake"
                     )}
                   </p>
                 </>
               )}
             </div>
 
+            {/* Staking Guide Notice */}
+            <div className="mt-3 text-left rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-[11px] text-blue-200/90 flex items-start gap-2.5">
+              <Sparkles size={15} className="text-blue-400 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold text-white">How to Stake:</span> Official bookmaker codes are issued inside each bookmaker's system. Click <span className="font-bold text-emerald-300">Copy Fast Slip</span> to follow your selections, use <span className="font-bold text-white">Open {currentBookieConfig.name}</span> to place them, or use the <span className="font-bold text-sky-300">Telegram Bet Converter</span> to generate a native bookmaker code.
+              </div>
+            </div>
+
             {/* Primary Action Buttons */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 pt-3 border-t border-slate-800/60">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-800/60">
               <button
-                onClick={handleCopyCode}
-                disabled={loading || !bookingData?.bookingCode}
-                className="py-3 px-4 rounded-xl text-xs font-black bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-emerald-500/20"
+                onClick={handleCopyFastSlip}
+                disabled={loading}
+                className="py-3 px-3 rounded-xl text-xs font-black bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] shadow-lg shadow-emerald-500/20"
+                title="Copy all selections formatted for quick staking"
               >
-                {copied ? <Check size={16} /> : <Copy size={16} />}
-                {copied ? "Code Copied!" : "Copy Booking Code"}
+                {copied ? <Check size={14} /> : <Copy size={14} />}
+                {copied ? "Slip Copied!" : "Copy Fast Slip"}
               </button>
 
               <a
-                href={bookingData?.webUrl || "#"}
+                href={bookingData?.webUrl || currentBookieConfig.webUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="py-3 px-4 rounded-xl text-xs font-black bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center gap-2 border border-slate-700 transition-all active:scale-[0.98]"
+                className="py-3 px-3 rounded-xl text-xs font-black bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center gap-1.5 border border-slate-700 transition-all active:scale-[0.98]"
               >
-                <ExternalLink size={15} />
-                Open in {currentBookieConfig.name}
+                <ExternalLink size={14} />
+                Open {currentBookieConfig.name}
               </a>
+
+              <button
+                onClick={handleOpenConverter}
+                className="py-3 px-3 rounded-xl text-xs font-black bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/30 flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
+                title="Convert this slip via @ConvertBetBot on Telegram"
+              >
+                <Bot size={14} />
+                Telegram Bot
+              </button>
             </div>
           </div>
 
@@ -318,31 +405,45 @@ export default function BookingCodeModal({
             </div>
           </div>
 
-          {/* Included Selections Preview */}
+          {/* Included Selections Preview with 1-Click Match Search */}
           <div className="space-y-2 pt-1">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              Matches on this Slip ({matches.length}):
+            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+              <span>Matches on this Slip ({displayMatches.length}):</span>
+              <span className="text-[10px] text-slate-500">Click 'Find' to view on {currentBookieConfig.name}</span>
             </div>
             <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-              {matches.map((m, idx) => (
+              {displayMatches.map((m, idx) => (
                 <div
                   key={idx}
-                  className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs flex items-center justify-between gap-3"
+                  className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs flex items-center justify-between gap-3 hover:border-slate-700 transition-colors"
                 >
-                  <div className="truncate">
+                  <div className="truncate flex-1">
                     <div className="font-bold text-white truncate">{m.match}</div>
                     <div className="text-[10px] text-slate-400 truncate">
-                      {m.league || "Football"} • {m.date || "Upcoming"}
+                      {m.league || "Football"} {m.time ? `• ${m.time}` : ""} {m.date ? `• ${m.date}` : ""}
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <div className="text-emerald-400 font-black text-xs">
-                      {m.selectedMarket}: {m.selectedOption}
-                    </div>
-                    {Number(m.odds) > 1 && (
-                      <div className="text-[10px] text-slate-400 font-bold">
-                        @{Number(m.odds).toFixed(2)}
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="text-right">
+                      <div className="text-emerald-400 font-black text-xs">
+                        {m.selectedMarket}: {m.selectedOption}
                       </div>
+                      {Number(m.odds) > 1 && (
+                        <div className="text-[10px] text-slate-400 font-bold">
+                          @{Number(m.odds).toFixed(2)}
+                        </div>
+                      )}
+                    </div>
+                    {m.bookieSearchUrl && (
+                      <a
+                        href={m.bookieSearchUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors"
+                        title={`Search ${m.match} on ${currentBookieConfig.name}`}
+                      >
+                        <Search size={12} />
+                      </a>
                     )}
                   </div>
                 </div>
@@ -352,10 +453,10 @@ export default function BookingCodeModal({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-800/80 bg-slate-950/80 text-center shrink-0">
+        <div className="p-3.5 border-t border-slate-800/80 bg-slate-950/80 text-center shrink-0">
           <p className="text-[11px] text-slate-500 flex items-center justify-center gap-1.5 font-medium">
             <Sparkles size={13} className="text-emerald-400" />
-            Paste this code into {currentBookieConfig.name} on web or mobile to instantly place your bet.
+            Fast-Bet Router delivers instant slip translation for all major Nigerian bookmakers.
           </p>
         </div>
       </div>
