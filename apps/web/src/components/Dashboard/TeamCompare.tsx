@@ -31,6 +31,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import UpgradeButton from "./UpgradeButton";
+import { TacticalPitchVisualizer } from "./TacticalPitchVisualizer";
 const cn = (...classes) => classes.filter(Boolean).join(" ");
 
 const clamp = (value, min = 0, max = 100) =>
@@ -3307,6 +3308,16 @@ export default function TeamCompare({ darkMode = false }) {
                 color="purple"
               />
             </div>
+
+            {/* 🏟️ UPGRADE 5: 2D TACTICAL PITCH & MOMENTUM FLOW VISUALIZER */}
+            <TacticalPitchVisualizer
+              teamA={teamA}
+              teamB={teamB}
+              statsA={statsA}
+              statsB={statsB}
+              insight={insight}
+              darkMode={darkMode}
+            />
 
             {/* 🌟 BENTO BOX: AI VERDICT & PREMIUM EDGE 🌟 */}
             <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-4 mb-4">

@@ -6,6 +6,8 @@ import useBetslipStore from "@/store/betslipStore";
 import useUserPermissions from "@/hooks/useUserPermissions";
 import BetslipMarketModal from "@/components/Dashboard/BetslipMarketModal";
 import BookingCodeModal from "@/components/Dashboard/BookingCodeModal";
+import { SlipCardModal } from "@/components/Dashboard/SlipCardModal";
+import { MonteCarloAuditor } from "@/components/Dashboard/MonteCarloAuditor";
 import { formatNaira } from "@/utils/matchUtils";
 import {
   Ticket,
@@ -22,6 +24,7 @@ import {
   Sparkles,
   Wand2,
   Download,
+  Dice5,
 } from "lucide-react";
 
 /* =========================
@@ -101,6 +104,7 @@ export default function BetSlip({ darkMode = false }) {
   const [selectedBookie, setSelectedBookie] = useState("SPORTYBET");
   const [isRouting, setIsRouting] = useState(false);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
+  const [slipCardOpen, setSlipCardOpen] = useState(false);
 
   // System Bets State
   const [systemStakes, setSystemStakes] = useState({});
@@ -546,6 +550,23 @@ export default function BetSlip({ darkMode = false }) {
 
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setSlipCardOpen(true)}
+            disabled={!total}
+            className={cn(
+              "px-3.5 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-1.5",
+              !total
+                ? "opacity-30 cursor-not-allowed"
+                : darkMode
+                ? "border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300"
+                : "border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700"
+            )}
+            title="Generate Viral HD Graphic Card for WhatsApp Status & Twitter"
+          >
+            <Sparkles size={14} />
+            <span className="hidden sm:inline">Slip Card</span>
+          </button>
+
+          <button
             onClick={handleExportBetslipCsv}
             disabled={!total}
             className={cn(
@@ -797,7 +818,26 @@ export default function BetSlip({ darkMode = false }) {
             >
               <Brain size={14} /> AI Staking
             </button>
+            <button
+              onClick={() => setActiveTab("auditor")}
+              className={cn(
+                "flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5",
+                activeTab === "auditor"
+                  ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20"
+                  : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              )}
+            >
+              <Dice5 size={14} /> Monte Carlo
+            </button>
           </div>
+
+          {activeTab === "auditor" && (
+            <MonteCarloAuditor
+              matches={validMatches.length > 0 ? validMatches : matches}
+              totalOdds={totalOdds}
+              darkMode={darkMode}
+            />
+          )}
 
           {activeTab === "system" && (
             <div className="space-y-3 mb-6 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
@@ -1189,6 +1229,21 @@ export default function BetSlip({ darkMode = false }) {
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
             <div className="flex gap-3 w-full sm:w-1/2">
               <button
+                onClick={() => setSlipCardOpen(true)}
+                disabled={!total}
+                className={cn(
+                  "py-3.5 px-3.5 rounded-2xl text-xs font-black transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 shrink-0",
+                  darkMode
+                    ? "bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-300"
+                    : "bg-amber-50 border border-amber-200 hover:bg-amber-100 text-amber-700",
+                  !total && "opacity-50 cursor-not-allowed"
+                )}
+                title="Create Viral HD Graphic Slip Card"
+              >
+                <Sparkles size={14} /> Card
+              </button>
+
+              <button
                 onClick={handleShare}
                 disabled={activeTab === "system" && missingSelection}
                 className={cn(
@@ -1287,6 +1342,16 @@ export default function BetSlip({ darkMode = false }) {
         initialBookmaker={selectedBookie}
         darkMode={darkMode}
         stake={grandTotalStake || totalKellyStake || 0}
+      />
+
+      {/* Viral HD Slip Card Studio Modal */}
+      <SlipCardModal
+        open={slipCardOpen}
+        onClose={() => setSlipCardOpen(false)}
+        matches={validMatches.length > 0 ? validMatches : matches}
+        totalOdds={totalOdds}
+        slipTitle={slipTitle}
+        darkMode={darkMode}
       />
 
       {/* Market Modal */}
