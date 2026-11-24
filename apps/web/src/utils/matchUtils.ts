@@ -950,3 +950,51 @@ export function formatSlipMarketLabel(selectedMarket = "", selectedOption = "") 
 
   return m || "Pick";
 }
+
+/**
+ * Formats country and league cleanly without duplicating the country name.
+ * e.g.
+ * country: "England", league: "England - Championship" -> "England • Championship"
+ * country: "Italy", league: "Italy - Serie B" -> "Italy • Serie B"
+ * country: "Montenegro", league: "Montenegro - Prva Crnogorska Liga" -> "Montenegro • Prva Crnogorska Liga"
+ * country: "England", league: "Premier League" -> "England • Premier League"
+ * country: "England", league: "England" -> "England"
+ */
+export function formatSlipLeague(country = "", league = "") {
+  const c = String(country || "").trim();
+  let l = String(league || "").trim();
+
+  // Strip international / world prefixes from league
+  l = l.replace(/^(?:Intl|World)\s*[-:•/–—]\s*/i, "").replace(/^(?:Intl|World)\s+/i, "").trim();
+
+  if (!c && !l) return "Football";
+  if (!c) return l;
+  if (!l) return c;
+
+  // Clean redundant leading country name(s) and separators from the league string
+  let cleanLeague = l;
+  let changed = true;
+  while (changed) {
+    changed = false;
+    if (cleanLeague.toLowerCase() === c.toLowerCase()) {
+      cleanLeague = "";
+      break;
+    }
+    if (cleanLeague.toLowerCase().startsWith(c.toLowerCase())) {
+      const remainder = cleanLeague.slice(c.length).trim();
+      const strippedRemainder = remainder.replace(/^[-:•/–—|\s]+/, "").trim();
+      if (strippedRemainder !== cleanLeague) {
+        cleanLeague = strippedRemainder;
+        changed = true;
+      }
+    }
+  }
+
+  cleanLeague = cleanLeague.replace(/^[-:•/–—|\s]+/, "").trim();
+
+  if (!cleanLeague || cleanLeague.toLowerCase() === c.toLowerCase()) {
+    return c;
+  }
+
+  return `${c} • ${cleanLeague}`;
+}

@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { toPng, toBlob } from "html-to-image";
 import { toast } from "sonner";
-import { formatSlipMarketLabel } from "@/utils/matchUtils";
+import { formatSlipMarketLabel, formatSlipLeague } from "@/utils/matchUtils";
 
 function cn(...c) {
   return c.filter(Boolean).join(" ");
@@ -398,9 +398,8 @@ export function SlipCardModal({
                 const score = m.cScore || m.predictedScore || m.likelyCS || m.c_score;
                 const formattedMarket = formatSlipMarketLabel(m.selectedMarket, m.selectedOption);
                 const country = (m.country || m.Country || m.leagueCountry || "").trim();
-                let league = (m.fullLeague || m.league || m.League || "").trim();
-                league = league.replace(/Intl\s*-\s*/g, "").replace(/World\s*-\s*/g, "").trim();
-                const countryLeague = country && league ? `${country} • ${league}` : league || country || "Football";
+                const rawLeague = (m.fullLeague || m.league || m.League || "").trim();
+                const countryLeague = formatSlipLeague(country, rawLeague);
 
                 let dateVal = String(m.dateRaw || m.date || m.dateISO || "").trim();
                 if (dateVal.length > 10) dateVal = dateVal.slice(0, 10);

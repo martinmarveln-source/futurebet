@@ -9,7 +9,7 @@ import BookingCodeModal from "@/components/Dashboard/BookingCodeModal";
 import { SlipCardModal } from "@/components/Dashboard/SlipCardModal";
 import { MonteCarloAuditor } from "@/components/Dashboard/MonteCarloAuditor";
 import { LoadBookingCodeModal } from "@/components/Dashboard/LoadBookingCodeModal";
-import { formatNaira, formatSlipMarketLabel } from "@/utils/matchUtils";
+import { formatNaira, formatSlipMarketLabel, formatSlipLeague } from "@/utils/matchUtils";
 import { toast } from "sonner";
 import {
   Ticket,
@@ -420,12 +420,7 @@ export default function BetSlip({ darkMode = false }) {
     targetMatches.forEach((m: any, i: number) => {
       lines.push(`${numToEmoji(i + 1)} ${m.match}`);
       
-      let leagueStr = String(m.fullLeague || m.league || "League").trim();
-      // Remove "Intl - " or "World - " or "World" if it's there
-      leagueStr = leagueStr.replace(/Intl\s*-\s*/g, "").replace(/World\s*-\s*/g, "").trim();
-      if (leagueStr.startsWith("Intl ")) leagueStr = leagueStr.replace("Intl ", "");
-      if (leagueStr.startsWith("World ")) leagueStr = leagueStr.replace("World ", "");
-      
+      const leagueStr = formatSlipLeague(m.country || m.Country || "", m.fullLeague || m.league || "");
       lines.push(`🌍 ${leagueStr}`);
 
       let dateStr = String(m.dateRaw || m.date || m.dateISO || "").trim();

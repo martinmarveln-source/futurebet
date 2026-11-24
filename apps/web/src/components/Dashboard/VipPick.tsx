@@ -26,6 +26,7 @@ import { computeDerivedPickFromStats, getBestInGroup, checkIfPickWon } from "@/u
 import useUserPermissions from "@/hooks/useUserPermissions";
 import useBetslipStore from "@/store/betslipStore";
 import UpgradeButton from "@/components/Dashboard/UpgradeButton";
+import { formatSlipLeague } from "@/utils/matchUtils";
 
 /* =====================================================================================
   VIP: chance% -> odds helpers
@@ -1418,9 +1419,7 @@ export default function VipPick({ darkMode = false }) {
         awayTeamName: awayTeam,
         country,
         league: leagueName,
-        fullLeague:
-          fullLeague ||
-          (country && leagueName ? `${country} • ${leagueName}` : leagueName),
+        fullLeague: formatSlipLeague(country, fullLeague || leagueName),
       });
     },
     [showNotice],

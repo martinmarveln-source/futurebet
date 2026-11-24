@@ -6,6 +6,7 @@ import {
   fairOddsFromPickMarket,
   valueTagFromVip,
   generatePickReasons,
+  formatSlipLeague,
 } from "@/utils/matchUtils";
 import { Chip, ProgressBar } from "./PremiumUI";
 import useBetslipStore from "@/store/betslipStore";
@@ -177,8 +178,7 @@ export const HomePickRow = memo(function HomePickRow({
             )}
             {showDateInRows && date && <span className="opacity-30">•</span>}
             <span className="truncate max-w-full">
-              {country ? `${country} • ` : ""}
-              {league}
+              {formatSlipLeague(country, league)}
             </span>
             {time && <span className="opacity-30 shrink-0">•</span>}
             {time && <span className="shrink-0">{time}</span>}
