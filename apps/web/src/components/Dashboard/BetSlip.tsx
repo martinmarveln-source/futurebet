@@ -534,9 +534,9 @@ export default function BetSlip({ darkMode = false }) {
       [],
       ["# Summary", ""],
       ["# Total Selections", String(matches.length)],
-      ["# Total Accumulator Odds", totalOdds ? totalOdds.toFixed(2) : "—"],
+      ["# Total Accumulator Odds", totalOdds ? Number(totalOdds).toFixed(2) : "—"],
       ["# Single Stake", singleStake ? String(singleStake) : "—"],
-      ["# Potential Return", potentialWin ? potentialWin.toFixed(2) : "—"],
+      ["# Potential Return", potentialWin ? Number(potentialWin).toFixed(2) : "—"],
       ["# Exported At", new Date().toISOString()],
     ];
 

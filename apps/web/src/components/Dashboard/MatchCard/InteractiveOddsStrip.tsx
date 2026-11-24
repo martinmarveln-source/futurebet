@@ -220,7 +220,7 @@ export const InteractiveOddsStrip = memo(function InteractiveOddsStrip({
         const added = store.addMatch?.(payload);
         if (added) {
           toast.success(
-            `Added ${item.shortLabel} @ ${item.odds.toFixed(2)} to BetSlip`
+            `Added ${item.shortLabel} @ ${Number(item.odds || 0).toFixed(2)} to BetSlip`
           );
         } else {
           toast.error("Could not add to BetSlip.");
@@ -351,7 +351,7 @@ export const InteractiveOddsStrip = memo(function InteractiveOddsStrip({
                           : "text-gray-900"
                       )}
                     >
-                      {item.odds.toFixed(2)}
+                      {Number(item.odds || 0).toFixed(2)}
                     </span>
                   ) : (
                     <span

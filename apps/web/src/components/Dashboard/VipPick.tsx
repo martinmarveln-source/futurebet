@@ -638,11 +638,11 @@ const VipPickCard = React.memo(function VipPickCard({
               </Pill>
 
               <Pill darkMode={darkMode} tone="gray">
-                Fair {p.fairOdds ? p.fairOdds.toFixed(2) : "—"}
+                Fair {p.fairOdds ? Number(p.fairOdds).toFixed(2) : "—"}
               </Pill>
 
               <Pill darkMode={darkMode} tone={p.odds ? "green" : "gray"}>
-                Odds {p.odds ? p.odds.toFixed(2) : "—"}
+                Odds {p.odds ? Number(p.odds).toFixed(2) : "—"}
               </Pill>
 
               {p.raw?.isValueBet && p.raw?.ev != null && (
@@ -2121,7 +2121,7 @@ export default function VipPick({ darkMode = false }) {
                   <div className={cn("mt-2 text-sm", darkMode ? "text-gray-200" : "text-gray-700")}>
                     Pick: <b>{banker.pickLabel || "—"}</b>
                     <span className="mx-1 text-gray-400">•</span>
-                    Odds: <b className={banker.odds ? "text-emerald-600" : "text-gray-400"}>{banker.odds ? banker.odds.toFixed(2) : "—"}</b>
+                    Odds: <b className={banker.odds ? "text-emerald-600" : "text-gray-400"}>{banker.odds ? Number(banker.odds).toFixed(2) : "—"}</b>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Pill darkMode={darkMode} tone="yellow">VIP {Math.round(banker.vipScore)}</Pill>

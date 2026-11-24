@@ -224,7 +224,7 @@ export const HomePickRow = memo(function HomePickRow({
               </Chip>
             )}
             <Chip tone={realOdds ? "green" : "gray"} darkMode={darkMode}>
-              Odds {realOdds ? realOdds.toFixed(2) : "—"}
+              Odds {realOdds ? Number(realOdds).toFixed(2) : "—"}
             </Chip>
             {edgePct > 0 && (
               <Chip tone="green" darkMode={darkMode}>

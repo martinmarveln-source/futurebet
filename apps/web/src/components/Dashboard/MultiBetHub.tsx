@@ -126,7 +126,7 @@ export default function MultiBetHub({
         const marketLabel = formatSlipMarketLabel(leg.selectedMarket, leg.selectedOption);
         lines.push(`${idx + 1}. ⚽ ${leg.match}`);
         if (cleanLeague) lines.push(`   🌍 ${cleanLeague}`);
-        lines.push(`   🎯 ${marketLabel} @ ${leg.odds.toFixed(2)}`);
+        lines.push(`   🎯 ${marketLabel} @ ${Number(leg.odds || 0).toFixed(2)}`);
         lines.push("");
       });
 
@@ -444,7 +444,7 @@ export default function MultiBetHub({
                               <span>{cleanMarket}</span>
                             </div>
                             <div className="text-[11px] font-mono font-bold text-slate-400 mt-0.5">
-                              @{leg.odds.toFixed(2)}
+                              @{Number(leg.odds || 0).toFixed(2)}
                             </div>
                           </div>
                         </div>

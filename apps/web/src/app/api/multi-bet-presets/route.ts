@@ -238,7 +238,7 @@ function buildSlip(
       time: String(m.time || ""),
       selectedMarket: c.market,
       selectedOption: c.option,
-      odds: c.odds,
+      odds: Number(toNum(c.odds, 1.5).toFixed(2)),
       confidence: c.confidence,
       reason: c.reason,
     });
