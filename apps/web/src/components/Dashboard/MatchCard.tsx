@@ -2300,7 +2300,29 @@ export default function MatchCard({
                           <div className="flex items-center gap-2">
                             {formatSelectionLabel(recommended)}
                             {/* Reason Badges */}
-                            {recommended.valueEdge > 5 ? (
+                            {recommended.reasonTag ? (
+                              <span
+                                className={cn(
+                                  "px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border",
+                                  recommended.reasonTag.includes("Shield") ||
+                                    recommended.reasonTag.includes("Safest") ||
+                                    recommended.reasonTag.includes("Dominant") ||
+                                    recommended.reasonTag.includes("Lock")
+                                    ? darkMode
+                                      ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                                      : "bg-emerald-100 text-emerald-700 border-emerald-200"
+                                    : recommended.reasonTag.includes("Value")
+                                    ? darkMode
+                                      ? "bg-purple-500/20 text-purple-400 border-purple-500/30"
+                                      : "bg-purple-100 text-purple-700 border-purple-200"
+                                    : darkMode
+                                    ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                                    : "bg-blue-100 text-blue-700 border-blue-200"
+                                )}
+                              >
+                                {recommended.reasonTag}
+                              </span>
+                            ) : recommended.valueEdge > 5 ? (
                               <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest", darkMode ? "bg-purple-500/20 text-purple-400" : "bg-purple-100 text-purple-700")}>High Value</span>
                             ) : recommended.prob >= 70 ? (
                               <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest", darkMode ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700")}>Safest Prob</span>

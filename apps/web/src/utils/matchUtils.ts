@@ -56,8 +56,14 @@ export function bestPickFromMatch(m, style = "balanced") {
     .filter((x) => x.prob > 0 && x.prob <= 100)
     .map((x) => ({ ...x, score: x.prob })); // base scoring
 
-  // Style tuning (small biases)
+  // Style tuning & draw protection
+  const isHighDraw = pDraw >= 27;
   for (const c of candidates) {
+    if (isHighDraw) {
+      if (c.market === "1X2" && c.option !== "Draw") c.score *= 0.88;
+      if (c.market === "Double Chance") c.score *= 1.12;
+    }
+
     if (style === "safe") {
       // Avoid volatile markets a bit
       if (c.market === "1X2" && c.option === "Draw") c.score *= 0.85;

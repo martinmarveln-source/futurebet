@@ -252,6 +252,21 @@ export function calculateValueEdge(probability: number, odds: number) {
   return Math.round(edge * 10) / 10;
 }
 
+export function parseFormPoints(formStr: any): number {
+  if (!formStr || typeof formStr !== "string") return 0;
+  const chars = formStr.toUpperCase().replace(/[^WDL]/g, "").slice(-5).split("");
+  return chars.reduce((acc, c) => acc + (c === "W" ? 3 : c === "D" ? 1 : 0), 0);
+}
+
+export function parseTableDelta(tableStr: any): number {
+  if (!tableStr || typeof tableStr !== "string") return 0;
+  const parts = tableStr.split("|").map((x) => Number(x.trim()));
+  if (parts.length === 2 && Number.isFinite(parts[0]) && Number.isFinite(parts[1]) && parts[0] > 0 && parts[1] > 0) {
+    return parts[1] - parts[0]; // positive = home team is higher placed in standings
+  }
+  return 0;
+}
+
 export function createCandidate({
   market,
   option,
@@ -261,6 +276,7 @@ export function createCandidate({
   support = 0,
   penalty = 0,
   match = null,
+  reasonTag = "Safest Prob",
 }: {
   market: string;
   option: string;
@@ -270,6 +286,7 @@ export function createCandidate({
   support?: number;
   penalty?: number;
   match?: any;
+  reasonTag?: string;
 }) {
   const margin = prob - opposition;
   
@@ -282,15 +299,17 @@ export function createCandidate({
     if (realOdds && realOdds > 1) {
       const implied = (1 / realOdds) * 100;
       valueEdge = prob - implied;
-      if (valueEdge > 5) edgeScore += 10;
-      else if (valueEdge > 0) edgeScore += 5;
-      else if (valueEdge < -10) penalty += 15;
+      if (valueEdge > 5) edgeScore += 8;
+      else if (valueEdge > 0) edgeScore += 4;
+      else if (valueEdge < -12) penalty += 8;
     } else {
-      penalty += 25; 
+      // Soft penalty only — never disqualify high-probability selections (75%+) just because odds are loading
+      penalty += 2;
     }
   }
 
-  const score = prob * 0.62 + clamp(margin, -20, 35) * 0.45 + support - penalty + edgeScore;
+  // Weight probability heavily (0.70) to favor selections that win consistently (75%+ hit rates)
+  const score = prob * 0.70 + clamp(margin, -20, 35) * 0.35 + support - penalty + edgeScore;
   
   return {
     market,
@@ -301,6 +320,7 @@ export function createCandidate({
     margin: Math.round(margin),
     realOdds,
     valueEdge: Math.round(valueEdge * 10) / 10,
+    reasonTag,
   };
 }
 
@@ -325,49 +345,121 @@ export function getRecommendedMarket(match: any) {
   const hBtts = pct(match?.hBtts), aBtts = pct(match?.aBtts);
   const hOv2 = pct(match?.hOv2), aOv2 = pct(match?.aOv2);
   
-  const failRate = avg(pct(match?.hfts ?? match?.hFailedToScore), pct(match?.afts ?? match?.aFailedToScore));
-  const cleanSheetRate = avg(pct(match?.hcs), pct(match?.acs));
+  const hfts = pct(match?.hfts ?? match?.hFailedToScore), afts = pct(match?.afts ?? match?.aFailedToScore);
+  const hcs = pct(match?.hcs), acs = pct(match?.acs);
+  const failRate = avg(hfts, afts);
+  const cleanSheetRate = avg(hcs, acs);
   const predicted = parsePredictedScore(match?.cScore || match?.predictedScore);
   const totalAvg = toNum(match?.avg) || (hgs || hgc || ags || agc ? (hgs + hgc + ags + agc) / 2 : 0);
   const bttsProfile = avg(hBtts, aBtts, gg), overProfile = avg(hOv2, aOv2, ov25);
 
-  const homeDir =
-    (toNum(match?.hppg) > toNum(match?.appg) + 0.3 ? 4 : 0) +
+  // === 1. FORM & MOMENTUM (Last 5 matches) ===
+  const hFormPts = parseFormPoints(match?.hForm || match?.hRecent);
+  const aFormPts = parseFormPoints(match?.aForm || match?.aRecent);
+  const formDelta = hFormPts - aFormPts;
+
+  // === 2. TABLE STANDINGS & TIER CLASS ===
+  const tableDelta = parseTableDelta(match?.table);
+  const isBothLowTier = (match?.hGrp === "D" || match?.hGrp === "E") && (match?.aGrp === "D" || match?.aGrp === "E");
+
+  // === 3. OVER 1.5 GOAL DISTRIBUTION MATRIX ===
+  const hgsO15 = pct(match?.hgsOver15), hgcO15 = pct(match?.hgcOver15);
+  const agsO15 = pct(match?.agsOver15), agcO15 = pct(match?.agcOver15);
+  const over15Profile = avg(hgsO15, hgcO15, agsO15, agcO15);
+
+  // === 4. HEAD-TO-HEAD HISTORICAL TRENDS ===
+  const h2hH = pct(match?.h2hH), h2hD = pct(match?.h2hD), h2hA = pct(match?.h2hA);
+  const h2hOV = pct(match?.h2hOV), h2hUN = pct(match?.h2hUN);
+  const h2hGG = pct(match?.h2hGG), h2hNG = pct(match?.h2hNG);
+
+  // === 5. SCORELINE DISTRIBUTION MATRIX ===
+  const s00 = toNum(match?.score00), s10 = toNum(match?.score10), s11 = toNum(match?.score11);
+  const s01 = toNum(match?.score01), s20 = toNum(match?.score20), s21 = toNum(match?.score21);
+  const s02 = toNum(match?.score02), s12 = toNum(match?.score12), s22 = toNum(match?.score22);
+  const drawScoreSum = s00 + s11 + s22;
+  const under25ScoreSum = s00 + s10 + s01 + s20 + s02 + s11;
+  const ngScoreSum = s00 + s10 + s20 + s01 + s02;
+
+  // Draw Trap Detection
+  const isDrawRisk = draw >= 27 || drawScoreSum >= 24 || (predicted && predicted.home === predicted.away);
+
+  // Comprehensive Home Support
+  let homeDir =
+    (toNum(match?.hppg) > toNum(match?.appg) + 0.3 ? 3 : 0) +
     (toNum(match?.hPts) > toNum(match?.aPts) + 2 ? 3 : 0) +
     (predicted && predicted.home > predicted.away ? 3 : 0) +
     (hgs > ags ? 2 : 0) +
-    (agc > hgc ? 2 : 0);
-    
-  const awayDir =
-    (toNum(match?.appg) > toNum(match?.hppg) + 0.3 ? 4 : 0) +
+    (agc > hgc ? 2 : 0) +
+    (formDelta >= 4 ? 4 : formDelta <= -4 ? -5 : 0) +
+    (tableDelta >= 7 ? 4 : tableDelta <= -7 ? -4 : 0) +
+    (h2hH >= 55 ? 3 : h2hA >= 55 ? -3 : 0);
+
+  // Comprehensive Away Support
+  let awayDir =
+    (toNum(match?.appg) > toNum(match?.hppg) + 0.3 ? 3 : 0) +
     (toNum(match?.aPts) > toNum(match?.hPts) + 2 ? 3 : 0) +
     (predicted && predicted.away > predicted.home ? 3 : 0) +
     (ags > hgs ? 2 : 0) +
-    (hgc > agc ? 2 : 0);
+    (hgc > agc ? 2 : 0) +
+    (formDelta <= -4 ? 4 : formDelta >= 4 ? -5 : 0) +
+    (tableDelta <= -7 ? 4 : tableDelta >= 7 ? -4 : 0) +
+    (h2hA >= 55 ? 3 : h2hH >= 55 ? -3 : 0);
+
+  // Dominant favorite super-boost (e.g. 70%+ win prob, top of table, in-form)
+  const isDominantHome = home >= 70 && (tableDelta >= 6 || formDelta >= 3 || toNum(match?.hppg) >= 2.0);
+  const isDominantAway = away >= 65 && (tableDelta <= -6 || formDelta <= -3 || toNum(match?.appg) >= 1.9);
+
+  if (isDominantHome) {
+    homeDir += 10;
+  }
+  if (isDominantAway) {
+    awayDir += 10;
+  }
+
+  // Safe Acca Calibration: Straight 1X2 caution vs Double Chance coverage
+  // In close games (Home 42-65%), straight Home has high variance. Double Chance (1X) is 75-85% hit-rate.
+  const homeStraightPenalty = (isDrawRisk ? 14 : 0) + (!isDominantHome && home < 66 ? 8 : 0) + (isBothLowTier ? 8 : 0);
+  const awayStraightPenalty = (isDrawRisk ? 14 : 0) + (!isDominantAway && away < 60 ? 8 : 0) + (isBothLowTier ? 8 : 0);
+
+  const dc1XSupport = homeDir + (isDrawRisk ? 8 : 2) + (h2hD >= 30 ? 3 : 0) + (tableDelta >= 4 ? 4 : 0);
+  const dcX2Support = awayDir + (isDrawRisk ? 8 : 2) + (h2hD >= 30 ? 3 : 0) + (tableDelta <= -4 ? 4 : 0);
+
+  // Goal Support
+  const over15Support = (overProfile >= 50 ? 3 : 0) + (over15Profile >= 55 ? 5 : 0) + (totalAvg >= 2.1 ? 4 : 0) + (hfts <= 18 && afts <= 18 ? 4 : 0);
+  const under35Support = (failRate >= 32 ? 4 : 0) + (cleanSheetRate >= 28 ? 4 : 0) + (under25ScoreSum >= 50 ? 4 : 0) + (totalAvg <= 2.5 ? 4 : 0);
+  const bttsNoSupport = (failRate >= 34 ? 5 : 0) + (cleanSheetRate >= 30 ? 5 : 0) + (ngScoreSum >= 45 ? 5 : 0) + (h2hNG >= 55 ? 3 : 0);
+  const bttsYesSupport = (bttsProfile >= 56 ? 4 : 0) + (totalAvg >= 2.55 ? 4 : 0) + (h2hGG >= 55 ? 3 : 0) + (failRate <= 20 ? 3 : 0);
 
   const candidates = [
-    home > 0 ? createCandidate({ market: "1X2", option: "Home", label: "1X2 — Home", prob: home, opposition: Math.max(draw, away), support: homeDir, penalty: draw >= 30 && Math.abs(home - draw) <= 5 ? 4 : 0, match }) : null,
-    draw > 0 ? createCandidate({ market: "1X2", option: "Draw", label: "1X2 — Draw", prob: draw, opposition: Math.max(home, away), support: (draw >= 30 ? 4 : 0) + (Math.abs(home - away) <= 6 ? 3 : 0), penalty: Math.max(home, away) >= 50 ? 4 : 0, match }) : null,
-    away > 0 ? createCandidate({ market: "1X2", option: "Away", label: "1X2 — Away", prob: away, opposition: Math.max(home, draw), support: awayDir, penalty: draw >= 30 && Math.abs(away - draw) <= 5 ? 4 : 0, match }) : null,
+    // Straight 1X2 — only recommended for dominant favorites (66%+ win probability or huge tier/form mismatch)
+    home > 0 ? createCandidate({ market: "1X2", option: "Home", label: "1X2 — Home", prob: home, opposition: Math.max(draw, away), support: homeDir, penalty: homeStraightPenalty, match, reasonTag: home >= 70 ? "Dominant Favorite" : "Form Backed" }) : null,
+    draw > 0 ? createCandidate({ market: "1X2", option: "Draw", label: "1X2 — Draw", prob: draw, opposition: Math.max(home, away), support: (isDrawRisk ? 8 : 0) + (Math.abs(home - away) <= 5 ? 4 : 0), penalty: Math.max(home, away) >= 50 ? 8 : 0, match, reasonTag: "Draw Projected" }) : null,
+    away > 0 ? createCandidate({ market: "1X2", option: "Away", label: "1X2 — Away", prob: away, opposition: Math.max(home, draw), support: awayDir, penalty: awayStraightPenalty, match, reasonTag: away >= 65 ? "Dominant Away" : "Form Backed" }) : null,
     
-    dc1X > 0 ? createCandidate({ market: "Double Chance", option: "Home or Draw", label: "DC — 1X", prob: dc1X, opposition: away, support: homeDir + (draw >= 28 ? 2 : 0), penalty: home < 30 ? 5 : 0, match }) : null,
-    dc12 > 0 ? createCandidate({ market: "Double Chance", option: "Home or Away", label: "DC — 12", prob: dc12, opposition: draw, support: homeDir + awayDir, penalty: draw >= 33 ? 8 : 0, match }) : null,
-    dcX2 > 0 ? createCandidate({ market: "Double Chance", option: "Draw or Away", label: "DC — X2", prob: dcX2, opposition: home, support: awayDir + (draw >= 28 ? 2 : 0), penalty: away < 30 ? 5 : 0, match }) : null,
+    // Double Chance — the bedrock for 75%-85% win rate in accumulators and cards
+    dc1X > 0 ? createCandidate({ market: "Double Chance", option: "Home or Draw", label: "DC — 1X", prob: dc1X, opposition: away, support: dc1XSupport, penalty: home < 28 ? 8 : 0, match, reasonTag: isDrawRisk ? "Draw Shield (1X)" : "Safest Prob" }) : null,
+    dc12 > 0 ? createCandidate({ market: "Double Chance", option: "Home or Away", label: "DC — 12", prob: dc12, opposition: draw, support: homeDir + awayDir, penalty: isDrawRisk ? 12 : draw >= 30 ? 8 : 0, match, reasonTag: "Attack Clash (12)" }) : null,
+    dcX2 > 0 ? createCandidate({ market: "Double Chance", option: "Draw or Away", label: "DC — X2", prob: dcX2, opposition: home, support: dcX2Support, penalty: away < 28 ? 8 : 0, match, reasonTag: isDrawRisk ? "Draw Shield (X2)" : "Safest Prob" }) : null,
 
-    gg > 0 ? createCandidate({ market: "BTTS", option: "Yes", label: "BTTS — Yes", prob: gg, opposition: ng, support: (bttsProfile >= 56 ? 4 : 0) + (totalAvg >= 2.55 ? 4 : 0), penalty: failRate >= 40 ? 4 : 0, match }) : null,
-    ng > 0 ? createCandidate({ market: "BTTS", option: "No", label: "BTTS — No", prob: ng, opposition: gg, support: (failRate >= 34 ? 4 : 0) + (cleanSheetRate >= 28 ? 4 : 0), penalty: bttsProfile >= 60 && totalAvg >= 2.7 ? 4 : 0, match }) : null,
+    // Both Teams to Score (BTTS)
+    gg > 0 ? createCandidate({ market: "BTTS", option: "Yes", label: "BTTS — Yes", prob: gg, opposition: ng, support: bttsYesSupport, penalty: failRate >= 36 ? 8 : 0, match, reasonTag: "Goals Flowing" }) : null,
+    ng > 0 ? createCandidate({ market: "BTTS", option: "No", label: "BTTS — No", prob: ng, opposition: gg, support: bttsNoSupport, penalty: (bttsProfile >= 60 && totalAvg >= 2.7) ? 8 : 0, match, reasonTag: "Clean Sheet Lock" }) : null,
     
-    ov25 > 0 ? createCandidate({ market: "Over 2.5", option: "Yes", label: "Over 2.5", prob: ov25, opposition: un25, support: (overProfile >= 58 ? 4 : 0) + (totalAvg >= 2.65 ? 5 : 0), penalty: un25 >= 58 ? 4 : 0, match }) : null,
-    un25 > 0 ? createCandidate({ market: "Under 2.5", option: "Yes", label: "Under 2.5", prob: un25, opposition: ov25, support: (un25 >= 56 ? 4 : 0) + (totalAvg <= 2.2 ? 5 : 0), penalty: overProfile >= 60 ? 4 : 0, match }) : null,
+    // Over / Under 2.5
+    ov25 > 0 ? createCandidate({ market: "Over 2.5", option: "Yes", label: "Over 2.5", prob: ov25, opposition: un25, support: (overProfile >= 60 ? 4 : 0) + (totalAvg >= 2.7 ? 5 : 0) + (h2hOV >= 60 ? 3 : 0), penalty: (un25 >= 55 || failRate >= 35) ? 6 : 0, match, reasonTag: "High Value" }) : null,
+    un25 > 0 ? createCandidate({ market: "Under 2.5", option: "Yes", label: "Under 2.5", prob: un25, opposition: ov25, support: (un25 >= 56 ? 4 : 0) + (totalAvg <= 2.2 ? 5 : 0) + (under25ScoreSum >= 55 ? 5 : 0) + (h2hUN >= 60 ? 3 : 0), penalty: (overProfile >= 60 || totalAvg >= 2.8) ? 8 : 0, match, reasonTag: "Defensive Lock" }) : null,
     
-    o15 > 0 ? createCandidate({ market: "Over 1.5", option: "Yes", label: "Over 1.5", prob: o15, opposition: u15, support: (overProfile >= 50 ? 2 : 0) + (totalAvg >= 2.0 ? 3 : 0), penalty: u15 >= 35 ? 4 : 0, match }) : null,
-    u15 > 0 ? createCandidate({ market: "Over 1.5", option: "No", label: "Under 1.5", prob: u15, opposition: o15, support: (un25 >= 65 ? 3 : 0) + (totalAvg <= 1.8 ? 4 : 0), penalty: overProfile >= 50 ? 5 : 0, match }) : null,
+    // Over / Under 1.5 (Consistent 80%+ accumulator builder)
+    o15 > 0 ? createCandidate({ market: "Over 1.5", option: "Yes", label: "Over 1.5", prob: o15, opposition: u15, support: over15Support + 5, penalty: (u15 >= 35 || totalAvg < 1.7) ? 6 : 0, match, reasonTag: "Safest Prob" }) : null,
+    u15 > 0 ? createCandidate({ market: "Over 1.5", option: "No", label: "Under 1.5", prob: u15, opposition: o15, support: (un25 >= 68 ? 4 : 0) + (totalAvg <= 1.6 ? 5 : 0), penalty: overProfile >= 50 ? 8 : 0, match, reasonTag: "Ultra Defensive" }) : null,
     
-    o35 > 0 ? createCandidate({ market: "Over 3.5", option: "Yes", label: "Over 3.5", prob: o35, opposition: u35, support: (overProfile >= 70 ? 4 : 0) + (totalAvg >= 3.2 ? 5 : 0), penalty: un25 >= 45 ? 6 : 0, match }) : null,
-    u35 > 0 ? createCandidate({ market: "Over 3.5", option: "No", label: "Under 3.5", prob: u35, opposition: o35, support: (un25 >= 50 ? 3 : 0) + (totalAvg <= 2.8 ? 3 : 0), penalty: overProfile >= 60 ? 4 : 0, match }) : null,
+    // Over / Under 3.5 (Safe cushion against 2-1 / 3-0 upsets)
+    o35 > 0 ? createCandidate({ market: "Over 3.5", option: "Yes", label: "Over 3.5", prob: o35, opposition: u35, support: (overProfile >= 72 ? 5 : 0) + (totalAvg >= 3.4 ? 6 : 0), penalty: un25 >= 45 ? 8 : 0, match, reasonTag: "High Value" }) : null,
+    u35 > 0 ? createCandidate({ market: "Over 3.5", option: "No", label: "Under 3.5", prob: u35, opposition: o35, support: under35Support + 4, penalty: overProfile >= 65 ? 8 : 0, match, reasonTag: "Safest Prob" }) : null,
     
-    o45 > 0 ? createCandidate({ market: "Over 4.5", option: "Yes", label: "Over 4.5", prob: o45, opposition: u45, support: (overProfile >= 75 ? 5 : 0) + (totalAvg >= 3.5 ? 6 : 0), penalty: un25 >= 40 ? 8 : 0, match }) : null,
-    u45 > 0 ? createCandidate({ market: "Over 4.5", option: "No", label: "Under 4.5", prob: u45, opposition: o45, support: (un25 >= 45 ? 3 : 0) + (totalAvg <= 3.2 ? 3 : 0), penalty: overProfile >= 65 ? 4 : 0, match }) : null,
+    // Over / Under 4.5 (Extreme fallback)
+    o45 > 0 ? createCandidate({ market: "Over 4.5", option: "Yes", label: "Over 4.5", prob: o45, opposition: u45, support: (overProfile >= 78 ? 5 : 0) + (totalAvg >= 3.6 ? 6 : 0), penalty: un25 >= 40 ? 12 : 6, match, reasonTag: "High Value" }) : null,
+    u45 > 0 ? createCandidate({ market: "Over 4.5", option: "No", label: "Under 4.5", prob: u45, opposition: o45, support: (un25 >= 45 ? 3 : 0) + (totalAvg <= 3.2 ? 3 : 0), penalty: overProfile >= 68 ? 12 : 8, match, reasonTag: "Safest Prob" }) : null,
   ].filter(Boolean) as any[];
 
   if (!candidates.length) return null;
@@ -375,7 +467,8 @@ export function getRecommendedMarket(match: any) {
 
   const best = candidates[0];
   
-  if (best.prob < 50 || best.score < 25) return null;
+  // Floor check: ensure recommendation has meaningful probability and confidence
+  if (best.prob < 52 || best.score < 28) return null;
   
   return best;
 }
