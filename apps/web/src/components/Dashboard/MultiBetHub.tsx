@@ -22,10 +22,13 @@ import {
   Crown,
   ChevronRight,
   CheckCircle2,
+  Image as ImageIcon,
+  Coins,
 } from "lucide-react";
 import { toast } from "sonner";
 import useBetslipStore from "@/store/betslipStore";
-import { formatSlipLeague, formatSlipMarketLabel } from "@/utils/matchUtils";
+import { formatSlipLeague, formatSlipMarketLabel, formatNaira } from "@/utils/matchUtils";
+import { SlipCardModal } from "./SlipCardModal";
 import UpgradeButton from "./UpgradeButton";
 
 function cn(...classes: any[]) {
@@ -49,8 +52,9 @@ export default function MultiBetHub({
   onOpenBookingCodeModal,
   onOpenSlipCard,
 }: MultiBetHubProps) {
-  const [scope, setScope] = useState<"today" | "weekend">("today");
+  const [scope, setScope] = useState<"today" | "weekend" | "weekly">("today");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [cardModalSlip, setCardModalSlip] = useState<any | null>(null);
 
   const addMatch = useBetslipStore((s) => s.addMatch);
   const betslipMatches = useBetslipStore((s) => s.matches);
@@ -89,7 +93,7 @@ export default function MultiBetHub({
             time: leg.time,
             selectedMarket: leg.selectedMarket,
             selectedOption: leg.selectedOption,
-            odds: leg.odds,
+            odds: Number(leg.odds || 0),
             confidence: leg.confidence,
           };
           const res = addMatch(matchPayload);
@@ -109,7 +113,7 @@ export default function MultiBetHub({
   );
 
   // Copy Slip as formatted text for WhatsApp/Telegram
-  const handleShareSlip = useCallback(
+  const handleShareSlipText = useCallback(
     async (slip: any) => {
       if (!slip?.matches || slip.matches.length === 0) return;
 
@@ -136,7 +140,7 @@ export default function MultiBetHub({
       try {
         await navigator.clipboard.writeText(lines.join("\n"));
         setCopiedId(slip.id);
-        toast.success(`Copied ${slip.title} to clipboard!`);
+        toast.success(`Copied ${slip.title} text to clipboard!`);
         setTimeout(() => setCopiedId(null), 2500);
       } catch {
         toast.error("Could not copy slip on this device.");
@@ -175,15 +179,15 @@ export default function MultiBetHub({
               Curated Multi-Bet Slips
             </h2>
             <p className={cn("text-xs sm:text-sm font-medium leading-relaxed", darkMode ? "text-slate-400" : "text-slate-600")}>
-              Auto-generated daily and weekend accumulators synthesized by our quantitative model with live bookmaker odds. Calibrated into 4 targeted risk/reward tiers.
+              Auto-generated accumulators synthesized with verified live bookmaker odds. Strict date filtering guarantees you only get matches playing within your selected schedule.
             </p>
           </div>
 
-          {/* Scope Selector: Today vs Weekend */}
-          <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto">
+          {/* Scope Selector: Today vs Weekend vs Weekly 1M */}
+          <div className="flex items-center gap-2 shrink-0 w-full md:w-auto flex-wrap">
             <div
               className={cn(
-                "p-1.5 rounded-2xl border flex items-center gap-1 shadow-inner backdrop-blur-md w-full sm:w-auto",
+                "p-1.5 rounded-2xl border flex items-center gap-1 shadow-inner backdrop-blur-md w-full sm:w-auto overflow-x-auto custom-scrollbar",
                 darkMode ? "bg-black/40 border-white/10" : "bg-slate-100 border-slate-300"
               )}
             >
@@ -191,7 +195,7 @@ export default function MultiBetHub({
                 type="button"
                 onClick={() => setScope("today")}
                 className={cn(
-                  "flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2",
+                  "px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 whitespace-nowrap",
                   scope === "today"
                     ? "bg-gradient-to-r from-amber-500 to-emerald-500 text-slate-950 shadow-md font-black"
                     : darkMode
@@ -207,7 +211,7 @@ export default function MultiBetHub({
                 type="button"
                 onClick={() => setScope("weekend")}
                 className={cn(
-                  "flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2",
+                  "px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 whitespace-nowrap",
                   scope === "weekend"
                     ? "bg-gradient-to-r from-amber-500 to-emerald-500 text-slate-950 shadow-md font-black"
                     : darkMode
@@ -217,6 +221,22 @@ export default function MultiBetHub({
               >
                 <Calendar size={13} />
                 <span>Weekend Mega</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setScope("weekly")}
+                className={cn(
+                  "px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 whitespace-nowrap",
+                  scope === "weekly"
+                    ? "bg-gradient-to-r from-amber-500 to-emerald-500 text-slate-950 shadow-md font-black"
+                    : darkMode
+                    ? "text-slate-400 hover:text-white"
+                    : "text-slate-600 hover:text-slate-950"
+                )}
+              >
+                <Coins size={13} className="text-amber-400" />
+                <span>Weekly ₦1M Jackpot</span>
               </button>
             </div>
 
@@ -263,25 +283,26 @@ export default function MultiBetHub({
             const is3x = slip.targetOdds === "3+";
             const is5x = slip.targetOdds === "5+";
             const is10x = slip.targetOdds === "10+";
-
-            const accentColor = is2x
-              ? "blue"
-              : is3x
-              ? "emerald"
-              : is5x
-              ? "amber"
-              : "purple";
+            const is1000x = slip.targetOdds === "1000+";
 
             return (
               <div
                 key={slip.id}
                 className={cn(
                   "rounded-3xl border p-5 sm:p-6 transition-all duration-300 flex flex-col justify-between relative overflow-hidden group shadow-md",
-                  darkMode
+                  is1000x && "md:col-span-2 border-amber-500/40 bg-gradient-to-br from-amber-500/[0.08] via-slate-950 to-slate-900",
+                  darkMode && !is1000x
                     ? "bg-slate-900/90 border-white/10 hover:border-white/20 hover:shadow-xl"
-                    : "bg-white border-slate-200/90 hover:border-slate-300 hover:shadow-xl"
+                    : !is1000x
+                    ? "bg-white border-slate-200/90 hover:border-slate-300 hover:shadow-xl"
+                    : ""
                 )}
               >
+                {/* 1000x Jackpot Ambient Background */}
+                {is1000x && (
+                  <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+                )}
+
                 {/* Top Corner Ribbon */}
                 <div className="flex items-center justify-between gap-3 mb-4">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -294,7 +315,9 @@ export default function MultiBetHub({
                           ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
                           : is5x
                           ? "bg-amber-500/15 border-amber-500/30 text-amber-400"
-                          : "bg-purple-500/15 border-purple-500/30 text-purple-300"
+                          : is10x
+                          ? "bg-purple-500/15 border-purple-500/30 text-purple-300"
+                          : "bg-gradient-to-r from-amber-500 to-emerald-500 text-slate-950 border-amber-400 font-black"
                       )}
                     >
                       {slip.badge}
@@ -303,7 +326,11 @@ export default function MultiBetHub({
                     <span
                       className={cn(
                         "px-2.5 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider",
-                        darkMode ? "bg-white/[0.04] text-slate-300" : "bg-slate-100 text-slate-700"
+                        is1000x
+                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 font-black"
+                          : darkMode
+                          ? "bg-white/[0.04] text-slate-300"
+                          : "bg-slate-100 text-slate-700"
                       )}
                     >
                       {slip.tierTag}
@@ -312,7 +339,7 @@ export default function MultiBetHub({
 
                   {/* Estimated Win Probability */}
                   <div className="flex items-center gap-1.5 text-right">
-                    <span className="text-[11px] font-bold text-slate-400">Confidence:</span>
+                    <span className="text-[11px] font-bold text-slate-400">Model Conviction:</span>
                     <span
                       className={cn(
                         "text-xs font-black font-mono px-2 py-0.5 rounded-md",
@@ -338,7 +365,8 @@ export default function MultiBetHub({
                   >
                     {slip.title}
                   </h3>
-                  <div className="flex items-baseline gap-2 mt-1">
+
+                  <div className="flex items-baseline gap-2 mt-1 flex-wrap">
                     <span
                       className={cn(
                         "text-2xl sm:text-3xl font-black font-mono tracking-tight",
@@ -348,7 +376,9 @@ export default function MultiBetHub({
                           ? "text-emerald-400"
                           : is5x
                           ? "text-amber-400"
-                          : "text-purple-400"
+                          : is10x
+                          ? "text-purple-400"
+                          : "text-amber-400"
                       )}
                     >
                       {slip.combinedOdds}x
@@ -356,10 +386,26 @@ export default function MultiBetHub({
                     <span className="text-xs font-semibold text-slate-400">
                       Combined Odds • {slip.matchesCount} Selections
                     </span>
+
+                    {/* Jackpot Target Return Badge */}
+                    {is1000x && (
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        Stake ₦1,000 → Win ₦{formatNaira(slip.potentialWin || 1000000)}
+                      </span>
+                    )}
                   </div>
+
                   <p className={cn("text-xs mt-1.5 line-clamp-2", darkMode ? "text-slate-400" : "text-slate-500")}>
                     {slip.description}
                   </p>
+
+                  {/* Reset Timer Info for 7-day Jackpot */}
+                  {slip.resetInfo && (
+                    <div className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-amber-400/90">
+                      <Clock size={13} />
+                      <span>{slip.resetInfo}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* CONTENT AREA: UNLOCKED MATCHES OR FROSTED GLASS LOCK */}
@@ -383,7 +429,7 @@ export default function MultiBetHub({
                       </div>
                       <p className={cn("text-xs font-medium", darkMode ? "text-slate-400" : "text-slate-500")}>
                         {slip.minTierRequired === "premium"
-                          ? `Unlock the ${slip.targetOdds} Multiplier slip, high-conviction picks, and multi-bookmaker booking codes.`
+                          ? `Unlock the ${slip.targetOdds} slip, high-conviction value picks, and multi-bookmaker booking codes.`
                           : `Upgrade to Silver or Pro to unlock the ${slip.targetOdds} Banker accumulator and full selections.`}
                       </p>
                     </div>
@@ -399,7 +445,7 @@ export default function MultiBetHub({
                   /* UNLOCKED SELECTION LIST */
                   <div
                     className={cn(
-                      "my-3 rounded-2xl border p-3 divide-y transition-all",
+                      "my-3 rounded-2xl border p-3 divide-y transition-all max-h-[360px] overflow-y-auto custom-scrollbar",
                       darkMode
                         ? "bg-black/30 border-white/5 divide-white/5"
                         : "bg-slate-50 border-slate-200 divide-slate-200"
@@ -427,6 +473,7 @@ export default function MultiBetHub({
                             </div>
                             <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400 truncate">
                               <span>{cleanLeague}</span>
+                              {leg.date && <span>• {leg.date}</span>}
                               {leg.time && <span>• {leg.time}</span>}
                             </div>
                           </div>
@@ -453,45 +500,57 @@ export default function MultiBetHub({
                   </div>
                 )}
 
-                {/* ACTION BAR */}
-                <div className="pt-3 border-t mt-2 flex items-center justify-between gap-2.5 flex-wrap">
+                {/* ACTION BAR: 1-Click BetSlip, Share Image (Slip Card), and Share Text */}
+                <div className="pt-3 border-t mt-2 flex items-center justify-between gap-2 flex-wrap">
                   {!slip.isLocked ? (
                     <>
+                      {/* Load All Button */}
                       <button
                         type="button"
                         onClick={() => handleLoadSlipToBetSlip(slip)}
                         className={cn(
-                          "flex-1 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md active:scale-95",
+                          "flex-1 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-md active:scale-95",
                           darkMode
                             ? "bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 hover:from-emerald-400 hover:to-teal-300 shadow-emerald-500/20"
                             : "bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-600/20"
                         )}
                       >
                         <Plus size={15} />
-                        <span>Load All ({slip.matchesCount}) into Slip</span>
+                        <span>Load All ({slip.matchesCount})</span>
                       </button>
 
+                      {/* Image Share Capability (Verified Slip Card Modal) */}
                       <button
                         type="button"
-                        onClick={() => handleShareSlip(slip)}
-                        title="Copy slip for social sharing"
+                        onClick={() => setCardModalSlip(slip)}
+                        title="Generate verified slip card image (Download or Share)"
                         className={cn(
                           "px-3.5 py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 shrink-0 active:scale-95",
+                          darkMode
+                            ? "border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
+                            : "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                        )}
+                      >
+                        <ImageIcon size={14} className="text-amber-400" />
+                        <span>Share Slip Image</span>
+                      </button>
+
+                      {/* Text Copy Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleShareSlipText(slip)}
+                        title="Copy slip text with emojis"
+                        className={cn(
+                          "px-3 py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 shrink-0 active:scale-95",
                           darkMode
                             ? "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
                             : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                         )}
                       >
                         {copiedId === slip.id ? (
-                          <>
-                            <Check size={14} className="text-emerald-400" />
-                            <span className="hidden sm:inline">Copied</span>
-                          </>
+                          <Check size={14} className="text-emerald-400" />
                         ) : (
-                          <>
-                            <Share2 size={14} />
-                            <span className="hidden sm:inline">Share</span>
-                          </>
+                          <Share2 size={14} />
                         )}
                       </button>
                     </>
@@ -511,6 +570,18 @@ export default function MultiBetHub({
             );
           })}
         </div>
+      )}
+
+      {/* VERIFIED SLIP CARD MODAL (IMAGE SHARE & DOWNLOAD) */}
+      {cardModalSlip && (
+        <SlipCardModal
+          open={Boolean(cardModalSlip)}
+          onClose={() => setCardModalSlip(null)}
+          matches={cardModalSlip.matches || []}
+          totalOdds={cardModalSlip.combinedOdds || 1}
+          slipTitle={cardModalSlip.title || "FutureBet Curated Multi-Bet"}
+          darkMode={darkMode}
+        />
       )}
     </div>
   );

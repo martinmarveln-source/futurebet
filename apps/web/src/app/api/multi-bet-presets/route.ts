@@ -28,6 +28,9 @@ interface PresetSlip {
   matchesCount: number;
   confidence: number;
   description: string;
+  stake?: number;
+  potentialWin?: number;
+  resetInfo?: string;
   matches: PresetLeg[];
 }
 
@@ -37,6 +40,47 @@ interface PresetSlip {
 function toNum(val: any, fallback = 0): number {
   const n = Number(val);
   return Number.isFinite(n) ? n : fallback;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Date helpers (Lagos WAT timezone)                                 */
+/* ------------------------------------------------------------------ */
+function getLagosDateISO(offsetDays = 0): string {
+  const d = new Date();
+  if (offsetDays !== 0) d.setDate(d.getDate() + offsetDays);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Lagos",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+function getMatchDateStr(m: any): string {
+  const raw = String(m.date || m.dateRaw || m.dateISO || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  try {
+    const d = new Date(raw);
+    if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  } catch {}
+  return "";
+}
+
+function getDayOfWeekInLagos(dateStr: string): number {
+  if (!dateStr || !dateStr.includes("-")) return -1;
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  return dt.getUTCDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+}
+
+function getCurrentMondayToSundayRange() {
+  const todayLagos = getLagosDateISO(0);
+  const dayOfWeek = getDayOfWeekInLagos(todayLagos);
+  // Distance to Monday: if Sunday (0), Monday was 6 days ago (-6); else 1 - dayOfWeek
+  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const mondayISO = getLagosDateISO(diffToMonday);
+  const sundayISO = getLagosDateISO(diffToMonday + 6);
+  return { mondayISO, sundayISO };
 }
 
 /* ------------------------------------------------------------------ */
@@ -66,7 +110,6 @@ function extractEligibleMarkets(m: any): Array<{
   const aOdds = toNum(m.awayOdds);
   const dc1X = toNum(m.dc1X);
   const dcX2 = toNum(m.dcX2);
-  const dc12 = toNum(m.dc12);
   const o15Odds = toNum(m.o15Odds);
   const o25Odds = toNum(m.o25Odds);
   const bttsYesOdds = toNum(m.bttsYesOdds);
@@ -165,7 +208,7 @@ function extractEligibleMarkets(m: any): Array<{
     candidates.push({
       market: m.recommended.market || "1X2",
       option: m.recommended.option,
-      odds: m.pickOdds,
+      odds: Number(toNum(m.pickOdds, 1.5).toFixed(2)),
       confidence: toNum(m.chance, 65),
       risk: "medium",
       reason: m.recommended.reason || "Algorithmic model consensus pick",
@@ -184,7 +227,8 @@ function buildSlip(
   targetMaxOdds: number,
   preferredRisks: Array<"safe" | "medium" | "aggressive">,
   minLegs: number,
-  maxLegs: number
+  maxLegs: number,
+  maxPerLeague = 2
 ): PresetLeg[] {
   const chosenLegs: PresetLeg[] = [];
   const usedMatches = new Set<string>();
@@ -222,7 +266,7 @@ function buildSlip(
 
     if (usedMatches.has(matchName)) continue;
     const leagueCount = usedLeagues.get(league) || 0;
-    if (leagueCount >= 2) continue; // max 2 per league
+    if (leagueCount >= maxPerLeague) continue;
 
     // Check if adding this leg exceeds targetMaxOdds prematurely
     const newOdds = cumulativeOdds * c.odds;
@@ -261,7 +305,7 @@ function buildSlip(
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const scope = (searchParams.get("scope") || "today").toLowerCase(); // "today" | "weekend"
+    const scope = (searchParams.get("scope") || "today").toLowerCase(); // "today" | "weekend" | "weekly"
 
     // 1. Resolve User Tier
     let userTier: "free" | "silver" | "premium" | "admin" = "free";
@@ -292,46 +336,84 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "No matches available currently." }, { status: 404 });
     }
 
-    // Filter by Scope (Today vs Weekend)
-    const filteredMatches = allMatches.filter((m) => {
-      if (!m.date) return true;
-      if (scope === "weekend") {
-        try {
-          const day = new Date(m.date).getDay();
-          return day === 5 || day === 6 || day === 0; // Fri, Sat, Sun
-        } catch {
-          return true;
-        }
+    // 3. Strict Date Filtering by Scope
+    const todayISO = getLagosDateISO(0); // e.g. "2026-11-24"
+    const tomorrowISO = getLagosDateISO(1);
+    const { mondayISO, sundayISO } = getCurrentMondayToSundayRange();
+
+    let candidatePool: any[] = [];
+
+    if (scope === "today") {
+      // STRICT TODAY: Only matches scheduled for today
+      const todayMatches = allMatches.filter((m) => {
+        const d = getMatchDateStr(m);
+        return d === todayISO;
+      });
+
+      // If today has 6+ matches, strictly use today!
+      // Only if today has very few matches (e.g. late night), include tomorrow (next 24h), NEVER next week!
+      candidatePool = todayMatches.length >= 6
+        ? todayMatches
+        : allMatches.filter((m) => {
+            const d = getMatchDateStr(m);
+            return d === todayISO || d === tomorrowISO;
+          });
+    } else if (scope === "weekend") {
+      // STRICT WEEKEND: Matches on Friday (5), Saturday (6), or Sunday (0)
+      candidatePool = allMatches.filter((m) => {
+        const d = getMatchDateStr(m);
+        if (!d) return false;
+        const dow = getDayOfWeekInLagos(d);
+        return dow === 5 || dow === 6 || dow === 0;
+      });
+      // Fallback if weekend matches not yet posted
+      if (candidatePool.length < 8) {
+        candidatePool = allMatches;
       }
-      return true;
-    });
+    } else {
+      // WEEKLY / ALL POOL
+      candidatePool = allMatches.filter((m) => {
+        const d = getMatchDateStr(m);
+        return d >= mondayISO && d <= sundayISO;
+      });
+      if (candidatePool.length < 10) candidatePool = allMatches;
+    }
 
-    const candidatePool = filteredMatches.length >= 10 ? filteredMatches : allMatches;
-
-    // 3. Generate the 4 Preset Slips
-    // Slip 1: 2+ Banker Double
+    // 4. Generate Slips
+    // Standard Slips: 2+, 3+, 5+, 10+
     const legs2x = buildSlip(candidatePool, 2.0, 2.45, ["safe"], 2, 3);
     const odds2x = legs2x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const conf2x = legs2x.length > 0 ? Math.round(legs2x.reduce((acc, l) => acc + l.confidence, 0) / legs2x.length) : 84;
 
-    // Slip 2: 3+ Value Treble
     const legs3x = buildSlip(candidatePool, 3.0, 3.85, ["safe", "medium"], 3, 4);
     const odds3x = legs3x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const conf3x = legs3x.length > 0 ? Math.round(legs3x.reduce((acc, l) => acc + l.confidence, 0) / legs3x.length) : 74;
 
-    // Slip 3: 5+ Multiplier
     const legs5x = buildSlip(candidatePool, 5.0, 6.75, ["safe", "medium", "aggressive"], 4, 6);
     const odds5x = legs5x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const conf5x = legs5x.length > 0 ? Math.round(legs5x.reduce((acc, l) => acc + l.confidence, 0) / legs5x.length) : 58;
 
-    // Slip 4: 10+ Mega Accumulator
     const legs10x = buildSlip(candidatePool, 10.0, 14.50, ["safe", "medium", "aggressive"], 6, 9);
     const odds10x = legs10x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const conf10x = legs10x.length > 0 ? Math.round(legs10x.reduce((acc, l) => acc + l.confidence, 0) / legs10x.length) : 45;
 
-    // 4. Apply Access Control Gates
-    // - Free: all slips are locked (selections hidden, teasers visible)
-    // - Silver: 2+ and 3+ unlocked; 5+ and 10+ locked
+    // 5. Special 7-Day ₦1,000 to ₦1,000,000 Jackpot Accumulator (1,000x+ Odds)
+    // Runs Monday to Sunday across the entire week's schedule and resets Monday morning
+    const weeklyPool = allMatches.filter((m) => {
+      const d = getMatchDateStr(m);
+      return !d || (d >= mondayISO && d <= sundayISO);
+    });
+    const candidateWeekly = weeklyPool.length >= 14 ? weeklyPool : allMatches;
+
+    const legs1000x = buildSlip(candidateWeekly, 1000.0, 2000.0, ["safe", "medium", "aggressive"], 12, 18, 3);
+    const odds1000x = legs1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
+    const conf1000x = legs1000x.length > 0 ? Math.round(legs1000x.reduce((acc, l) => acc + l.confidence, 0) / legs1000x.length) : 38;
+    const finalOdds1000x = Number(odds1000x.toFixed(2));
+    const potentialWin1000x = Math.max(1000000, Math.round(1000 * finalOdds1000x));
+
+    // 6. Access Control Gates
+    // - Free: all slips locked (selections hidden, teasers visible)
+    // - Silver: 2+ and 3+ unlocked; 5+, 10+, and 1000x locked
     // - Premium & Admin: all unlocked
     const canAccessSilverTier = userTier === "silver" || userTier === "premium" || userTier === "admin";
     const canAccessPremiumTier = userTier === "premium" || userTier === "admin";
@@ -339,7 +421,7 @@ export async function GET(req: Request) {
     const slips: PresetSlip[] = [
       {
         id: "banker_2x",
-        title: scope === "weekend" ? "Weekend Banker Double" : "Daily Banker Double",
+        title: scope === "weekend" ? "Weekend Banker Double" : scope === "weekly" ? "Weekly Banker Double" : "Daily Banker Double",
         badge: "2+ ODDS",
         tierTag: "ULTRA SAFE",
         minTierRequired: "silver",
@@ -353,7 +435,7 @@ export async function GET(req: Request) {
       },
       {
         id: "value_3x",
-        title: scope === "weekend" ? "Weekend Value Treble" : "Daily Value Treble",
+        title: scope === "weekend" ? "Weekend Value Treble" : scope === "weekly" ? "Weekly Value Treble" : "Daily Value Treble",
         badge: "3+ ODDS",
         tierTag: "HIGH VALUE",
         minTierRequired: "silver",
@@ -367,7 +449,7 @@ export async function GET(req: Request) {
       },
       {
         id: "multi_5x",
-        title: scope === "weekend" ? "Weekend 5x Multiplier" : "Daily 5x Multiplier",
+        title: scope === "weekend" ? "Weekend 5x Multiplier" : scope === "weekly" ? "Weekly 5x Multiplier" : "Daily 5x Multiplier",
         badge: "5+ ODDS",
         tierTag: "AGGRESSIVE EDGE",
         minTierRequired: "premium",
@@ -381,9 +463,9 @@ export async function GET(req: Request) {
       },
       {
         id: "mega_10x",
-        title: scope === "weekend" ? "Weekend 10x Mega Accumulator" : "Daily 10x Mega Accumulator",
+        title: scope === "weekend" ? "Weekend 10x Mega Accumulator" : scope === "weekly" ? "Weekly 10x Mega" : "Daily 10x Mega Accumulator",
         badge: "10+ ODDS",
-        tierTag: "HIGH YIELD JACKPOT",
+        tierTag: "HIGH YIELD ACCA",
         minTierRequired: "premium",
         isLocked: !canAccessPremiumTier,
         targetOdds: "10+",
@@ -393,14 +475,38 @@ export async function GET(req: Request) {
         description: "Elite 6 to 9-match syndicate slip spanning Europe's top leagues with high-return potential.",
         matches: canAccessPremiumTier ? legs10x : [],
       },
+      // 7-Day Longshot Jackpot (Always present for weekend or weekly scope)
+      {
+        id: "longshot_1000x",
+        title: "7-Day ₦1,000,000 Mega Jackpot",
+        badge: "1,000x+ ODDS",
+        tierTag: "₦1,000 → ₦1M+ JACKPOT",
+        minTierRequired: "premium",
+        isLocked: !canAccessPremiumTier,
+        targetOdds: "1000+",
+        combinedOdds: finalOdds1000x,
+        matchesCount: legs1000x.length,
+        confidence: conf1000x,
+        stake: 1000,
+        potentialWin: potentialWin1000x,
+        resetInfo: `Runs Mon (${mondayISO}) – Sun (${sundayISO}) • Resets every Monday 00:00`,
+        description: `Syndicate longshot accumulator across Monday to Sunday fixtures. Calibrated for ₦1,000 stake to return at least ₦1,000,000. Resets every Monday morning.`,
+        matches: canAccessPremiumTier ? legs1000x : [],
+      },
     ];
+
+    // For "today" scope, return the 4 daily slips.
+    // For "weekend" and "weekly" scopes, return the 4 slips PLUS the 7-day ₦1M Jackpot!
+    const activeSlips = scope === "today" ? slips.slice(0, 4) : slips;
 
     return NextResponse.json({
       success: true,
       scope,
+      todayDate: todayISO,
+      weekRange: { mondayISO, sundayISO },
       generatedAt: new Date().toISOString(),
       userTier,
-      slips,
+      slips: activeSlips,
     });
   } catch (error: any) {
     console.error("Multi-Bet Presets GET error:", error);
