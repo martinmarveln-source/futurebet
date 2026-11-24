@@ -236,6 +236,17 @@ function extractEligibleMarkets(m: any): Array<{
   const appg = toNum(m.appg);
   const un25 = toNum(m.un25);
   const ov25 = toNum(m.ov25);
+  const hcs = toNum(m.hcs);
+  const acs = toNum(m.acs);
+  const hfts = toNum(m.hfts ?? m.hFailedToScore);
+  const afts = toNum(m.afts ?? m.aFailedToScore);
+  const avgGoals = toNum(m.avg) || ((toNum(m.hgs) + toNum(m.hgc) + toNum(m.ags) + toNum(m.agc)) > 0 ? (toNum(m.hgs) + toNum(m.hgc) + toNum(m.ags) + toNum(m.agc)) / 2 : 0);
+  const h2hUN = toNum(m.h2hUN ?? m.H2H_UN);
+  const hOv2 = toNum(m.hOv2);
+  const aOv2 = toNum(m.aOv2);
+  const cleanSheetAvg = (hcs + acs) / 2;
+  const ftsAvg = (hfts + afts) / 2;
+  const parsedScore = parseFtScore(m.cScore || m.predictedScore);
 
   // 1. Double Chance 1X (Super Safe)
   const calc1XOdds = dc1X >= 1.15 ? dc1X : ((hWin + draw) > 0 ? Number((1 / (((hWin + draw) / 100) * 1.08)).toFixed(2)) : 1.30);
@@ -317,7 +328,8 @@ function extractEligibleMarkets(m: any): Array<{
   // 7. Both Teams To Score (BTTS Yes)
   const bttsChance = toNum(m.gg || m.btts || 55);
   const calcBttsOdds = bttsYesOdds >= 1.45 ? bttsYesOdds : (bttsChance > 0 ? Number((1 / ((bttsChance / 100) * 1.08)).toFixed(2)) : 1.72);
-  if (calcBttsOdds >= 1.45 && calcBttsOdds <= 2.10 && bttsChance >= 56) {
+  const isBttsContradicted = cleanSheetAvg >= 45 || (hcs >= 50 && acs >= 50) || (hfts >= 40 && afts >= 40);
+  if (!isBttsContradicted && calcBttsOdds >= 1.45 && calcBttsOdds <= 2.10 && bttsChance >= 56) {
     candidates.push({
       market: "BTTS",
       option: "GG",
@@ -331,7 +343,8 @@ function extractEligibleMarkets(m: any): Array<{
   // 8. Over 2.5 Goals
   const o25Chance = toNum(m.ov25 || m.o25 || 52);
   const calcO25Odds = o25Odds >= 1.48 ? o25Odds : (o25Chance > 0 ? Number((1 / ((o25Chance / 100) * 1.08)).toFixed(2)) : 1.80);
-  if (calcO25Odds >= 1.48 && calcO25Odds <= 2.25 && o25Chance >= 54) {
+  const isOverContradicted = (cleanSheetAvg >= 42 && ftsAvg >= 38) || (avgGoals > 0 && avgGoals <= 1.85);
+  if (!isOverContradicted && calcO25Odds >= 1.48 && calcO25Odds <= 2.25 && o25Chance >= 54) {
     candidates.push({
       market: "Over 2.5",
       option: "Over 2.5",
@@ -342,29 +355,54 @@ function extractEligibleMarkets(m: any): Array<{
     });
   }
 
-  // 9. Under 2.5 Goals (Defensive Contests)
+  // 9. Under 2.5 Goals (Strict Empirical Defensive Proof Required)
+  // Only selected when the statistics actually support defensive containment:
+  // - High Clean Sheet rate (combined >= 30% or at least one team >= 40%)
+  // - High Failed To Score rate (combined >= 25% or at least one team >= 35%)
+  // - Low expected goals (average goals <= 2.25 if provided)
+  // - Neither team consistently playing Over 2.5
+  // - Model predicted scoreline total <= 2
+  // - Head-to-Head not dominated by Overs (h2hUN >= 50% or unrecorded)
+  const hasCSDefense25 = cleanSheetAvg >= 30 || hcs >= 40 || acs >= 40;
+  const hasFTSSupport25 = ftsAvg >= 25 || hfts >= 35 || afts >= 35;
+  const isAvgGoalsLow25 = avgGoals === 0 || avgGoals <= 2.25;
+  const notHighOverTrend25 = !(hOv2 >= 50 && aOv2 >= 50);
+  const isPredLowScore25 = !parsedScore || parsedScore.total <= 2;
+  const h2hNotOver25 = h2hUN === 0 || h2hUN >= 50;
+
+  const isUnder25Supported = un25 >= 60 && hasCSDefense25 && hasFTSSupport25 && isAvgGoalsLow25 && notHighOverTrend25 && isPredLowScore25 && h2hNotOver25;
   const calcU25Odds = u25Odds >= 1.50 ? u25Odds : (un25 > 0 ? Number((1 / ((un25 / 100) * 1.08)).toFixed(2)) : 1.75);
-  if (calcU25Odds >= 1.50 && calcU25Odds <= 2.20 && un25 >= 60) {
+
+  if (isUnder25Supported && calcU25Odds >= 1.45 && calcU25Odds <= 2.25) {
+    const csDesc = cleanSheetAvg > 0 ? `${Math.round(cleanSheetAvg)}% clean sheet rate` : "resilient defensive shape";
+    const ftsDesc = ftsAvg > 0 ? `${Math.round(ftsAvg)}% failed-to-score trend` : "low conversion rate";
     candidates.push({
       market: "Under 2.5",
       option: "Under 2.5",
       odds: calcU25Odds,
-      confidence: Math.round(un25),
+      confidence: Math.round(Math.min(86, un25)),
       risk: "medium",
-      reason: "Low expected goals and strong tactical defensive containment",
+      reason: `Defensive containment verified: ${csDesc} & ${ftsDesc}`,
     });
   }
 
   // 10. Under 3.5 Goals (Strictly for Genuine Low-Scoring Profiles)
+  // Requires proven defensive compactness, average goals <= 2.65, and model scoreline <= 3
+  const isAvgUnder35 = avgGoals === 0 || avgGoals <= 2.65;
+  const hasU35DefensiveBase = cleanSheetAvg >= 20 || ftsAvg >= 20 || (hcs >= 30 || acs >= 30) || (hfts >= 25 || afts >= 25);
+  const isPredUnder35 = !parsedScore || parsedScore.total <= 3;
+  const notHighScoringClash = !(hOv2 >= 65 && aOv2 >= 65);
+  const isUnder35Supported = (un25 >= 55 || (hppg > 0 && hppg <= 1.35 && appg > 0 && appg <= 1.35)) && isAvgUnder35 && hasU35DefensiveBase && isPredUnder35 && notHighScoringClash;
+
   const calcU35Odds = u35Odds >= 1.18 ? u35Odds : (un25 > 0 ? Number((1 / (Math.min(0.88, (un25 + 20) / 100) * 1.06)).toFixed(2)) : 1.28);
-  if ((un25 >= 60 || (hppg > 0 && hppg <= 1.25 && appg > 0 && appg <= 1.25)) && calcU35Odds >= 1.18 && calcU35Odds <= 1.45) {
+  if (isUnder35Supported && calcU35Odds >= 1.18 && calcU35Odds <= 1.45) {
     candidates.push({
       market: "Under 3.5",
       option: "Under 3.5",
       odds: calcU35Odds,
-      confidence: Math.round(Math.min(80, un25 > 0 ? un25 + 8 : 74)),
+      confidence: Math.round(Math.min(84, un25 > 0 ? un25 + 8 : 76)),
       risk: "safe",
-      reason: "Defensive stability and low collective expected goal conversion",
+      reason: `Defensive resilience & verified low conceding rate (${Math.round(cleanSheetAvg)}% CS / ${Math.round(ftsAvg)}% FTS)`,
     });
   }
 
@@ -439,10 +477,10 @@ function buildSlip(
   const usedMarkets = new Map<string, number>();
 
   let cumulativeOdds = 1.0;
-  const isJackpot1000x = targetMinOdds >= 1000;
-  // Maximum legs permitted for any single market type (e.g. max 4 Double Chance, max 4 Over 1.5, etc.)
-  const maxPerMarket = isJackpot1000x
-    ? Math.max(3, Math.ceil(maxLegs / 4))
+  const isJackpot = targetMinOdds >= 1000;
+  // Maximum legs permitted for any single market type (e.g. max 5 Double Chance, max 5 Over 1.5, etc.)
+  const maxPerMarket = isJackpot
+    ? Math.max(3, Math.ceil(maxLegs / 3.5))
     : Math.max(1, Math.floor(maxLegs / 2));
 
   // Flatten candidates
@@ -467,6 +505,10 @@ function buildSlip(
     return b.candidate.odds - a.candidate.odds;
   });
 
+  const maxAllowedLegs = isJackpot
+    ? Math.max(maxLegs, targetMinOdds >= 5000 ? 28 : targetMinOdds >= 3000 ? 24 : 20)
+    : maxLegs;
+
   // Pass 1: Standard pick adhering to league and market limits
   for (const item of allCandidates) {
     const m = item.match;
@@ -483,7 +525,7 @@ function buildSlip(
 
     // Check if adding this leg exceeds targetMaxOdds prematurely (for non-jackpot)
     const newOdds = cumulativeOdds * c.odds;
-    if (!isJackpot1000x && chosenLegs.length + 1 < minLegs && newOdds > targetMaxOdds) {
+    if (!isJackpot && chosenLegs.length + 1 < minLegs && newOdds > targetMaxOdds) {
       continue;
     }
 
@@ -505,11 +547,11 @@ function buildSlip(
     usedMarkets.set(c.market, marketCount + 1);
     cumulativeOdds = newOdds;
 
-    if (isJackpot1000x) {
+    if (isJackpot) {
       if (chosenLegs.length >= minLegs && cumulativeOdds >= targetMinOdds) {
         break;
       }
-      if (chosenLegs.length >= Math.max(maxLegs, 24) && cumulativeOdds >= targetMinOdds) {
+      if (chosenLegs.length >= maxAllowedLegs && cumulativeOdds >= targetMinOdds) {
         break;
       }
     } else {
@@ -522,8 +564,9 @@ function buildSlip(
     }
   }
 
-  // Pass 2 (Jackpot 1000x Guarantee): If cumulativeOdds is still under 1000x, compound additional value legs
-  if (isJackpot1000x && cumulativeOdds < targetMinOdds) {
+  // Pass 2 (Jackpot Progressive Target Guarantee): If cumulativeOdds is still under targetMinOdds, compound additional value legs
+  if (isJackpot && cumulativeOdds < targetMinOdds) {
+    const maxLegCeiling = targetMinOdds >= 5000 ? 30 : targetMinOdds >= 3000 ? 26 : 22;
     for (const item of allCandidates) {
       const m = item.match;
       const c = item.candidate;
@@ -531,11 +574,11 @@ function buildSlip(
       const league = String(m.fullLeague || m.league || "League");
 
       if (usedMatches.has(matchName)) continue;
-      // Relax league limit to 4 and market limit to 5
+      // Relax league limit to 4 and market limit to 6 for deep jackpot slips
       const leagueCount = usedLeagues.get(league) || 0;
       if (leagueCount >= 4) continue;
       const marketCount = usedMarkets.get(c.market) || 0;
-      if (marketCount >= 5) continue;
+      if (marketCount >= 6) continue;
 
       const newOdds = cumulativeOdds * c.odds;
       chosenLegs.push({
@@ -556,7 +599,7 @@ function buildSlip(
       usedMarkets.set(c.market, marketCount + 1);
       cumulativeOdds = newOdds;
 
-      if (cumulativeOdds >= targetMinOdds || chosenLegs.length >= 26) {
+      if (cumulativeOdds >= targetMinOdds || chosenLegs.length >= maxLegCeiling) {
         break;
       }
     }
@@ -1202,11 +1245,15 @@ export async function GET(req: Request) {
     const finalMarathonPool = candidateMarathon.length >= 14 ? candidateMarathon : allMatches;
 
     // ==================================================================
-    // SECTION A: ₦1,000,000+ MEGA JACKPOT ACCUMULATORS
-    // Arranged by 4 distinct time horizons (all targeting >= ₦1,000,000)
+    // SECTION A: MULTI-HORIZON PROGRESSIVE JACKPOT ACCUMULATORS
+    // Spreads from minimum of 1,000x up to 5,000x+ to 10,000x+ across 4 horizons:
+    // 1. Weekend Mega Longshot: 1,000x - 1,500x (Min ₦1,000,000 return)
+    // 2. 7-Day Syndicate Acca: 2,000x - 2,800x (Min ₦2,000,000 return)
+    // 3. 15-Day Fortnight Builder: 3,500x - 4,800x (Min ₦3,500,000 return)
+    // 4. 15+ Days Ultra Marathon: 5,000x - 10,000x+ (Min ₦5,000,000 return)
     // ==================================================================
     // 1. Weekend ₦1M Mega Jackpot (Friday >= 17:00 through Sunday)
-    const legsWeekend1000x = buildSlip(candidateWeekend, 1000.0, 5000.0, ["safe", "medium", "aggressive"], 14, 20, 3);
+    const legsWeekend1000x = buildSlip(candidateWeekend, 1000.0, 1600.0, ["safe", "medium", "aggressive"], 14, 18, 2);
     const oddsWeekend1000x = legsWeekend1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const finalOddsWeekend1000x = Number(Math.max(1000.0, oddsWeekend1000x).toFixed(2));
     const winWeekend1000x = Math.max(1000000, Math.round(1000 * finalOddsWeekend1000x));
@@ -1214,29 +1261,29 @@ export async function GET(req: Request) {
       ? Math.round(legsWeekend1000x.reduce((acc, l) => acc + l.confidence, 0) / legsWeekend1000x.length)
       : 72;
 
-    // 2. 7-Day ₦1M Syndicate Acca (Monday to Sunday)
-    const legs7Day1000x = buildSlip(candidate7Day, 1000.0, 5000.0, ["safe", "medium", "aggressive"], 14, 20, 3);
+    // 2. 7-Day ₦2M Syndicate Acca (Monday to Sunday)
+    const legs7Day1000x = buildSlip(candidate7Day, 2000.0, 2800.0, ["safe", "medium", "aggressive"], 16, 21, 2);
     const odds7Day1000x = legs7Day1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
-    const finalOdds7Day1000x = Number(Math.max(1000.0, odds7Day1000x).toFixed(2));
-    const win7Day1000x = Math.max(1000000, Math.round(1000 * finalOdds7Day1000x));
+    const finalOdds7Day1000x = Number(Math.max(2000.0, odds7Day1000x).toFixed(2));
+    const win7Day1000x = Math.max(2000000, Math.round(1000 * finalOdds7Day1000x));
     const conf7Day1000x = legs7Day1000x.length > 0
       ? Math.round(legs7Day1000x.reduce((acc, l) => acc + l.confidence, 0) / legs7Day1000x.length)
       : 70;
 
-    // 3. 15-Day ₦1M Fortnight Builder (Next 15 days)
-    const legs15Day1000x = buildSlip(candidate15Day, 1000.0, 5000.0, ["safe", "medium", "aggressive"], 14, 20, 3);
+    // 3. 15-Day ₦3.5M Fortnight Builder (Next 15 days)
+    const legs15Day1000x = buildSlip(candidate15Day, 3500.0, 4800.0, ["safe", "medium", "aggressive"], 18, 24, 3);
     const odds15Day1000x = legs15Day1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
-    const finalOdds15Day1000x = Number(Math.max(1000.0, odds15Day1000x).toFixed(2));
-    const win15Day1000x = Math.max(1000000, Math.round(1000 * finalOdds15Day1000x));
+    const finalOdds15Day1000x = Number(Math.max(3500.0, odds15Day1000x).toFixed(2));
+    const win15Day1000x = Math.max(3500000, Math.round(1000 * finalOdds15Day1000x));
     const conf15Day1000x = legs15Day1000x.length > 0
       ? Math.round(legs15Day1000x.reduce((acc, l) => acc + l.confidence, 0) / legs15Day1000x.length)
       : 68;
 
-    // 4. 15+ Days ₦1M Ultra Marathon (16+ days deep forward calendar)
-    const legsMarathon1000x = buildSlip(finalMarathonPool, 1000.0, 10000.0, ["safe", "medium", "aggressive"], 15, 22, 3);
+    // 4. 15+ Days ₦5M+ Ultra Marathon (16+ days deep forward calendar)
+    const legsMarathon1000x = buildSlip(finalMarathonPool, 5000.0, 12000.0, ["safe", "medium", "aggressive"], 22, 28, 3);
     const oddsMarathon1000x = legsMarathon1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
-    const finalOddsMarathon1000x = Number(Math.max(1000.0, oddsMarathon1000x).toFixed(2));
-    const winMarathon1000x = Math.max(1000000, Math.round(1000 * finalOddsMarathon1000x));
+    const finalOddsMarathon1000x = Number(Math.max(5000.0, oddsMarathon1000x).toFixed(2));
+    const winMarathon1000x = Math.max(5000000, Math.round(1000 * finalOddsMarathon1000x));
     const confMarathon1000x = legsMarathon1000x.length > 0
       ? Math.round(legsMarathon1000x.reduce((acc, l) => acc + l.confidence, 0) / legsMarathon1000x.length)
       : 66;
@@ -1261,53 +1308,53 @@ export async function GET(req: Request) {
       },
       {
         id: "jackpot_7day_1000x",
-        title: "7-Day ₦1,000,000 Syndicate Acca",
-        badge: "7-DAY 1,000x+",
-        tierTag: "₦1,000 → ₦1M+ JACKPOT",
+        title: "7-Day ₦2,000,000 Syndicate Acca",
+        badge: "7-DAY 2,000x+",
+        tierTag: "₦1,000 → ₦2M+ JACKPOT",
         minTierRequired: "premium",
         isLocked: !canAccessPremiumTier,
-        targetOdds: "1000+",
+        targetOdds: "2000+",
         combinedOdds: finalOdds7Day1000x,
         matchesCount: legs7Day1000x.length,
         confidence: conf7Day1000x,
         stake: 1000,
         potentialWin: win7Day1000x,
         resetInfo: `Runs Mon (${mondayISO}) – Sun (${sundayISO}) • Resets Monday 00:00`,
-        description: "Full-week algorithmic jackpot covering domestic league rounds and midweek fixtures. Engineered for compounding capital across Monday to Sunday.",
+        description: "Full-week algorithmic jackpot covering domestic league rounds and midweek fixtures. Engineered for compounding capital across Monday to Sunday targeting 2,000x+ returns.",
         matches: canAccessPremiumTier ? legs7Day1000x : [],
       },
       {
         id: "jackpot_15day_1000x",
-        title: "15-Day ₦1,000,000 Fortnight Builder",
-        badge: "15-DAY 1,000x+",
-        tierTag: "₦1,000 → ₦1M+ JACKPOT",
+        title: "15-Day ₦3,500,000 Fortnight Builder",
+        badge: "15-DAY 3,500x+",
+        tierTag: "₦1,000 → ₦3.5M+ JACKPOT",
         minTierRequired: "premium",
         isLocked: !canAccessPremiumTier,
-        targetOdds: "1000+",
+        targetOdds: "3500+",
         combinedOdds: finalOdds15Day1000x,
         matchesCount: legs15Day1000x.length,
         confidence: conf15Day1000x,
         stake: 1000,
         potentialWin: win15Day1000x,
         resetInfo: `Next 15-Day Forward Schedule (${todayISO} – ${day15ISO})`,
-        description: "Fortnightly compounding accumulator. Staggers conservative mathematical banker plays across 15 days of league, cup, and European ties.",
+        description: "Fortnightly compounding accumulator. Staggers conservative mathematical banker plays across 15 days of league, cup, and European ties targeting 3,500x+ returns.",
         matches: canAccessPremiumTier ? legs15Day1000x : [],
       },
       {
         id: "jackpot_marathon_1000x",
-        title: "15+ Days ₦1,000,000 Ultra Marathon",
-        badge: "15+ DAYS 1,000x+",
-        tierTag: "₦1,000 → ₦1M+ JACKPOT",
+        title: "15+ Days ₦5,000,000+ Ultra Marathon",
+        badge: "15+ DAYS 5,000x+",
+        tierTag: "₦1,000 → ₦5M+ JACKPOT",
         minTierRequired: "premium",
         isLocked: !canAccessPremiumTier,
-        targetOdds: "1000+",
+        targetOdds: "5000+",
         combinedOdds: finalOddsMarathon1000x,
         matchesCount: legsMarathon1000x.length,
         confidence: confMarathon1000x,
         stake: 1000,
         potentialWin: winMarathon1000x,
         resetInfo: "Extended Calendar Schedule (16 to 30+ Days)",
-        description: "Deep forward fixture accumulator for patient investors. Targets high-conviction recurring mathematical value spots across the forward monthly schedule.",
+        description: "Deep forward fixture accumulator for patient investors. Targets high-conviction recurring mathematical value spots across the forward monthly schedule with compounding returns of 5,000x+ to 10,000x+.",
         matches: canAccessPremiumTier ? legsMarathon1000x : [],
       },
     ];

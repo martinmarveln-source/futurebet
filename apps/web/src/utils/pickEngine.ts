@@ -430,6 +430,17 @@ export function getRecommendedMarket(match: any) {
   const bttsNoSupport = (failRate >= 34 ? 5 : 0) + (cleanSheetRate >= 30 ? 5 : 0) + (ngScoreSum >= 45 ? 5 : 0) + (h2hNG >= 55 ? 3 : 0);
   const bttsYesSupport = (bttsProfile >= 56 ? 4 : 0) + (totalAvg >= 2.55 ? 4 : 0) + (h2hGG >= 55 ? 3 : 0) + (failRate <= 20 ? 3 : 0);
 
+  // Strict Empirical Defensive Gates for Under markets
+  const hasCSDefense = cleanSheetRate >= 30 || hcs >= 40 || acs >= 40;
+  const hasFTSSupport = failRate >= 25 || hfts >= 35 || afts >= 35;
+  const isAvgGoalsLow = totalAvg === 0 || totalAvg <= 2.25;
+  const isPredLowScore = !predicted || predicted.total <= 2;
+  const isUnder25Permitted = un25 >= 60 && hasCSDefense && hasFTSSupport && isAvgGoalsLow && isPredLowScore && !(hOv2 >= 50 && aOv2 >= 50);
+  const under25Penalty = (!isUnder25Permitted ? 40 : 0) + (overProfile >= 50 ? 15 : 0) + (totalAvg >= 2.4 ? 20 : 0);
+
+  const isUnder35Permitted = (un25 >= 50 || cleanSheetRate >= 20 || failRate >= 20) && (totalAvg === 0 || totalAvg <= 2.65) && (!predicted || predicted.total <= 3) && !(hOv2 >= 65 && aOv2 >= 65);
+  const under35Penalty = (!isUnder35Permitted ? 35 : 0) + (overProfile >= 65 ? 15 : 0);
+
   const candidates = [
     // Straight 1X2 — only recommended for dominant favorites (66%+ win probability or huge tier/form mismatch)
     home > 0 ? createCandidate({ market: "1X2", option: "Home", label: "1X2 — Home", prob: home, opposition: Math.max(draw, away), support: homeDir, penalty: homeStraightPenalty, match, reasonTag: home >= 70 ? "Dominant Favorite" : "Form Backed" }) : null,
@@ -442,20 +453,20 @@ export function getRecommendedMarket(match: any) {
     dcX2 > 0 ? createCandidate({ market: "Double Chance", option: "Draw or Away", label: "DC — X2", prob: dcX2, opposition: home, support: dcX2Support, penalty: away < 28 ? 8 : 0, match, reasonTag: isDrawRisk ? "Draw Shield (X2)" : "Safest Prob" }) : null,
 
     // Both Teams to Score (BTTS)
-    gg > 0 ? createCandidate({ market: "BTTS", option: "Yes", label: "BTTS — Yes", prob: gg, opposition: ng, support: bttsYesSupport, penalty: failRate >= 36 ? 8 : 0, match, reasonTag: "Goals Flowing" }) : null,
+    gg > 0 ? createCandidate({ market: "BTTS", option: "Yes", label: "BTTS — Yes", prob: gg, opposition: ng, support: bttsYesSupport, penalty: (failRate >= 36 || cleanSheetRate >= 45) ? 12 : 0, match, reasonTag: "Goals Flowing" }) : null,
     ng > 0 ? createCandidate({ market: "BTTS", option: "No", label: "BTTS — No", prob: ng, opposition: gg, support: bttsNoSupport, penalty: (bttsProfile >= 60 && totalAvg >= 2.7) ? 8 : 0, match, reasonTag: "Clean Sheet Lock" }) : null,
     
     // Over / Under 2.5
-    ov25 > 0 ? createCandidate({ market: "Over 2.5", option: "Yes", label: "Over 2.5", prob: ov25, opposition: un25, support: (overProfile >= 60 ? 4 : 0) + (totalAvg >= 2.7 ? 5 : 0) + (h2hOV >= 60 ? 3 : 0), penalty: (un25 >= 55 || failRate >= 35) ? 6 : 0, match, reasonTag: "High Value" }) : null,
-    un25 > 0 ? createCandidate({ market: "Under 2.5", option: "Yes", label: "Under 2.5", prob: un25, opposition: ov25, support: (un25 >= 56 ? 4 : 0) + (totalAvg <= 2.2 ? 5 : 0) + (under25ScoreSum >= 55 ? 5 : 0) + (h2hUN >= 60 ? 3 : 0), penalty: (overProfile >= 60 || totalAvg >= 2.8) ? 8 : 0, match, reasonTag: "Defensive Lock" }) : null,
+    ov25 > 0 ? createCandidate({ market: "Over 2.5", option: "Yes", label: "Over 2.5", prob: ov25, opposition: un25, support: (overProfile >= 60 ? 4 : 0) + (totalAvg >= 2.7 ? 5 : 0) + (h2hOV >= 60 ? 3 : 0), penalty: (un25 >= 55 || failRate >= 35 || (cleanSheetRate >= 40 && failRate >= 35)) ? 10 : 0, match, reasonTag: "High Value" }) : null,
+    un25 > 0 && isUnder25Permitted ? createCandidate({ market: "Under 2.5", option: "Yes", label: "Under 2.5", prob: un25, opposition: ov25, support: (un25 >= 60 ? 5 : 0) + (totalAvg <= 2.1 ? 6 : 0) + (under25ScoreSum >= 55 ? 5 : 0) + (cleanSheetRate >= 35 ? 4 : 0) + (failRate >= 30 ? 3 : 0) + (h2hUN >= 60 ? 3 : 0), penalty: under25Penalty, match, reasonTag: "Defensive Lock" }) : null,
     
     // Over / Under 1.5 (Consistent 80%+ accumulator builder)
     o15 > 0 ? createCandidate({ market: "Over 1.5", option: "Yes", label: "Over 1.5", prob: o15, opposition: u15, support: over15Support + 5, penalty: (u15 >= 35 || totalAvg < 1.7) ? 6 : 0, match, reasonTag: "Safest Prob" }) : null,
-    u15 > 0 ? createCandidate({ market: "Over 1.5", option: "No", label: "Under 1.5", prob: u15, opposition: o15, support: (un25 >= 68 ? 4 : 0) + (totalAvg <= 1.6 ? 5 : 0), penalty: overProfile >= 50 ? 8 : 0, match, reasonTag: "Ultra Defensive" }) : null,
+    u15 > 0 && isUnder25Permitted && (totalAvg > 0 && totalAvg <= 1.65) ? createCandidate({ market: "Over 1.5", option: "No", label: "Under 1.5", prob: u15, opposition: o15, support: (un25 >= 68 ? 4 : 0) + (cleanSheetRate >= 45 ? 6 : 0) + (totalAvg <= 1.6 ? 5 : 0), penalty: overProfile >= 50 ? 15 : 0, match, reasonTag: "Ultra Defensive" }) : null,
     
     // Over / Under 3.5 (Safe cushion against 2-1 / 3-0 upsets)
     o35 > 0 ? createCandidate({ market: "Over 3.5", option: "Yes", label: "Over 3.5", prob: o35, opposition: u35, support: (overProfile >= 72 ? 5 : 0) + (totalAvg >= 3.4 ? 6 : 0), penalty: un25 >= 45 ? 8 : 0, match, reasonTag: "High Value" }) : null,
-    u35 > 0 ? createCandidate({ market: "Over 3.5", option: "No", label: "Under 3.5", prob: u35, opposition: o35, support: under35Support + 4, penalty: overProfile >= 65 ? 8 : 0, match, reasonTag: "Safest Prob" }) : null,
+    u35 > 0 && isUnder35Permitted ? createCandidate({ market: "Over 3.5", option: "No", label: "Under 3.5", prob: u35, opposition: o35, support: under35Support + 4, penalty: under35Penalty, match, reasonTag: "Safest Prob" }) : null,
     
     // Over / Under 4.5 (Extreme fallback)
     o45 > 0 ? createCandidate({ market: "Over 4.5", option: "Yes", label: "Over 4.5", prob: o45, opposition: u45, support: (overProfile >= 78 ? 5 : 0) + (totalAvg >= 3.6 ? 6 : 0), penalty: un25 >= 40 ? 12 : 6, match, reasonTag: "High Value" }) : null,

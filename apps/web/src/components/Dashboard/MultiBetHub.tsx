@@ -386,7 +386,7 @@ export default function MultiBetHub({
                   )}
                 >
                   <Coins size={13} className={scope === "jackpot" ? "text-slate-950" : "text-amber-400"} />
-                  <span>₦1M+ Jackpot Hub</span>
+                  <span>₦1M – ₦5M+ Jackpot Hub</span>
                   <span
                     className={cn(
                       "px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider",
@@ -415,10 +415,10 @@ export default function MultiBetHub({
                   </div>
                   <div>
                     <div className="font-black text-amber-400 uppercase tracking-wide">
-                      Multi-Horizon ₦1,000,000+ Jackpot Accumulators
+                      Multi-Horizon ₦1,000,000 to ₦5,000,000+ Jackpot Accumulators
                     </div>
                     <div className="text-[11px] text-slate-400 mt-0.5">
-                      Every slip below is strictly calibrated for a ₦1,000 stake to return at least ₦1,000,000 across 4 distinct forward time horizons: Weekend, 7-Day, 15-Day, and 15+ Days Marathon.
+                      Calibrated accumulators spread across 4 distinct forward time horizons: Weekend (1,000x+), 7-Day (2,000x+), 15-Day (3,500x+), and 15+ Days Marathon (5,000x+ to 10,000x+).
                     </div>
                   </div>
                 </div>
@@ -465,7 +465,12 @@ export default function MultiBetHub({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {slips.map((slip) => {
                 const isSpecialJackpot =
-                  slip.targetOdds === "1000+" || slip.id.includes("jackpot") || slip.id === "longshot_1000x";
+                  slip.targetOdds === "1000+" ||
+                  slip.targetOdds === "2000+" ||
+                  slip.targetOdds === "3500+" ||
+                  slip.targetOdds === "5000+" ||
+                  slip.id.includes("jackpot") ||
+                  slip.id === "longshot_1000x";
 
                 return (
                   <div

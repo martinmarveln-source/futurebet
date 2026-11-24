@@ -157,7 +157,13 @@ function computeOU(m, line) {
   const csFtsOver = 100 - csFtsUnder;
 
   const sO = 0.40*(pO*100) + 0.20*((hOv2+aOv2)/2) + 0.10*goalsPotential + 0.10*csFtsOver + 0.20*h2hScore;
-  const sU = 0.40*(pUn*100) + 0.20*(100 - (hOv2+aOv2)/2) + 0.10*(100 - goalsPotential) + 0.10*csFtsUnder + 0.20*(100 - h2hScore);
+  const underDefensiveGate = line === 2.5 
+    ? ((hcs >= 30 || acs >= 30 || (hcs + acs) / 2 >= 25) && (hfts >= 25 || afts >= 25 || (hfts + afts) / 2 >= 22))
+    : line === 1.5 
+    ? ((hcs + acs) / 2 >= 40 && (hfts + afts) / 2 >= 35)
+    : true;
+  const underPenalty = !underDefensiveGate ? 25 : 0;
+  const sU = 0.40*(pUn*100) + 0.20*(100 - (hOv2+aOv2)/2) + 0.10*(100 - goalsPotential) + 0.10*csFtsUnder + 0.20*(100 - h2hScore) - underPenalty;
   const over = sO >= sU;
   
   const mk = `O/U ${line}`;
