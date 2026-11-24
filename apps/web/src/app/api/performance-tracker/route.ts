@@ -696,14 +696,19 @@ export async function GET(req) {
     let vipWinRate = 0;
     let vipTotal = 0;
     let vipWon = 0;
+    let topModelHit = null;
 
     try {
       // Calculate VIP outcomes for the last 7 days from the vip_picks table
       const vipRows = await sql`
         SELECT 
+          v.match,
           v.market, 
           v.selection, 
-          m.ft_score 
+          v.odds,
+          m.ft_score,
+          m.home_team,
+          m.away_team
         FROM vip_picks v
         INNER JOIN matches_cache m ON v.match_id = m.id::VARCHAR
         WHERE v.match_date >= (CURRENT_DATE - INTERVAL '7 days')
@@ -720,8 +725,20 @@ export async function GET(req) {
         const prediction = `${row.market} - ${row.selection}`;
         
         const outcome = evalSelectionOutcome({ prediction, ftScore: row.ft_score });
-        if (outcome === 'won') vWon++;
-        else if (outcome === 'lost') vLost++;
+        if (outcome === 'won') {
+          vWon++;
+          const curOdds = Number(row.odds) || 1.8;
+          if (!topModelHit || curOdds > (Number(topModelHit.odds) || 0)) {
+            topModelHit = {
+              match: row.match || (row.home_team && row.away_team ? `${row.home_team} vs ${row.away_team}` : "VIP Match"),
+              prediction,
+              odds: curOdds,
+              ftScore: row.ft_score,
+            };
+          }
+        } else if (outcome === 'lost') {
+          vLost++;
+        }
       }
       
       vipWon = vWon;
@@ -731,7 +748,7 @@ export async function GET(req) {
       console.error("Error calculating VIP stats in tracker:", vipErr);
     }
 
-    return Response.json({ bets: betRows, tickets, vipStats: { winRate: vipWinRate, total: vipTotal, won: vipWon } });
+    return Response.json({ bets: betRows, tickets, vipStats: { winRate: vipWinRate, total: vipTotal, won: vipWon }, topModelHit });
   } catch (err) {
     console.error("Performance Tracker GET error:", err);
     return Response.json({ error: "Server error" }, { status: 500 });

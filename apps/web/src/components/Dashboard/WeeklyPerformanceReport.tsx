@@ -116,6 +116,35 @@ export default function WeeklyPerformanceReport({
   const benchmarkAccuracy = data?.vipStats?.winRate && data.vipStats.winRate > 0 ? data.vipStats.winRate : 82;
   const profitFormatted = `${stats.profit >= 0 ? "+" : "-"}${formatNaira(Math.abs(stats.profit))}`;
 
+  // Top model hit of the week (only from verified settled matches with real FT score)
+  const topHit = useMemo(() => {
+    // 1. Check if backend returned a verified top model hit from settled matches
+    if (data?.topModelHit) return data.topModelHit;
+
+    // 2. Check if user's own tickets have any settled won selections with real FT score
+    if (data?.tickets && Array.isArray(data.tickets)) {
+      const wonSelections: any[] = [];
+      data.tickets.forEach((t: any) => {
+        (t.selections || []).forEach((s: any) => {
+          if (s.status === "won" && s.ftScore && s.ftScore !== "") {
+            wonSelections.push({
+              match: s.match,
+              prediction: s.prediction,
+              odds: s.odds || 1.8,
+              ftScore: s.ftScore,
+            });
+          }
+        });
+      });
+      if (wonSelections.length > 0) {
+        wonSelections.sort((a, b) => (Number(b.odds) || 0) - (Number(a.odds) || 0));
+        return wonSelections[0];
+      }
+    }
+
+    return null;
+  }, [data]);
+
   // Smart Contextual Messaging
   const messageConfig = useMemo(() => {
     if (isZeroBets) {
@@ -407,34 +436,36 @@ export default function WeeklyPerformanceReport({
               </div>
             )}
 
-            {/* Top Algorithmic Hit of the Week Spotlight */}
-            <div
-              className={`p-4 rounded-2xl border mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${
-                darkMode
-                  ? "border-amber-400/20 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent"
-                  : "border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50/40"
-              }`}
-            >
-              <div>
-                <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-amber-500 mb-1">
-                  <Crown size={12} />
-                  Top Model Hit of the Week
+            {/* Top Algorithmic Hit of the Week Spotlight (Only shown for verified settled wins with real FT scores) */}
+            {topHit && (
+              <div
+                className={`p-4 rounded-2xl border mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${
+                  darkMode
+                    ? "border-amber-400/20 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent"
+                    : "border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50/40"
+                }`}
+              >
+                <div>
+                  <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-amber-500 mb-1">
+                    <Crown size={12} />
+                    Top Model Hit of the Week
+                  </div>
+                  <div className="font-extrabold text-sm sm:text-base">
+                    {topHit.match} — {topHit.prediction || topHit.selection || "VIP Pick"} {topHit.odds ? `@ ${Number(topHit.odds).toFixed(2)}` : ""}
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    Model Confirmed Win • Official FT Result: <span className="font-bold text-emerald-400">{topHit.ftScore}</span>
+                  </div>
                 </div>
-                <div className="font-extrabold text-sm sm:text-base">
-                  Monza vs Fiorentina — Over 2.5 Goals @ 1.82
-                </div>
-                <div className="text-xs text-gray-400">
-                  Model Predicted Value: <span className="font-bold text-emerald-400">+20.3% Edge</span> • FT Result: 2:1
-                </div>
-              </div>
 
-              <div className="flex sm:flex-col items-center sm:items-end justify-between">
-                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-black bg-emerald-500 text-white shadow-xs">
-                  <CheckCircle2 size={12} /> WON
-                </span>
-                <span className="text-[10px] text-gray-400 sm:mt-1">Verified Odds</span>
+                <div className="flex sm:flex-col items-center sm:items-end justify-between">
+                  <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-black bg-emerald-500 text-white shadow-xs">
+                    <CheckCircle2 size={12} /> WON
+                  </span>
+                  <span className="text-[10px] text-gray-400 sm:mt-1">Verified Result</span>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Action Buttons based on Tier */}
             <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
