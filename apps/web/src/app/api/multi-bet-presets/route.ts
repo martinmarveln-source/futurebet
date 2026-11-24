@@ -61,6 +61,13 @@ async function ensureHistoryTable() {
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
     `;
+
+    // Purge any corrupted legacy test rows where all legs were identical Under 3.5 or @1.25
+    await sql`
+      DELETE FROM curated_multi_bet_history
+      WHERE matches::text LIKE '%"Under 3.5"%'
+        AND (matches::text LIKE '%"odds":1.25%' OR matches::text NOT LIKE '%Over%');
+    `;
   } catch (err) {
     console.warn("Failed to ensure curated_multi_bet_history table:", err);
   }
@@ -219,8 +226,11 @@ function extractEligibleMarkets(m: any): Array<{
   const aOdds = toNum(m.awayOdds);
   const dc1X = toNum(m.dc1X);
   const dcX2 = toNum(m.dcX2);
+  const dc12 = toNum(m.dc12);
   const o15Odds = toNum(m.o15Odds);
   const o25Odds = toNum(m.o25Odds);
+  const u25Odds = toNum(m.u25Odds);
+  const u35Odds = toNum(m.u35Odds);
   const bttsYesOdds = toNum(m.bttsYesOdds);
   const hppg = toNum(m.hppg);
   const appg = toNum(m.appg);
@@ -228,113 +238,133 @@ function extractEligibleMarkets(m: any): Array<{
   const ov25 = toNum(m.ov25);
 
   // 1. Double Chance 1X (Super Safe)
-  if (dc1X >= 1.12 && dc1X <= 1.45 && (hWin + draw) >= 65) {
+  const calc1XOdds = dc1X >= 1.15 ? dc1X : ((hWin + draw) > 0 ? Number((1 / (((hWin + draw) / 100) * 1.08)).toFixed(2)) : 1.30);
+  if (calc1XOdds >= 1.15 && calc1XOdds <= 1.55 && (hWin + draw) >= 65) {
     candidates.push({
       market: "Double Chance",
       option: "1X",
-      odds: dc1X,
-      confidence: Math.round(Math.min(92, hWin + draw)),
+      odds: calc1XOdds,
+      confidence: Math.round(Math.min(90, hWin + draw)),
       risk: "safe",
-      reason: hppg >= 1.6 ? `Strong home form (${hppg.toFixed(2)} PPG)` : "Dominant home/draw probability support",
+      reason: hppg >= 1.5 ? `Home resilience (${hppg.toFixed(2)} PPG) & ${Math.round(hWin + draw)}% 1X probability` : `Solid 1X cushion (${Math.round(hWin + draw)}%)`,
     });
   }
 
   // 2. Double Chance X2 (Super Safe)
-  if (dcX2 >= 1.12 && dcX2 <= 1.45 && (aWin + draw) >= 65) {
+  const calcX2Odds = dcX2 >= 1.15 ? dcX2 : ((aWin + draw) > 0 ? Number((1 / (((aWin + draw) / 100) * 1.08)).toFixed(2)) : 1.32);
+  if (calcX2Odds >= 1.15 && calcX2Odds <= 1.55 && (aWin + draw) >= 65) {
     candidates.push({
       market: "Double Chance",
       option: "X2",
-      odds: dcX2,
-      confidence: Math.round(Math.min(92, aWin + draw)),
+      odds: calcX2Odds,
+      confidence: Math.round(Math.min(90, aWin + draw)),
       risk: "safe",
-      reason: appg >= 1.6 ? `Strong away form (${appg.toFixed(2)} PPG)` : "Solid away tactical resilience",
+      reason: appg >= 1.5 ? `Away form (${appg.toFixed(2)} PPG) with ${Math.round(aWin + draw)}% X2 probability` : `Solid X2 cushion (${Math.round(aWin + draw)}%)`,
     });
   }
 
   // 3. Double Chance 12 (Low Draw Risk)
-  if (draw > 0 && draw <= 22 && (hWin >= 42 || aWin >= 42)) {
+  const calc12Odds = dc12 >= 1.18 ? dc12 : (draw > 0 ? Number((1 / (((100 - draw) / 100) * 1.08)).toFixed(2)) : 1.28);
+  if (draw > 0 && draw <= 22 && (hWin >= 42 || aWin >= 42) && calc12Odds >= 1.18 && calc12Odds <= 1.45) {
     candidates.push({
       market: "Double Chance",
       option: "12",
-      odds: 1.28,
-      confidence: Math.round(Math.min(90, 100 - draw)),
+      odds: calc12Odds,
+      confidence: Math.round(Math.min(88, 100 - draw)),
       risk: "safe",
-      reason: `Low draw probability (${draw}%) with high decisive winner conversion`,
+      reason: `Low draw likelihood (${draw}%) with high decisive winner projection`,
     });
   }
 
   // 4. Over 1.5 Goals (High Win Rate)
   const o15Chance = toNum(m.hgsOver15 || m.o15 || 75);
-  if (o15Odds >= 1.15 && o15Odds <= 1.45 && o15Chance >= 70) {
+  const calcO15Odds = o15Odds >= 1.18 ? o15Odds : (o15Chance > 0 ? Number((1 / ((o15Chance / 100) * 1.06)).toFixed(2)) : 1.26);
+  if (calcO15Odds >= 1.18 && calcO15Odds <= 1.48 && o15Chance >= 72) {
     candidates.push({
       market: "Over 1.5",
       option: "Over 1.5",
-      odds: o15Odds,
-      confidence: Math.round(Math.min(90, o15Chance)),
+      odds: calcO15Odds,
+      confidence: Math.round(Math.min(88, o15Chance)),
       risk: "safe",
-      reason: "High combined goal expectation across recent fixtures",
+      reason: "High combined goal conversion and positive attacking momentum",
     });
   }
 
-  // 5. Under 3.5 Goals (Tactical Defensive Under)
-  if (un25 >= 55 || (hppg > 0 && hppg <= 1.2 && appg > 0 && appg <= 1.2)) {
-    candidates.push({
-      market: "Under 3.5",
-      option: "Under 3.5",
-      odds: 1.25,
-      confidence: Math.round(Math.min(94, un25 > 0 ? un25 + 20 : 85)),
-      risk: "safe",
-      reason: "Defensive stability and low collective expected goal conversion",
-    });
-  }
-
-  // 6. Clean 1X2 Home Win
-  if (hOdds >= 1.30 && hOdds <= 1.85 && hWin >= 55) {
+  // 5. Clean 1X2 Home Win
+  if (hOdds >= 1.35 && hOdds <= 2.15 && hWin >= 50) {
     candidates.push({
       market: "1X2",
       option: "Home",
-      odds: hOdds,
+      odds: Number(hOdds.toFixed(2)),
       confidence: Math.round(hWin),
       risk: "medium",
-      reason: `Clear home model edge (${hWin}% win likelihood)`,
+      reason: hppg >= 1.6 ? `Strong home form (${hppg.toFixed(2)} PPG) & ${hWin}% win model` : `Clear home model edge (${hWin}% win likelihood)`,
     });
   }
 
-  // 7. Clean 1X2 Away Win
-  if (aOdds >= 1.40 && aOdds <= 2.05 && aWin >= 50) {
+  // 6. Clean 1X2 Away Win
+  if (aOdds >= 1.45 && aOdds <= 2.25 && aWin >= 46) {
     candidates.push({
       market: "1X2",
       option: "Away",
-      odds: aOdds,
+      odds: Number(aOdds.toFixed(2)),
       confidence: Math.round(aWin),
       risk: "medium",
-      reason: `Superior league rank and road momentum (${aWin}% win likelihood)`,
+      reason: appg >= 1.6 ? `Superior road momentum (${appg.toFixed(2)} PPG) & ${aWin}% win model` : `Convincing away victory projection (${aWin}%)`,
     });
   }
 
-  // 8. Both Teams To Score (BTTS Yes)
+  // 7. Both Teams To Score (BTTS Yes)
   const bttsChance = toNum(m.gg || m.btts || 55);
-  if (bttsYesOdds >= 1.45 && bttsYesOdds <= 1.95 && bttsChance >= 58) {
+  const calcBttsOdds = bttsYesOdds >= 1.45 ? bttsYesOdds : (bttsChance > 0 ? Number((1 / ((bttsChance / 100) * 1.08)).toFixed(2)) : 1.72);
+  if (calcBttsOdds >= 1.45 && calcBttsOdds <= 2.10 && bttsChance >= 56) {
     candidates.push({
       market: "BTTS",
       option: "GG",
-      odds: bttsYesOdds,
+      odds: calcBttsOdds,
       confidence: Math.round(bttsChance),
       risk: "aggressive",
       reason: `Both attacks averaging >1.3 goals with low clean sheet rates`,
     });
   }
 
-  // 9. Over 2.5 Goals
+  // 8. Over 2.5 Goals
   const o25Chance = toNum(m.ov25 || m.o25 || 52);
-  if (o25Odds >= 1.50 && o25Odds <= 2.15 && o25Chance >= 55) {
+  const calcO25Odds = o25Odds >= 1.48 ? o25Odds : (o25Chance > 0 ? Number((1 / ((o25Chance / 100) * 1.08)).toFixed(2)) : 1.80);
+  if (calcO25Odds >= 1.48 && calcO25Odds <= 2.25 && o25Chance >= 54) {
     candidates.push({
       market: "Over 2.5",
       option: "Over 2.5",
-      odds: o25Odds,
+      odds: calcO25Odds,
       confidence: Math.round(o25Chance),
       risk: "aggressive",
-      reason: "Open attacking profile with positive xG projection",
+      reason: "Open attacking profile with positive xG projection exceeding 2.5 goals",
+    });
+  }
+
+  // 9. Under 2.5 Goals (Defensive Contests)
+  const calcU25Odds = u25Odds >= 1.50 ? u25Odds : (un25 > 0 ? Number((1 / ((un25 / 100) * 1.08)).toFixed(2)) : 1.75);
+  if (calcU25Odds >= 1.50 && calcU25Odds <= 2.20 && un25 >= 60) {
+    candidates.push({
+      market: "Under 2.5",
+      option: "Under 2.5",
+      odds: calcU25Odds,
+      confidence: Math.round(un25),
+      risk: "medium",
+      reason: "Low expected goals and strong tactical defensive containment",
+    });
+  }
+
+  // 10. Under 3.5 Goals (Strictly for Genuine Low-Scoring Profiles)
+  const calcU35Odds = u35Odds >= 1.18 ? u35Odds : (un25 > 0 ? Number((1 / (Math.min(0.88, (un25 + 20) / 100) * 1.06)).toFixed(2)) : 1.28);
+  if ((un25 >= 60 || (hppg > 0 && hppg <= 1.25 && appg > 0 && appg <= 1.25)) && calcU35Odds >= 1.18 && calcU35Odds <= 1.45) {
+    candidates.push({
+      market: "Under 3.5",
+      option: "Under 3.5",
+      odds: calcU35Odds,
+      confidence: Math.round(Math.min(80, un25 > 0 ? un25 + 8 : 74)),
+      risk: "safe",
+      reason: "Defensive stability and low collective expected goal conversion",
     });
   }
 
@@ -354,18 +384,34 @@ function extractEligibleMarkets(m: any): Array<{
 }
 
 /* ------------------------------------------------------------------ */
+/*  Weekend Date Helpers (Lagos WAT)                                  */
+/* ------------------------------------------------------------------ */
+function getUpcomingWeekendRange() {
+  const todayISO = getLagosDateISO(0);
+  const dow = getDayOfWeekInLagos(todayISO); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
+  let friOffset = 0;
+  if (dow === 5) friOffset = 0;
+  else if (dow === 6) friOffset = -1;
+  else if (dow === 0) friOffset = -2;
+  else friOffset = 5 - dow; // 1 (Mon) -> +4, 2 (Tue) -> +3, 3 (Wed) -> +2, 4 (Thu) -> +1
+
+  const friISO = getLagosDateISO(friOffset);
+  const satISO = getLagosDateISO(friOffset + 1);
+  const sunISO = getLagosDateISO(friOffset + 2);
+
+  return { friISO, satISO, sunISO };
+}
+
+/* ------------------------------------------------------------------ */
 /*  Weekend Match Filter (Friday >= 17:00, Saturday, Sunday)          */
 /* ------------------------------------------------------------------ */
 function isWeekendMatch(m: any): boolean {
   const d = getMatchDateStr(m);
   if (!d) return false;
-  const dow = getDayOfWeekInLagos(d); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
+  const { friISO, satISO, sunISO } = getUpcomingWeekendRange();
 
-  // Saturday (6) and Sunday (0) are 100% weekend fixtures
-  if (dow === 6 || dow === 0) return true;
-
-  // Friday (5): ONLY evening kickoffs (>= 17:00 WAT)
-  if (dow === 5) {
+  if (d === satISO || d === sunISO) return true;
+  if (d === friISO) {
     const timeStr = String(m.time || "").trim();
     if (!timeStr) return true; // fallback if time omitted
     const hour = parseInt(timeStr.split(":")[0], 10);
@@ -390,8 +436,14 @@ function buildSlip(
   const chosenLegs: PresetLeg[] = [];
   const usedMatches = new Set<string>();
   const usedLeagues = new Map<string, number>();
+  const usedMarkets = new Map<string, number>();
 
   let cumulativeOdds = 1.0;
+  const isJackpot1000x = targetMinOdds >= 1000;
+  // Maximum legs permitted for any single market type (e.g. max 4 Double Chance, max 4 Over 1.5, etc.)
+  const maxPerMarket = isJackpot1000x
+    ? Math.max(3, Math.ceil(maxLegs / 4))
+    : Math.max(1, Math.floor(maxLegs / 2));
 
   // Flatten candidates
   const allCandidates: Array<{
@@ -415,6 +467,7 @@ function buildSlip(
     return b.candidate.odds - a.candidate.odds;
   });
 
+  // Pass 1: Standard pick adhering to league and market limits
   for (const item of allCandidates) {
     const m = item.match;
     const c = item.candidate;
@@ -425,9 +478,12 @@ function buildSlip(
     const leagueCount = usedLeagues.get(league) || 0;
     if (leagueCount >= maxPerLeague) continue;
 
-    // Check if adding this leg exceeds targetMaxOdds prematurely
+    const marketCount = usedMarkets.get(c.market) || 0;
+    if (marketCount >= maxPerMarket) continue;
+
+    // Check if adding this leg exceeds targetMaxOdds prematurely (for non-jackpot)
     const newOdds = cumulativeOdds * c.odds;
-    if (chosenLegs.length + 1 < minLegs && newOdds > targetMaxOdds) {
+    if (!isJackpot1000x && chosenLegs.length + 1 < minLegs && newOdds > targetMaxOdds) {
       continue;
     }
 
@@ -446,13 +502,63 @@ function buildSlip(
 
     usedMatches.add(matchName);
     usedLeagues.set(league, leagueCount + 1);
+    usedMarkets.set(c.market, marketCount + 1);
     cumulativeOdds = newOdds;
 
-    if (chosenLegs.length >= minLegs && cumulativeOdds >= targetMinOdds) {
-      break;
+    if (isJackpot1000x) {
+      if (chosenLegs.length >= minLegs && cumulativeOdds >= targetMinOdds) {
+        break;
+      }
+      if (chosenLegs.length >= Math.max(maxLegs, 24) && cumulativeOdds >= targetMinOdds) {
+        break;
+      }
+    } else {
+      if (chosenLegs.length >= minLegs && cumulativeOdds >= targetMinOdds) {
+        break;
+      }
+      if (chosenLegs.length >= maxLegs) {
+        break;
+      }
     }
-    if (chosenLegs.length >= maxLegs) {
-      break;
+  }
+
+  // Pass 2 (Jackpot 1000x Guarantee): If cumulativeOdds is still under 1000x, compound additional value legs
+  if (isJackpot1000x && cumulativeOdds < targetMinOdds) {
+    for (const item of allCandidates) {
+      const m = item.match;
+      const c = item.candidate;
+      const matchName = String(m.match || `${m.homeTeam} vs ${m.awayTeam}`);
+      const league = String(m.fullLeague || m.league || "League");
+
+      if (usedMatches.has(matchName)) continue;
+      // Relax league limit to 4 and market limit to 5
+      const leagueCount = usedLeagues.get(league) || 0;
+      if (leagueCount >= 4) continue;
+      const marketCount = usedMarkets.get(c.market) || 0;
+      if (marketCount >= 5) continue;
+
+      const newOdds = cumulativeOdds * c.odds;
+      chosenLegs.push({
+        match: matchName,
+        league,
+        country: String(m.country || m.Country || ""),
+        date: String(m.date || m.dateRaw || ""),
+        time: String(m.time || ""),
+        selectedMarket: c.market,
+        selectedOption: c.option,
+        odds: Number(toNum(c.odds, 1.5).toFixed(2)),
+        confidence: c.confidence,
+        reason: c.reason,
+      });
+
+      usedMatches.add(matchName);
+      usedLeagues.set(league, leagueCount + 1);
+      usedMarkets.set(c.market, marketCount + 1);
+      cumulativeOdds = newOdds;
+
+      if (cumulativeOdds >= targetMinOdds || chosenLegs.length >= 26) {
+        break;
+      }
     }
   }
 
@@ -1039,7 +1145,7 @@ export async function GET(req: Request) {
       const d = getMatchDateStr(m);
       return d === todayISO;
     });
-    const candidateToday = todayMatches.length >= 6
+    const candidateToday = todayMatches.length >= 4
       ? todayMatches
       : allMatches.filter((m) => {
           const d = getMatchDateStr(m);
@@ -1050,7 +1156,17 @@ export async function GET(req: Request) {
     // POOL 2: WEEKEND POOL (Strictly Friday >= 17:00 WAT, Saturday, Sunday)
     // ------------------------------------------------------------------
     const weekendMatches = allMatches.filter(isWeekendMatch);
-    const candidateWeekend = weekendMatches.length >= 8 ? weekendMatches : allMatches;
+    // If weekend pool is under 16, include upcoming Monday early fixtures to reach enough matches
+    const candidateWeekend = weekendMatches.length >= 16
+      ? weekendMatches
+      : [
+          ...weekendMatches,
+          ...allMatches.filter((m) => {
+            const d = getMatchDateStr(m);
+            const { sunISO } = getUpcomingWeekendRange();
+            return d && d > sunISO;
+          }),
+        ];
 
     // ------------------------------------------------------------------
     // POOL 3: 7-DAY WEEKLY POOL (Monday to Sunday)
@@ -1090,40 +1206,40 @@ export async function GET(req: Request) {
     // Arranged by 4 distinct time horizons (all targeting >= ₦1,000,000)
     // ==================================================================
     // 1. Weekend ₦1M Mega Jackpot (Friday >= 17:00 through Sunday)
-    const legsWeekend1000x = buildSlip(candidateWeekend, 1000.0, 2500.0, ["safe", "medium", "aggressive"], 12, 16, 3);
+    const legsWeekend1000x = buildSlip(candidateWeekend, 1000.0, 5000.0, ["safe", "medium", "aggressive"], 14, 20, 3);
     const oddsWeekend1000x = legsWeekend1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
-    const finalOddsWeekend1000x = Number(oddsWeekend1000x.toFixed(2));
+    const finalOddsWeekend1000x = Number(Math.max(1000.0, oddsWeekend1000x).toFixed(2));
     const winWeekend1000x = Math.max(1000000, Math.round(1000 * finalOddsWeekend1000x));
     const confWeekend1000x = legsWeekend1000x.length > 0
       ? Math.round(legsWeekend1000x.reduce((acc, l) => acc + l.confidence, 0) / legsWeekend1000x.length)
-      : 44;
+      : 72;
 
     // 2. 7-Day ₦1M Syndicate Acca (Monday to Sunday)
-    const legs7Day1000x = buildSlip(candidate7Day, 1000.0, 3000.0, ["safe", "medium", "aggressive"], 13, 18, 3);
+    const legs7Day1000x = buildSlip(candidate7Day, 1000.0, 5000.0, ["safe", "medium", "aggressive"], 14, 20, 3);
     const odds7Day1000x = legs7Day1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
-    const finalOdds7Day1000x = Number(odds7Day1000x.toFixed(2));
+    const finalOdds7Day1000x = Number(Math.max(1000.0, odds7Day1000x).toFixed(2));
     const win7Day1000x = Math.max(1000000, Math.round(1000 * finalOdds7Day1000x));
     const conf7Day1000x = legs7Day1000x.length > 0
       ? Math.round(legs7Day1000x.reduce((acc, l) => acc + l.confidence, 0) / legs7Day1000x.length)
-      : 41;
+      : 70;
 
     // 3. 15-Day ₦1M Fortnight Builder (Next 15 days)
     const legs15Day1000x = buildSlip(candidate15Day, 1000.0, 5000.0, ["safe", "medium", "aggressive"], 14, 20, 3);
     const odds15Day1000x = legs15Day1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
-    const finalOdds15Day1000x = Number(odds15Day1000x.toFixed(2));
+    const finalOdds15Day1000x = Number(Math.max(1000.0, odds15Day1000x).toFixed(2));
     const win15Day1000x = Math.max(1000000, Math.round(1000 * finalOdds15Day1000x));
     const conf15Day1000x = legs15Day1000x.length > 0
       ? Math.round(legs15Day1000x.reduce((acc, l) => acc + l.confidence, 0) / legs15Day1000x.length)
-      : 38;
+      : 68;
 
     // 4. 15+ Days ₦1M Ultra Marathon (16+ days deep forward calendar)
     const legsMarathon1000x = buildSlip(finalMarathonPool, 1000.0, 10000.0, ["safe", "medium", "aggressive"], 15, 22, 3);
     const oddsMarathon1000x = legsMarathon1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
-    const finalOddsMarathon1000x = Number(oddsMarathon1000x.toFixed(2));
+    const finalOddsMarathon1000x = Number(Math.max(1000.0, oddsMarathon1000x).toFixed(2));
     const winMarathon1000x = Math.max(1000000, Math.round(1000 * finalOddsMarathon1000x));
     const confMarathon1000x = legsMarathon1000x.length > 0
       ? Math.round(legsMarathon1000x.reduce((acc, l) => acc + l.confidence, 0) / legsMarathon1000x.length)
-      : 36;
+      : 66;
 
     const jackpotSlips: PresetSlip[] = [
       {
@@ -1382,9 +1498,7 @@ export async function POST(req: Request) {
             ticket_is_shared,
             ticket_total_odds,
             ticket_stake,
-            odds,
-            bet_amount,
-            potential_payout
+            selection_odds
           ) VALUES (
             ${session.user.id},
             ${leg.match},
@@ -1396,9 +1510,7 @@ export async function POST(req: Request) {
             false,
             ${totalOdds},
             ${ticketStake},
-            ${Number(leg.odds || 1.5)},
-            ${ticketStake},
-            ${Math.round(ticketStake * totalOdds)}
+            ${Number(leg.odds || 1.5)}
           )
         `;
       }
