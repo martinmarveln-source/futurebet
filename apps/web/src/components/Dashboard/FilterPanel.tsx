@@ -313,12 +313,14 @@ function hasKickoffPassed(m, bufferMs = 60 * 1000) {
 ========================= */
 const VipPick = lazy(() => import("@/components/Dashboard/VipPick"));
 const BetSlip = lazy(() => import("@/components/Dashboard/BetSlip"));
+const MultiBetHub = lazy(() => import("@/components/Dashboard/MultiBetHub"));
 const PerformanceTracker = lazy(
   () => import("@/components/Dashboard/PerformanceTracker"),
 );
 
 const preloadVipPick = () => import("@/components/Dashboard/VipPick");
 const preloadBetSlip = () => import("@/components/Dashboard/BetSlip");
+const preloadMultiBetHub = () => import("@/components/Dashboard/MultiBetHub");
 const preloadPerformance = () =>
   import("@/components/Dashboard/PerformanceTracker");
 
@@ -1144,6 +1146,24 @@ export default function FutureBetDashboard() {
             </button>
 
             <button
+              onMouseEnter={preloadMultiBetHub}
+              onClick={() => setActiveTab("multi-bets")}
+              className={tabPill(
+                activeTab === "multi-bets",
+                darkMode
+                  ? "border-amber-400/40 bg-amber-500/15 text-amber-200 shadow-[0_0_28px_rgba(245,158,11,0.2)]"
+                  : "border-amber-200 bg-amber-50 text-amber-700",
+              )}
+            >
+              <Sparkles className="h-4 w-4 text-amber-400" />
+              <span className="hidden sm:inline">MULTI-BETS</span>
+              <span className="sm:hidden">SLIPS</span>
+              <span className="rounded-full bg-gradient-to-r from-amber-500 to-emerald-500 px-1.5 py-0.5 text-[9px] font-black text-slate-950 sm:text-[10px]">
+                2x-10x
+              </span>
+            </button>
+
+            <button
               onMouseEnter={preloadVipPick}
               onClick={() => setActiveTab("vip-pick")}
               className={tabPill(
@@ -1294,6 +1314,15 @@ export default function FutureBetDashboard() {
         ) : activeTab === "betslip" ? (
           <Suspense fallback={<SafeFallback text="Loading BetSlip…" />}>
             <BetSlip darkMode={darkMode} />
+          </Suspense>
+        ) : activeTab === "multi-bets" ? (
+          <Suspense fallback={<SafeFallback text="Loading curated multi-bets…" />}>
+            <MultiBetHub
+              darkMode={darkMode}
+              isAdmin={isAdmin}
+              isPremium={isPremium}
+              isSilver={isSilver}
+            />
           </Suspense>
         ) : activeTab === "vip-pick" ? (
           <Suspense fallback={<SafeFallback text="Loading VIP picks…" />}>

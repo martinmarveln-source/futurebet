@@ -39,6 +39,7 @@ import { useHomeActions } from "@/hooks/useHomeActions";
 import { cn } from "@/utils/matchUtils";
 
 const BetSlip = dynamic(() => import("@/components/Dashboard/BetSlip"), { ssr: false });
+const MultiBetHub = dynamic(() => import("@/components/Dashboard/MultiBetHub"), { ssr: false });
 const PerformanceTracker = dynamic(
   () => import("@/components/Dashboard/PerformanceTracker"), { ssr: false }
 );
@@ -455,6 +456,12 @@ export default function FutureBetDashboard() {
           title: "Smart Betslip",
           subtitle: "Build, review, and manage selections.",
           badge: `${betslipCount}/${maxMatches} selected`,
+        };
+      case "multi-bets":
+        return {
+          title: "Curated Multi-Bets",
+          subtitle: "Auto-generated 2+, 3+, 5+, and 10+ accumulator slips with live bookmaker odds.",
+          badge: isPro ? "All Slips Unlocked" : isSilver ? "2+ & 3+ Unlocked" : "Silver+ Required",
         };
       case "vip-pick":
         return {
@@ -937,6 +944,22 @@ export default function FutureBetDashboard() {
                     }
                   >
                     <BetSlip darkMode={darkMode} />
+                  </Suspense>
+                ) : activeTab === "multi-bets" ? (
+                  <Suspense
+                    fallback={
+                      <PremiumLazyFallback
+                        darkMode={darkMode}
+                        text="Loading curated multi-bets…"
+                      />
+                    }
+                  >
+                    <MultiBetHub
+                      darkMode={darkMode}
+                      isAdmin={isAdmin}
+                      isPremium={isPremium}
+                      isSilver={isSilver}
+                    />
                   </Suspense>
                 ) : activeTab === "vip-pick" ? (
                   <VipPickTab

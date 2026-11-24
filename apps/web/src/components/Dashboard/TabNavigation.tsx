@@ -10,6 +10,7 @@ import {
   GitCompare,
   BookOpen,
   TestTubes,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/utils/matchUtils";
 
@@ -134,6 +135,25 @@ export function TabNavigation({
               {betslipCount}
             </span>
           )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab("multi-bets")}
+          className={cn(
+            "flex items-center justify-center space-x-1 sm:space-x-2 py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-colors",
+            activeTab === "multi-bets"
+              ? "border-amber-400 text-amber-400 font-bold"
+              : darkMode
+              ? "border-transparent text-gray-400 hover:text-gray-200"
+              : "border-transparent text-gray-500 hover:text-gray-800"
+          )}
+        >
+          <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 text-amber-400" />
+          <span className="hidden sm:inline">MULTI-BETS</span>
+          <span className="sm:hidden">SLIPS</span>
+          <span className="px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black bg-gradient-to-r from-amber-500 to-emerald-500 text-slate-950 rounded-full shadow-xs">
+            2x-10x
+          </span>
         </button>
 
         <button
