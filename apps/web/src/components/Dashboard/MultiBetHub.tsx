@@ -59,7 +59,7 @@ export default function MultiBetHub({
   onOpenSlipCard,
 }: MultiBetHubProps) {
   const [activeTab, setActiveTab] = useState<"live" | "tracker">("live");
-  const [scope, setScope] = useState<"today" | "weekend" | "weekly">("today");
+  const [scope, setScope] = useState<"today" | "weekend" | "jackpot">("today");
   const [trackerFilter, setTrackerFilter] = useState<"all" | "won" | "lost" | "pending">("all");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [cardModalSlip, setCardModalSlip] = useState<any | null>(null);
@@ -333,61 +333,102 @@ export default function MultiBetHub({
           </div>
         </div>
 
-        {/* SUB-BAR FOR LIVE PRESETS: Today vs Weekend vs Weekly 1M */}
+        {/* SUB-BAR FOR LIVE PRESETS: Today vs Weekend vs ₦1M+ Jackpot Hub */}
         {activeTab === "live" && (
-          <div className="mt-5 pt-4 border-t border-white/10 flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-1.5 text-xs text-slate-400 font-semibold">
-              <span>Schedule Filter:</span>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={() => setScope("today")}
-                className={cn(
-                  "px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5",
-                  scope === "today"
-                    ? "bg-emerald-500 text-slate-950 font-black shadow-sm"
-                    : darkMode
-                    ? "bg-white/5 text-slate-300 hover:bg-white/10"
-                    : "bg-slate-200 text-slate-700 hover:bg-slate-300"
-                )}
-              >
-                <Clock size={12} />
-                <span>Today's Slips</span>
-              </button>
+          <div className="mt-5 pt-4 border-t border-white/10 flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5 text-xs text-slate-400 font-semibold">
+                <span>Select Horizon / Market Scope:</span>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setScope("today")}
+                  className={cn(
+                    "px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5",
+                    scope === "today"
+                      ? "bg-emerald-500 text-slate-950 font-black shadow-sm"
+                      : darkMode
+                      ? "bg-white/5 text-slate-300 hover:bg-white/10"
+                      : "bg-slate-200 text-slate-700 hover:bg-slate-300"
+                  )}
+                >
+                  <Clock size={12} />
+                  <span>Today's Slips</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setScope("weekend")}
-                className={cn(
-                  "px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5",
-                  scope === "weekend"
-                    ? "bg-emerald-500 text-slate-950 font-black shadow-sm"
-                    : darkMode
-                    ? "bg-white/5 text-slate-300 hover:bg-white/10"
-                    : "bg-slate-200 text-slate-700 hover:bg-slate-300"
-                )}
-              >
-                <Calendar size={12} />
-                <span>Weekend Mega</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setScope("weekend")}
+                  className={cn(
+                    "px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5",
+                    scope === "weekend"
+                      ? "bg-emerald-500 text-slate-950 font-black shadow-sm"
+                      : darkMode
+                      ? "bg-white/5 text-slate-300 hover:bg-white/10"
+                      : "bg-slate-200 text-slate-700 hover:bg-slate-300"
+                  )}
+                >
+                  <Calendar size={12} />
+                  <span>Weekend Slips (Fri eve – Sun)</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setScope("weekly")}
+                <button
+                  type="button"
+                  onClick={() => setScope("jackpot")}
+                  className={cn(
+                    "px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm",
+                    scope === "jackpot"
+                      ? "bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-black shadow-amber-500/20"
+                      : darkMode
+                      ? "bg-amber-500/10 text-amber-300 border border-amber-500/25 hover:bg-amber-500/20"
+                      : "bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200"
+                  )}
+                >
+                  <Coins size={13} className={scope === "jackpot" ? "text-slate-950" : "text-amber-400"} />
+                  <span>₦1M+ Jackpot Hub</span>
+                  <span
+                    className={cn(
+                      "px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider",
+                      scope === "jackpot" ? "bg-slate-950 text-amber-300" : "bg-amber-500/20 text-amber-400"
+                    )}
+                  >
+                    4 TIERS
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* JACKPOT SCOPE EXPLANATION BANNER */}
+            {scope === "jackpot" && (
+              <div
                 className={cn(
-                  "px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5",
-                  scope === "weekly"
-                    ? "bg-amber-500 text-slate-950 font-black shadow-sm"
-                    : darkMode
-                    ? "bg-white/5 text-amber-300 hover:bg-white/10"
-                    : "bg-amber-100 text-amber-900 hover:bg-amber-200"
+                  "p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs backdrop-blur-md animate-in fade-in duration-300",
+                  darkMode
+                    ? "bg-gradient-to-r from-amber-950/30 via-slate-950 to-amber-950/20 border-amber-500/30 text-slate-300"
+                    : "bg-gradient-to-r from-amber-50 via-white to-amber-100/50 border-amber-300 text-slate-700"
                 )}
               >
-                <Coins size={12} className="text-amber-400" />
-                <span>Weekly ₦1M Jackpot</span>
-              </button>
-            </div>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                    <Coins size={16} />
+                  </div>
+                  <div>
+                    <div className="font-black text-amber-400 uppercase tracking-wide">
+                      Multi-Horizon ₦1,000,000+ Jackpot Accumulators
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      Every slip below is strictly calibrated for a ₦1,000 stake to return at least ₦1,000,000 across 4 distinct forward time horizons: Weekend, 7-Day, 15-Day, and 15+ Days Marathon.
+                    </div>
+                  </div>
+                </div>
+
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[10px] font-black uppercase tracking-wider shrink-0">
+                  <Crown size={12} />
+                  <span>PRO & ADMIN EXCLUSIVE</span>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -423,7 +464,8 @@ export default function MultiBetHub({
           {!isLoading && slips.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {slips.map((slip) => {
-                const isSpecialJackpot = slip.id === "longshot_1000x";
+                const isSpecialJackpot =
+                  slip.targetOdds === "1000+" || slip.id.includes("jackpot") || slip.id === "longshot_1000x";
 
                 return (
                   <div
@@ -432,8 +474,8 @@ export default function MultiBetHub({
                       "p-6 rounded-3xl border transition-all duration-300 flex flex-col justify-between relative overflow-hidden group shadow-lg",
                       isSpecialJackpot
                         ? darkMode
-                          ? "bg-gradient-to-br from-amber-950/40 via-slate-950 to-slate-900 border-amber-500/40 shadow-amber-500/10 md:col-span-2"
-                          : "bg-gradient-to-br from-amber-50 via-white to-amber-100/50 border-amber-300 shadow-amber-100 md:col-span-2"
+                          ? "bg-gradient-to-br from-amber-950/40 via-slate-950 to-slate-900 border-amber-500/40 shadow-amber-500/10"
+                          : "bg-gradient-to-br from-amber-50 via-white to-amber-100/50 border-amber-300 shadow-amber-100"
                         : darkMode
                         ? "bg-slate-900/80 hover:bg-slate-900 border-white/10 hover:border-white/20"
                         : "bg-white hover:bg-slate-50/80 border-slate-200 hover:border-slate-300"

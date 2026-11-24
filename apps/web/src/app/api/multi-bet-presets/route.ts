@@ -224,6 +224,8 @@ function extractEligibleMarkets(m: any): Array<{
   const bttsYesOdds = toNum(m.bttsYesOdds);
   const hppg = toNum(m.hppg);
   const appg = toNum(m.appg);
+  const un25 = toNum(m.un25);
+  const ov25 = toNum(m.ov25);
 
   // 1. Double Chance 1X (Super Safe)
   if (dc1X >= 1.12 && dc1X <= 1.45 && (hWin + draw) >= 65) {
@@ -249,7 +251,19 @@ function extractEligibleMarkets(m: any): Array<{
     });
   }
 
-  // 3. Over 1.5 Goals (High Win Rate)
+  // 3. Double Chance 12 (Low Draw Risk)
+  if (draw > 0 && draw <= 22 && (hWin >= 42 || aWin >= 42)) {
+    candidates.push({
+      market: "Double Chance",
+      option: "12",
+      odds: 1.28,
+      confidence: Math.round(Math.min(90, 100 - draw)),
+      risk: "safe",
+      reason: `Low draw probability (${draw}%) with high decisive winner conversion`,
+    });
+  }
+
+  // 4. Over 1.5 Goals (High Win Rate)
   const o15Chance = toNum(m.hgsOver15 || m.o15 || 75);
   if (o15Odds >= 1.15 && o15Odds <= 1.45 && o15Chance >= 70) {
     candidates.push({
@@ -262,7 +276,19 @@ function extractEligibleMarkets(m: any): Array<{
     });
   }
 
-  // 4. Clean 1X2 Home Win
+  // 5. Under 3.5 Goals (Tactical Defensive Under)
+  if (un25 >= 55 || (hppg > 0 && hppg <= 1.2 && appg > 0 && appg <= 1.2)) {
+    candidates.push({
+      market: "Under 3.5",
+      option: "Under 3.5",
+      odds: 1.25,
+      confidence: Math.round(Math.min(94, un25 > 0 ? un25 + 20 : 85)),
+      risk: "safe",
+      reason: "Defensive stability and low collective expected goal conversion",
+    });
+  }
+
+  // 6. Clean 1X2 Home Win
   if (hOdds >= 1.30 && hOdds <= 1.85 && hWin >= 55) {
     candidates.push({
       market: "1X2",
@@ -274,7 +300,7 @@ function extractEligibleMarkets(m: any): Array<{
     });
   }
 
-  // 5. Clean 1X2 Away Win
+  // 7. Clean 1X2 Away Win
   if (aOdds >= 1.40 && aOdds <= 2.05 && aWin >= 50) {
     candidates.push({
       market: "1X2",
@@ -286,7 +312,7 @@ function extractEligibleMarkets(m: any): Array<{
     });
   }
 
-  // 6. Both Teams To Score (BTTS Yes)
+  // 8. Both Teams To Score (BTTS Yes)
   const bttsChance = toNum(m.gg || m.btts || 55);
   if (bttsYesOdds >= 1.45 && bttsYesOdds <= 1.95 && bttsChance >= 58) {
     candidates.push({
@@ -299,7 +325,7 @@ function extractEligibleMarkets(m: any): Array<{
     });
   }
 
-  // 7. Over 2.5 Goals
+  // 9. Over 2.5 Goals
   const o25Chance = toNum(m.ov25 || m.o25 || 52);
   if (o25Odds >= 1.50 && o25Odds <= 2.15 && o25Chance >= 55) {
     candidates.push({
@@ -328,7 +354,29 @@ function extractEligibleMarkets(m: any): Array<{
 }
 
 /* ------------------------------------------------------------------ */
-/*  Accumulator Combiner with Diversification Constraints             */
+/*  Weekend Match Filter (Friday >= 17:00, Saturday, Sunday)          */
+/* ------------------------------------------------------------------ */
+function isWeekendMatch(m: any): boolean {
+  const d = getMatchDateStr(m);
+  if (!d) return false;
+  const dow = getDayOfWeekInLagos(d); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
+
+  // Saturday (6) and Sunday (0) are 100% weekend fixtures
+  if (dow === 6 || dow === 0) return true;
+
+  // Friday (5): ONLY evening kickoffs (>= 17:00 WAT)
+  if (dow === 5) {
+    const timeStr = String(m.time || "").trim();
+    if (!timeStr) return true; // fallback if time omitted
+    const hour = parseInt(timeStr.split(":")[0], 10);
+    return isNaN(hour) || hour >= 17;
+  }
+
+  return false;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Accumulator Combiner with Diversification & Chronological Order   */
 /* ------------------------------------------------------------------ */
 function buildSlip(
   availableMatches: any[],
@@ -407,6 +455,13 @@ function buildSlip(
       break;
     }
   }
+
+  // Sort chosen legs chronologically by date and kickoff time
+  chosenLegs.sort((a, b) => {
+    const dtA = `${a.date || "9999"} ${a.time || "00:00"}`;
+    const dtB = `${b.date || "9999"} ${b.time || "00:00"}`;
+    return dtA.localeCompare(dtB);
+  });
 
   return chosenLegs;
 }
@@ -967,92 +1022,205 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "No matches available currently." }, { status: 404 });
     }
 
-    // 3. Strict Date Filtering by Scope
+    // 3. Strict Date & Time Filtering by Scope
     const todayISO = getLagosDateISO(0); // e.g. "2026-11-24"
     const tomorrowISO = getLagosDateISO(1);
+    const day7ISO = getLagosDateISO(7);
+    const day15ISO = getLagosDateISO(15);
     const { mondayISO, sundayISO } = getCurrentMondayToSundayRange();
 
-    let candidatePool: any[] = [];
-
-    if (scope === "today") {
-      // STRICT TODAY: Only matches scheduled for today
-      const todayMatches = allMatches.filter((m) => {
-        const d = getMatchDateStr(m);
-        return d === todayISO;
-      });
-
-      // If today has 6+ matches, strictly use today!
-      // Only if today has very few matches (e.g. late night), include tomorrow (next 24h), NEVER next week!
-      candidatePool = todayMatches.length >= 6
-        ? todayMatches
-        : allMatches.filter((m) => {
-            const d = getMatchDateStr(m);
-            return d === todayISO || d === tomorrowISO;
-          });
-    } else if (scope === "weekend") {
-      // STRICT WEEKEND: Matches on Friday (5), Saturday (6), or Sunday (0)
-      candidatePool = allMatches.filter((m) => {
-        const d = getMatchDateStr(m);
-        if (!d) return false;
-        const dow = getDayOfWeekInLagos(d);
-        return dow === 5 || dow === 6 || dow === 0;
-      });
-      // Fallback if weekend matches not yet posted
-      if (candidatePool.length < 8) {
-        candidatePool = allMatches;
-      }
-    } else {
-      // WEEKLY / ALL POOL
-      candidatePool = allMatches.filter((m) => {
-        const d = getMatchDateStr(m);
-        return d >= mondayISO && d <= sundayISO;
-      });
-      if (candidatePool.length < 10) candidatePool = allMatches;
-    }
-
-    // 4. Generate Slips
-    // Standard Slips: 2+, 3+, 5+, 10+
-    const legs2x = buildSlip(candidatePool, 2.0, 2.45, ["safe"], 2, 3);
-    const odds2x = legs2x.reduce((acc, leg) => acc * leg.odds, 1.0);
-    const conf2x = legs2x.length > 0 ? Math.round(legs2x.reduce((acc, l) => acc + l.confidence, 0) / legs2x.length) : 84;
-
-    const legs3x = buildSlip(candidatePool, 3.0, 3.85, ["safe", "medium"], 3, 4);
-    const odds3x = legs3x.reduce((acc, leg) => acc * leg.odds, 1.0);
-    const conf3x = legs3x.length > 0 ? Math.round(legs3x.reduce((acc, l) => acc + l.confidence, 0) / legs3x.length) : 74;
-
-    const legs5x = buildSlip(candidatePool, 5.0, 6.75, ["safe", "medium", "aggressive"], 4, 6);
-    const odds5x = legs5x.reduce((acc, leg) => acc * leg.odds, 1.0);
-    const conf5x = legs5x.length > 0 ? Math.round(legs5x.reduce((acc, l) => acc + l.confidence, 0) / legs5x.length) : 58;
-
-    const legs10x = buildSlip(candidatePool, 10.0, 14.50, ["safe", "medium", "aggressive"], 6, 9);
-    const odds10x = legs10x.reduce((acc, leg) => acc * leg.odds, 1.0);
-    const conf10x = legs10x.length > 0 ? Math.round(legs10x.reduce((acc, l) => acc + l.confidence, 0) / legs10x.length) : 45;
-
-    // 5. Special 7-Day ₦1,000 to ₦1,000,000 Jackpot Accumulator (1,000x+ Odds)
-    // Runs Monday to Sunday across the entire week's schedule and resets Monday morning
-    const weeklyPool = allMatches.filter((m) => {
-      const d = getMatchDateStr(m);
-      return !d || (d >= mondayISO && d <= sundayISO);
-    });
-    const candidateWeekly = weeklyPool.length >= 14 ? weeklyPool : allMatches;
-
-    const legs1000x = buildSlip(candidateWeekly, 1000.0, 2000.0, ["safe", "medium", "aggressive"], 12, 18, 3);
-    const odds1000x = legs1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
-    const conf1000x = legs1000x.length > 0 ? Math.round(legs1000x.reduce((acc, l) => acc + l.confidence, 0) / legs1000x.length) : 38;
-    const finalOdds1000x = Number(odds1000x.toFixed(2));
-    const potentialWin1000x = Math.max(1000000, Math.round(1000 * finalOdds1000x));
-
-    // 6. Access Control Gates
-    // - Free: all slips locked (selections hidden, teasers visible)
-    // - Silver: 2+ and 3+ unlocked; 5+, 10+, and 1000x locked
-    // - Premium & Admin: all unlocked
     const canAccessSilverTier = userTier === "silver" || userTier === "premium" || userTier === "admin";
     const canAccessPremiumTier = userTier === "premium" || userTier === "admin";
 
-    const slips: PresetSlip[] = [
+    // ------------------------------------------------------------------
+    // POOL 1: TODAY POOL (Strict calendar today, or next 24h if late night)
+    // ------------------------------------------------------------------
+    const todayMatches = allMatches.filter((m) => {
+      const d = getMatchDateStr(m);
+      return d === todayISO;
+    });
+    const candidateToday = todayMatches.length >= 6
+      ? todayMatches
+      : allMatches.filter((m) => {
+          const d = getMatchDateStr(m);
+          return d === todayISO || d === tomorrowISO;
+        });
+
+    // ------------------------------------------------------------------
+    // POOL 2: WEEKEND POOL (Strictly Friday >= 17:00 WAT, Saturday, Sunday)
+    // ------------------------------------------------------------------
+    const weekendMatches = allMatches.filter(isWeekendMatch);
+    const candidateWeekend = weekendMatches.length >= 8 ? weekendMatches : allMatches;
+
+    // ------------------------------------------------------------------
+    // POOL 3: 7-DAY WEEKLY POOL (Monday to Sunday)
+    // ------------------------------------------------------------------
+    const sevenDayMatches = allMatches.filter((m) => {
+      const d = getMatchDateStr(m);
+      return !d || (d >= mondayISO && d <= sundayISO);
+    });
+    const candidate7Day = sevenDayMatches.length >= 12 ? sevenDayMatches : allMatches;
+
+    // ------------------------------------------------------------------
+    // POOL 4: 15-DAY FORTNIGHT POOL (Today to +15 Days)
+    // ------------------------------------------------------------------
+    const fifteenDayMatches = allMatches.filter((m) => {
+      const d = getMatchDateStr(m);
+      return !d || (d >= todayISO && d <= day15ISO);
+    });
+    const candidate15Day = fifteenDayMatches.length >= 14 ? fifteenDayMatches : allMatches;
+
+    // ------------------------------------------------------------------
+    // POOL 5: 15+ DAYS ULTRA MARATHON POOL (16+ Days to 30+ Days)
+    // ------------------------------------------------------------------
+    const marathonMatches = allMatches.filter((m) => {
+      const d = getMatchDateStr(m);
+      return !d || d > day15ISO;
+    });
+    const candidateMarathon = marathonMatches.length >= 14
+      ? marathonMatches
+      : allMatches.filter((m) => {
+          const d = getMatchDateStr(m);
+          return !d || d >= day7ISO;
+        });
+    const finalMarathonPool = candidateMarathon.length >= 14 ? candidateMarathon : allMatches;
+
+    // ==================================================================
+    // SECTION A: ₦1,000,000+ MEGA JACKPOT ACCUMULATORS
+    // Arranged by 4 distinct time horizons (all targeting >= ₦1,000,000)
+    // ==================================================================
+    // 1. Weekend ₦1M Mega Jackpot (Friday >= 17:00 through Sunday)
+    const legsWeekend1000x = buildSlip(candidateWeekend, 1000.0, 2500.0, ["safe", "medium", "aggressive"], 12, 16, 3);
+    const oddsWeekend1000x = legsWeekend1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
+    const finalOddsWeekend1000x = Number(oddsWeekend1000x.toFixed(2));
+    const winWeekend1000x = Math.max(1000000, Math.round(1000 * finalOddsWeekend1000x));
+    const confWeekend1000x = legsWeekend1000x.length > 0
+      ? Math.round(legsWeekend1000x.reduce((acc, l) => acc + l.confidence, 0) / legsWeekend1000x.length)
+      : 44;
+
+    // 2. 7-Day ₦1M Syndicate Acca (Monday to Sunday)
+    const legs7Day1000x = buildSlip(candidate7Day, 1000.0, 3000.0, ["safe", "medium", "aggressive"], 13, 18, 3);
+    const odds7Day1000x = legs7Day1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
+    const finalOdds7Day1000x = Number(odds7Day1000x.toFixed(2));
+    const win7Day1000x = Math.max(1000000, Math.round(1000 * finalOdds7Day1000x));
+    const conf7Day1000x = legs7Day1000x.length > 0
+      ? Math.round(legs7Day1000x.reduce((acc, l) => acc + l.confidence, 0) / legs7Day1000x.length)
+      : 41;
+
+    // 3. 15-Day ₦1M Fortnight Builder (Next 15 days)
+    const legs15Day1000x = buildSlip(candidate15Day, 1000.0, 5000.0, ["safe", "medium", "aggressive"], 14, 20, 3);
+    const odds15Day1000x = legs15Day1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
+    const finalOdds15Day1000x = Number(odds15Day1000x.toFixed(2));
+    const win15Day1000x = Math.max(1000000, Math.round(1000 * finalOdds15Day1000x));
+    const conf15Day1000x = legs15Day1000x.length > 0
+      ? Math.round(legs15Day1000x.reduce((acc, l) => acc + l.confidence, 0) / legs15Day1000x.length)
+      : 38;
+
+    // 4. 15+ Days ₦1M Ultra Marathon (16+ days deep forward calendar)
+    const legsMarathon1000x = buildSlip(finalMarathonPool, 1000.0, 10000.0, ["safe", "medium", "aggressive"], 15, 22, 3);
+    const oddsMarathon1000x = legsMarathon1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
+    const finalOddsMarathon1000x = Number(oddsMarathon1000x.toFixed(2));
+    const winMarathon1000x = Math.max(1000000, Math.round(1000 * finalOddsMarathon1000x));
+    const confMarathon1000x = legsMarathon1000x.length > 0
+      ? Math.round(legsMarathon1000x.reduce((acc, l) => acc + l.confidence, 0) / legsMarathon1000x.length)
+      : 36;
+
+    const jackpotSlips: PresetSlip[] = [
+      {
+        id: "jackpot_weekend_1000x",
+        title: "Weekend ₦1,000,000 Mega Longshot",
+        badge: "WEEKEND 1,000x+",
+        tierTag: "₦1,000 → ₦1M+ JACKPOT",
+        minTierRequired: "premium",
+        isLocked: !canAccessPremiumTier,
+        targetOdds: "1000+",
+        combinedOdds: finalOddsWeekend1000x,
+        matchesCount: legsWeekend1000x.length,
+        confidence: confWeekend1000x,
+        stake: 1000,
+        potentialWin: winWeekend1000x,
+        resetInfo: "Friday (>= 17:00 WAT) through Sunday 23:59 • Weekend Round",
+        description: "Fast-turnaround syndicate weekend accumulator. Strictly selects Friday evening, Saturday, and Sunday fixtures calibrated to turn ₦1,000 into ₦1,000,000+ before Monday.",
+        matches: canAccessPremiumTier ? legsWeekend1000x : [],
+      },
+      {
+        id: "jackpot_7day_1000x",
+        title: "7-Day ₦1,000,000 Syndicate Acca",
+        badge: "7-DAY 1,000x+",
+        tierTag: "₦1,000 → ₦1M+ JACKPOT",
+        minTierRequired: "premium",
+        isLocked: !canAccessPremiumTier,
+        targetOdds: "1000+",
+        combinedOdds: finalOdds7Day1000x,
+        matchesCount: legs7Day1000x.length,
+        confidence: conf7Day1000x,
+        stake: 1000,
+        potentialWin: win7Day1000x,
+        resetInfo: `Runs Mon (${mondayISO}) – Sun (${sundayISO}) • Resets Monday 00:00`,
+        description: "Full-week algorithmic jackpot covering domestic league rounds and midweek fixtures. Engineered for compounding capital across Monday to Sunday.",
+        matches: canAccessPremiumTier ? legs7Day1000x : [],
+      },
+      {
+        id: "jackpot_15day_1000x",
+        title: "15-Day ₦1,000,000 Fortnight Builder",
+        badge: "15-DAY 1,000x+",
+        tierTag: "₦1,000 → ₦1M+ JACKPOT",
+        minTierRequired: "premium",
+        isLocked: !canAccessPremiumTier,
+        targetOdds: "1000+",
+        combinedOdds: finalOdds15Day1000x,
+        matchesCount: legs15Day1000x.length,
+        confidence: conf15Day1000x,
+        stake: 1000,
+        potentialWin: win15Day1000x,
+        resetInfo: `Next 15-Day Forward Schedule (${todayISO} – ${day15ISO})`,
+        description: "Fortnightly compounding accumulator. Staggers conservative mathematical banker plays across 15 days of league, cup, and European ties.",
+        matches: canAccessPremiumTier ? legs15Day1000x : [],
+      },
+      {
+        id: "jackpot_marathon_1000x",
+        title: "15+ Days ₦1,000,000 Ultra Marathon",
+        badge: "15+ DAYS 1,000x+",
+        tierTag: "₦1,000 → ₦1M+ JACKPOT",
+        minTierRequired: "premium",
+        isLocked: !canAccessPremiumTier,
+        targetOdds: "1000+",
+        combinedOdds: finalOddsMarathon1000x,
+        matchesCount: legsMarathon1000x.length,
+        confidence: confMarathon1000x,
+        stake: 1000,
+        potentialWin: winMarathon1000x,
+        resetInfo: "Extended Calendar Schedule (16 to 30+ Days)",
+        description: "Deep forward fixture accumulator for patient investors. Targets high-conviction recurring mathematical value spots across the forward monthly schedule.",
+        matches: canAccessPremiumTier ? legsMarathon1000x : [],
+      },
+    ];
+
+    // ==================================================================
+    // SECTION B: STANDARD ODDS TIERS (2+, 3+, 5+, 10+)
+    // ==================================================================
+    const activePool = scope === "weekend" ? candidateWeekend : candidateToday;
+
+    const legs2x = buildSlip(activePool, 2.0, 2.45, ["safe"], 2, 3);
+    const odds2x = legs2x.reduce((acc, leg) => acc * leg.odds, 1.0);
+    const conf2x = legs2x.length > 0 ? Math.round(legs2x.reduce((acc, l) => acc + l.confidence, 0) / legs2x.length) : 84;
+
+    const legs3x = buildSlip(activePool, 3.0, 3.85, ["safe", "medium"], 3, 4);
+    const odds3x = legs3x.reduce((acc, leg) => acc * leg.odds, 1.0);
+    const conf3x = legs3x.length > 0 ? Math.round(legs3x.reduce((acc, l) => acc + l.confidence, 0) / legs3x.length) : 74;
+
+    const legs5x = buildSlip(activePool, 5.0, 6.75, ["safe", "medium", "aggressive"], 4, 6);
+    const odds5x = legs5x.reduce((acc, leg) => acc * leg.odds, 1.0);
+    const conf5x = legs5x.length > 0 ? Math.round(legs5x.reduce((acc, l) => acc + l.confidence, 0) / legs5x.length) : 58;
+
+    const legs10x = buildSlip(activePool, 10.0, 14.50, ["safe", "medium", "aggressive"], 6, 9);
+    const odds10x = legs10x.reduce((acc, leg) => acc * leg.odds, 1.0);
+    const conf10x = legs10x.length > 0 ? Math.round(legs10x.reduce((acc, l) => acc + l.confidence, 0) / legs10x.length) : 45;
+
+    const standardSlips: PresetSlip[] = [
       {
         id: "banker_2x",
-        title: scope === "weekend" ? "Weekend Banker Double" : scope === "weekly" ? "Weekly Banker Double" : "Daily Banker Double",
+        title: scope === "weekend" ? "Weekend Banker Double" : "Daily Banker Double",
         badge: "2+ ODDS",
         tierTag: "ULTRA SAFE",
         minTierRequired: "silver",
@@ -1066,7 +1234,7 @@ export async function GET(req: Request) {
       },
       {
         id: "value_3x",
-        title: scope === "weekend" ? "Weekend Value Treble" : scope === "weekly" ? "Weekly Value Treble" : "Daily Value Treble",
+        title: scope === "weekend" ? "Weekend Value Treble" : "Daily Value Treble",
         badge: "3+ ODDS",
         tierTag: "HIGH VALUE",
         minTierRequired: "silver",
@@ -1080,7 +1248,7 @@ export async function GET(req: Request) {
       },
       {
         id: "multi_5x",
-        title: scope === "weekend" ? "Weekend 5x Multiplier" : scope === "weekly" ? "Weekly 5x Multiplier" : "Daily 5x Multiplier",
+        title: scope === "weekend" ? "Weekend 5x Multiplier" : "Daily 5x Multiplier",
         badge: "5+ ODDS",
         tierTag: "AGGRESSIVE EDGE",
         minTierRequired: "premium",
@@ -1094,7 +1262,7 @@ export async function GET(req: Request) {
       },
       {
         id: "mega_10x",
-        title: scope === "weekend" ? "Weekend 10x Mega Accumulator" : scope === "weekly" ? "Weekly 10x Mega" : "Daily 10x Mega Accumulator",
+        title: scope === "weekend" ? "Weekend 10x Mega Accumulator" : "Daily 10x Mega Accumulator",
         badge: "10+ ODDS",
         tierTag: "HIGH YIELD ACCA",
         minTierRequired: "premium",
@@ -1106,39 +1274,32 @@ export async function GET(req: Request) {
         description: "Elite 6 to 9-match syndicate slip spanning Europe's top leagues with high-return potential.",
         matches: canAccessPremiumTier ? legs10x : [],
       },
-      // 7-Day Longshot Jackpot (Always present for weekend or weekly scope)
-      {
-        id: "longshot_1000x",
-        title: "7-Day ₦1,000,000 Mega Jackpot",
-        badge: "1,000x+ ODDS",
-        tierTag: "₦1,000 → ₦1M+ JACKPOT",
-        minTierRequired: "premium",
-        isLocked: !canAccessPremiumTier,
-        targetOdds: "1000+",
-        combinedOdds: finalOdds1000x,
-        matchesCount: legs1000x.length,
-        confidence: conf1000x,
-        stake: 1000,
-        potentialWin: potentialWin1000x,
-        resetInfo: `Runs Mon (${mondayISO}) – Sun (${sundayISO}) • Resets every Monday 00:00`,
-        description: `Syndicate longshot accumulator across Monday to Sunday fixtures. Calibrated for ₦1,000 stake to return at least ₦1,000,000. Resets every Monday morning.`,
-        matches: canAccessPremiumTier ? legs1000x : [],
-      },
     ];
 
-    // For "today" scope, return the 4 daily slips.
-    // For "weekend" and "weekly" scopes, return the 4 slips PLUS the 7-day ₦1M Jackpot!
-    const activeSlips = scope === "today" ? slips.slice(0, 4) : slips;
+    // DECIDE WHICH SLIPS TO RETURN BASED ON SCOPE
+    // - "jackpot" | "weekly" | "jackpots": EXCLUSIVELY returns the 4 ₦1,000,000+ Jackpot Accumulators!
+    // - "weekend": Returns the 4 standard weekend slips (Fri 17:00 through Sun)
+    // - "today": Returns the 4 standard daily slips
+    const activeSlips = (scope === "jackpot" || scope === "weekly" || scope === "jackpots")
+      ? jackpotSlips
+      : standardSlips;
 
-    // Automatically persist full tickets into curated_multi_bet_history for outcome tracking
-    const fullSlipsToPersist: PresetSlip[] = [
-      { ...slips[0], matches: legs2x },
-      { ...slips[1], matches: legs3x },
-      { ...slips[2], matches: legs5x },
-      { ...slips[3], matches: legs10x },
-      ...(slips[4] ? [{ ...slips[4], matches: legs1000x }] : []),
-    ];
-    persistCuratedSlips(fullSlipsToPersist, scope, todayISO, { mondayISO, sundayISO }).catch((e) =>
+    // Persist full tickets into curated_multi_bet_history for outcome tracking
+    const slipsToPersist = (scope === "jackpot" || scope === "weekly" || scope === "jackpots")
+      ? [
+          { ...jackpotSlips[0], matches: legsWeekend1000x },
+          { ...jackpotSlips[1], matches: legs7Day1000x },
+          { ...jackpotSlips[2], matches: legs15Day1000x },
+          { ...jackpotSlips[3], matches: legsMarathon1000x },
+        ]
+      : [
+          { ...standardSlips[0], matches: legs2x },
+          { ...standardSlips[1], matches: legs3x },
+          { ...standardSlips[2], matches: legs5x },
+          { ...standardSlips[3], matches: legs10x },
+        ];
+
+    persistCuratedSlips(slipsToPersist, scope, todayISO, { mondayISO, sundayISO }).catch((e) =>
       console.warn("Slip persistence background error:", e)
     );
 
