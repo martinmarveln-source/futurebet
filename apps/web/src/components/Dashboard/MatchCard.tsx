@@ -2072,29 +2072,29 @@ export default function MatchCard({
     const fbTrust = Math.round(fbChance * 0.5 + fbRating * 0.5);
     const fbRaw = Math.round(fbChance * 0.35 + fbRating * 0.30 + fbStab * 0.20 + fbTrust * 0.15);
     const score = Math.max(0, Math.min(100, fbRaw));
-    const tier = score >= 85
+    const tier = score >= 80
       ? {
-          label: "Elite",
+          label: "Ultra",
           cls: darkMode
             ? "bg-purple-500/20 border-purple-500/40 text-purple-300"
             : "bg-purple-100 border-purple-300 text-purple-900 font-black",
         }
-      : score >= 70
+      : score >= 65
       ? {
-          label: "High",
+          label: "Strong",
           cls: darkMode
             ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300"
             : "bg-emerald-100 border-emerald-300 text-emerald-900 font-black",
         }
       : score >= 50
       ? {
-          label: "Medium",
+          label: "Moderate",
           cls: darkMode
             ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
             : "bg-amber-100 border-amber-300 text-amber-900 font-black",
         }
       : {
-          label: "Low",
+          label: "Weak",
           cls: darkMode
             ? "bg-slate-500/10 border-slate-500/20 text-slate-400"
             : "bg-slate-100 border-slate-300 text-slate-700 font-bold",

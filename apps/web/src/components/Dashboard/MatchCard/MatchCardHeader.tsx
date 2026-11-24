@@ -65,7 +65,7 @@ export const MatchCardHeader = memo(function MatchCardHeader({
   band = "A",
   bandColor,
   fbScore = 75,
-  fbTier = { label: "High", cls: "bg-emerald-500/20 border-emerald-500/40 text-emerald-400" },
+  fbTier,
   pickStrength,
   convictionTier,
   convictionStrength,
@@ -76,6 +76,13 @@ export const MatchCardHeader = memo(function MatchCardHeader({
   showH2H = true,
 }: MatchCardHeaderProps) {
   const kickoffDisplay = formatRelativeKickoff(date, time, kickoffPassed);
+
+  const effectiveFbTier = fbTier || (
+    fbScore >= 80 ? { label: "Ultra", cls: darkMode ? "bg-purple-500/20 border-purple-500/40 text-purple-300" : "bg-purple-100 border-purple-300 text-purple-900 font-black" } :
+    fbScore >= 65 ? { label: "Strong", cls: darkMode ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300" : "bg-emerald-100 border-emerald-300 text-emerald-900 font-black" } :
+    fbScore >= 50 ? { label: "Moderate", cls: darkMode ? "bg-amber-500/20 border-amber-500/40 text-amber-300" : "bg-amber-100 border-amber-300 text-amber-900 font-black" } :
+    { label: "Weak", cls: darkMode ? "bg-slate-500/10 border-slate-500/20 text-slate-400" : "bg-slate-100 border-slate-300 text-slate-700 font-bold" }
+  );
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -161,22 +168,22 @@ export const MatchCardHeader = memo(function MatchCardHeader({
             </span>
           )}
 
-          {/* Unified FutureBet Score & Conviction */}
+          {/* FutureBet Score & Consistent Score Tier */}
           {canSeeAdvancedData && (
             <div
               className={cn(
                 "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-black border transition-all cursor-help shadow-sm",
-                fbTier.cls
+                effectiveFbTier.cls
               )}
-              title={`FutureBet Composite Score: ${fbScore}/100 (${fbTier.label})${
-                convictionTier ? `\nConviction: ${convictionTier} (${convictionStrength}%)` : ""
+              title={`FutureBet Composite Score: ${fbScore}/100 (${effectiveFbTier.label})${
+                convictionTier ? `\nMarket Conviction: ${convictionTier} (${convictionStrength}%)` : ""
               }`}
             >
               <span className="font-extrabold">⚡ FB {fbScore}</span>
-              {convictionTier && (
+              {effectiveFbTier?.label && (
                 <>
                   <span className="opacity-30">•</span>
-                  <span className="text-[10px] font-bold opacity-90">{convictionTier}</span>
+                  <span className="text-[10px] font-bold opacity-90">{effectiveFbTier.label}</span>
                 </>
               )}
             </div>
