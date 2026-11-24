@@ -155,14 +155,17 @@ export default function BetSlip({ darkMode = false }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ matches: validMatches }),
       });
-      const contentType = response.headers.get("content-type") || "";
       let data: any = {};
-      if (contentType.includes("application/json")) {
-        data = await response.json();
-      } else {
+      try {
+        const text = await response.text();
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        if (!response.ok) {
+          throw new Error(`AI service returned ${response.status}. Please try again.`);
+        }
         throw new Error("AI analysis service is temporarily busy. Please try again.");
       }
-      if (!response.ok) throw new Error(data.error || "Analysis failed");
+      if (!response.ok) throw new Error(data.error || `Analysis failed (${response.status})`);
       setAiFeedback(data.analysis);
       toast.success("AI Slip Analysis generated!");
     } catch (err: any) {
@@ -181,14 +184,17 @@ export default function BetSlip({ darkMode = false }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(recommendConfig),
       });
-      const contentType = response.headers.get("content-type") || "";
       let data: any = {};
-      if (contentType.includes("application/json")) {
-        data = await response.json();
-      } else {
+      try {
+        const text = await response.text();
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        if (!response.ok) {
+          throw new Error(`AI service returned ${response.status}. Please try again.`);
+        }
         throw new Error("AI recommendation service is temporarily busy. Please try again.");
       }
-      if (!response.ok) throw new Error(data.error || "Recommendation failed");
+      if (!response.ok) throw new Error(data.error || `Recommendation failed (${response.status})`);
       if (data.matches && Array.isArray(data.matches)) {
         const store = useBetslipStore.getState();
         let added = 0;

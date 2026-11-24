@@ -22,8 +22,15 @@ import {
   BookOpen,
   Share2,
   Terminal,
+  Plus,
+  TrendingUp,
+  Flame,
+  Zap,
 } from "lucide-react";
 import UpgradeButton from "./UpgradeButton";
+import { TeamCrest } from "./MatchCard/TeamCrest";
+import { formatSlipLeague } from "@/utils/matchUtils";
+import useBetslipStore from "@/store/betslipStore";
 const PLAN_ORDER = {
   free: 0,
   silver: 1,
@@ -555,7 +562,7 @@ const FormIndicator = React.memo(function FormIndicator({ form, ppg }) {
 
 /* ---------- Parsing helpers (Recent matches + H2H) ---------- */
 
-/* --- EA SPORTS POWER BAR ENGINE --- */
+/* --- EA SPORTS PRO BROADCAST POWER BAR ENGINE --- */
 const PowerBar = React.memo(function PowerBar({
   label,
   homeVal,
@@ -577,73 +584,82 @@ const PowerBar = React.memo(function PowerBar({
   const aWins = reverse ? a < h : a > h;
 
   return (
-    <div className="flex items-center gap-3 w-full my-2">
+    <div className="flex items-center gap-2 sm:gap-4 w-full my-2.5">
       {/* Home Side */}
-      <div className="flex-1 flex items-center justify-end gap-2">
+      <div className="flex-1 flex items-center justify-end gap-2.5 min-w-0">
         <div
           className={cx(
-            "text-xs font-black tabular-nums",
+            "text-xs sm:text-sm font-black tabular-nums transition-colors",
             hWins
-              ? "text-blue-500"
+              ? "text-blue-500 font-extrabold scale-105"
               : darkMode
               ? "text-white/50"
-              : "text-gray-400"
+              : "text-slate-400"
           )}
         >
           {h.toFixed(2)}
         </div>
         <div
           className={cx(
-            "h-2.5 rounded-l-full overflow-hidden w-full max-w-[120px] flex justify-end bg-black/5 dark:bg-white/5"
+            "h-3 sm:h-3.5 rounded-full overflow-hidden w-full max-w-[180px] sm:max-w-[240px] flex justify-end p-0.5 border transition-all",
+            darkMode
+              ? "bg-white/[0.03] border-white/5"
+              : "bg-slate-100 border-slate-200/80"
           )}
         >
           <div
             className={cx(
-              "h-full transition-all duration-1000 ease-out rounded-l-full",
+              "h-full transition-all duration-1000 ease-out rounded-full",
               hWins
-                ? "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]"
-                : "bg-blue-500/30"
+                ? "bg-gradient-to-r from-blue-600 to-indigo-500 shadow-[0_0_12px_rgba(59,130,246,0.6)]"
+                : "bg-blue-500/25"
             )}
-            style={{ width: `${hPct}%` }}
+            style={{ width: `${Math.max(hPct, 4)}%` }}
           />
         </div>
       </div>
 
-      {/* Center Label */}
+      {/* Center Label Badge */}
       <div
         className={cx(
-          "w-20 shrink-0 text-[9px] font-black uppercase tracking-widest text-center",
-          darkMode ? "text-gray-500" : "text-gray-400"
+          "w-24 sm:w-36 shrink-0 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-center py-1 px-1.5 rounded-xl border truncate shadow-xs",
+          darkMode
+            ? "bg-white/[0.04] text-slate-300 border-white/5"
+            : "bg-slate-50 text-slate-700 border-slate-200"
         )}
+        title={label}
       >
         {label}
       </div>
 
       {/* Away Side */}
-      <div className="flex-1 flex items-center justify-start gap-2">
+      <div className="flex-1 flex items-center justify-start gap-2.5 min-w-0">
         <div
           className={cx(
-            "h-2.5 rounded-r-full overflow-hidden w-full max-w-[120px] flex justify-start bg-black/5 dark:bg-white/5"
+            "h-3 sm:h-3.5 rounded-full overflow-hidden w-full max-w-[180px] sm:max-w-[240px] flex justify-start p-0.5 border transition-all",
+            darkMode
+              ? "bg-white/[0.03] border-white/5"
+              : "bg-slate-100 border-slate-200/80"
           )}
         >
           <div
             className={cx(
-              "h-full transition-all duration-1000 ease-out rounded-r-full",
+              "h-full transition-all duration-1000 ease-out rounded-full",
               aWins
-                ? "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]"
-                : "bg-rose-500/30"
+                ? "bg-gradient-to-r from-rose-500 to-orange-500 shadow-[0_0_12px_rgba(244,63,94,0.6)]"
+                : "bg-rose-500/25"
             )}
-            style={{ width: `${aPct}%` }}
+            style={{ width: `${Math.max(aPct, 4)}%` }}
           />
         </div>
         <div
           className={cx(
-            "text-xs font-black tabular-nums",
+            "text-xs sm:text-sm font-black tabular-nums transition-colors",
             aWins
-              ? "text-rose-500"
+              ? "text-rose-500 font-extrabold scale-105"
               : darkMode
               ? "text-white/50"
-              : "text-gray-400"
+              : "text-slate-400"
           )}
         >
           {a.toFixed(2)}
@@ -2528,6 +2544,40 @@ export default function TeamComparisonModal({
     navigator.clipboard.writeText(text);
   }, [leagueTable]);
 
+  const homeFormChars = React.useMemo(() => {
+    const raw = String(match.hForm || match.H_Recent || match.hRecent || "").toUpperCase().replace(/[^WDL]/g, "");
+    return raw.slice(-5).split("");
+  }, [match.hForm, match.H_Recent, match.hRecent]);
+
+  const awayFormChars = React.useMemo(() => {
+    const raw = String(match.aForm || match.A_Recent || match.aRecent || "").toUpperCase().replace(/[^WDL]/g, "");
+    return raw.slice(-5).split("");
+  }, [match.aForm, match.A_Recent, match.aRecent]);
+
+  const addMatch = useBetslipStore((state) => state.addMatch);
+  const removeMatch = useBetslipStore((state) => state.removeMatch);
+  const betslipMatches = useBetslipStore((state) => state.matches);
+
+  const matchKey = match.match || `${homeTeam} vs ${awayTeam}`;
+  const isAlreadyInSlip = React.useMemo(() => {
+    return (betslipMatches || []).some((m) => (m.match || m.key) === matchKey);
+  }, [betslipMatches, matchKey]);
+
+  const handleToggleBetslip = React.useCallback(() => {
+    if (isAlreadyInSlip) {
+      removeMatch(matchKey);
+    } else {
+      const rec = match.recommended;
+      addMatch({
+        ...match,
+        match: matchKey,
+        selectedMarket: rec?.market || "1X2",
+        selectedOption: rec?.option || "Home",
+        odds: match.pickOdds || rec?.realOdds || 1.5,
+      });
+    }
+  }, [isAlreadyInSlip, match, matchKey, addMatch, removeMatch]);
+
   const tabs = React.useMemo(
     () => [
       {
@@ -2580,6 +2630,41 @@ export default function TeamComparisonModal({
       { label: "BTTS %", ...pickLead(hBTTS, aBTTS), tone: "purple" },
       { label: "Over 2.5 %", ...pickLead(hO25, aO25), tone: "red" },
     ].slice(0, 4);
+  }, [match, homeTeam, awayTeam, formatPercent]);
+
+  const quantVerdict = React.useMemo(() => {
+    const hWin = Number(formatPercent(match.homeWin || match.hWin || 33));
+    const aWin = Number(formatPercent(match.awayWin || match.aWin || 33));
+    const draw = Number(formatPercent(match.draw || 34));
+    const diff = hWin - aWin;
+
+    let favorite = "Even Contest";
+    let confidence = 50;
+    let summary = "Both sides enter with closely balanced quantitative indicators.";
+
+    if (diff > 25) {
+      favorite = `${homeTeam} Clear Advantage`;
+      confidence = Math.min(95, Math.round(hWin));
+      summary = `${homeTeam} commands a dominant ${diff.toFixed(0)}% probability advantage backed by higher PPG and offensive metrics.`;
+    } else if (diff > 10) {
+      favorite = `${homeTeam} Slight Edge`;
+      confidence = Math.min(85, Math.round(hWin));
+      summary = `${homeTeam} holds an edge on home soil with positive form indicators.`;
+    } else if (diff < -25) {
+      favorite = `${awayTeam} Clear Advantage`;
+      confidence = Math.min(95, Math.round(aWin));
+      summary = `${awayTeam} holds superior form and rating with a ${Math.abs(diff).toFixed(0)}% edge over the hosts.`;
+    } else if (diff < -10) {
+      favorite = `${awayTeam} Slight Edge`;
+      confidence = Math.min(85, Math.round(aWin));
+      summary = `${awayTeam} enters as slight road favorites with positive tactical ratings.`;
+    } else if (draw > 35) {
+      favorite = "High Draw Probability";
+      confidence = Math.round(draw);
+      summary = `High tactical parity detected (${draw}% draw likelihood) indicating a tight, low-margin encounter.`;
+    }
+
+    return { favorite, confidence, summary, hWin, aWin, draw };
   }, [match, homeTeam, awayTeam, formatPercent]);
 
   // ✅ UPGRADE 3: DUAL-ACTION COPY SYSTEM
@@ -2818,7 +2903,9 @@ export default function TeamComparisonModal({
                 )}
               >
                 {match.match || `${homeTeam} vs ${awayTeam}`}{" "}
-                {match.fullLeague ? `• ${match.fullLeague}` : ""}
+                {match.country || match.fullLeague || match.league
+                  ? `• ${formatSlipLeague(match.country || match.Country || "", match.fullLeague || match.league || "")}`
+                  : ""}
               </p>
             </div>
 
@@ -2910,158 +2997,381 @@ export default function TeamComparisonModal({
           </div>
         </div>
 
-        {/* Clash of Titans Cinematic Header */}
+        {/* Clash of Titans Broadcast Intelligence Header */}
         <div
           className={cx(
-            "relative w-full rounded-[32px] p-6 my-4 mx-4 w-[calc(100%-2rem)] overflow-hidden shadow-sm border",
+            "relative w-full rounded-[32px] p-5 sm:p-7 my-4 mx-4 w-[calc(100%-2rem)] overflow-hidden shadow-2xl border transition-all",
             darkMode
-              ? "bg-gray-950 border-white/10"
-              : "bg-white border-gray-200"
+              ? "bg-gradient-to-b from-slate-900/90 via-slate-950 to-slate-900/90 border-white/10 shadow-black/50"
+              : "bg-gradient-to-b from-white via-slate-50 to-white border-slate-200/90 shadow-slate-200/60"
           )}
         >
-          <div className="absolute top-0 left-0 w-1/2 h-full bg-gradient-to-r from-blue-500/10 to-transparent blur-3xl pointer-events-none" />
-          <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-rose-500/10 to-transparent blur-3xl pointer-events-none" />
+          {/* Subtle Ambient Radial Glows */}
+          <div className="absolute -top-24 -left-24 w-80 h-80 bg-blue-500/15 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -top-24 -right-24 w-80 h-80 bg-rose-500/15 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-500/[0.03] via-transparent to-transparent pointer-events-none" />
 
-          <div className="relative z-10 flex items-center justify-between">
-            <div className="flex flex-col items-center gap-2 w-[40%]">
-              <div
-                className={cx(
-                  "h-16 w-16 sm:h-20 sm:w-20 rounded-[1.25rem] flex items-center justify-center text-2xl sm:text-3xl font-black shadow-lg ring-4",
-                  darkMode
-                    ? "bg-gray-900 ring-blue-500/20 text-blue-400"
-                    : "bg-gray-50 ring-blue-500/10 text-blue-600"
-                )}
-              >
-                {String(homeTeam).charAt(0)}
+          {/* Main Teams Matchup Row */}
+          <div className="relative z-10 flex items-center justify-between gap-3">
+            {/* Home Team Side */}
+            <div className="flex flex-col items-center gap-2.5 w-[42%] min-w-0">
+              <div className="relative group cursor-pointer transition-transform duration-300 hover:scale-105">
+                <TeamCrest
+                  name={homeTeam}
+                  size={72}
+                  className="shadow-2xl ring-4 ring-blue-500/25 sm:w-20 sm:h-20"
+                />
+                <div className="absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-blue-600 text-white shadow-md">
+                  Home
+                </div>
               </div>
-              <div
-                className={cx(
-                  "text-sm sm:text-base font-black text-center truncate w-full",
-                  darkMode ? "text-white" : "text-gray-900"
-                )}
-              >
-                {homeTeam}
+
+              <div className="text-center w-full min-w-0">
+                <div
+                  className={cx(
+                    "text-sm sm:text-base font-black truncate tracking-tight",
+                    darkMode ? "text-white" : "text-slate-900"
+                  )}
+                  title={homeTeam}
+                >
+                  {homeTeam}
+                </div>
+                
+                <div className="flex items-center justify-center gap-1.5 mt-1 text-[11px] font-semibold text-slate-400">
+                  {homePos && (
+                    <span className="px-1.5 py-0.5 rounded-md font-mono font-bold text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                      #{homePos}
+                    </span>
+                  )}
+                  {match.hppg ? (
+                    <span className="font-mono text-[10px] text-slate-400">
+                      {safeNum(match.hppg, 0).toFixed(2)} PPG
+                    </span>
+                  ) : null}
+                </div>
+
+                {/* Home Form Pills */}
+                <div className="flex items-center justify-center gap-1 mt-1.5">
+                  {homeFormChars.length > 0 ? (
+                    homeFormChars.map((ch, idx) => (
+                      <span
+                        key={idx}
+                        className={cx(
+                          "w-5 h-5 rounded-md text-[10px] font-black flex items-center justify-center shadow-xs",
+                          ch === "W"
+                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                            : ch === "D"
+                            ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
+                            : "bg-rose-500/20 text-rose-400 border border-rose-500/40"
+                        )}
+                        title={`Form: ${ch}`}
+                      >
+                        {ch}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-[10px] text-slate-500 font-medium italic">Form: N/A</span>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-col items-center justify-center w-[20%]">
+            {/* Center VS & Scoreline Zone */}
+            <div className="flex flex-col items-center justify-center w-[16%] shrink-0">
               <div
                 className={cx(
-                  "text-[10px] font-black italic opacity-40 px-2 py-1 rounded-md",
-                  darkMode ? "bg-white/10 text-white" : "bg-black/5 text-black"
+                  "w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center font-black italic text-xs shadow-inner ring-1",
+                  darkMode
+                    ? "bg-white/[0.05] ring-white/10 text-slate-300"
+                    : "bg-slate-100 ring-slate-300 text-slate-700"
                 )}
               >
                 VS
               </div>
+
+              {(match.cScore || match.cscore) && (
+                <div className="mt-2 px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-black font-mono tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-xs text-center whitespace-nowrap">
+                  Exp: {match.cScore || match.cscore}
+                </div>
+              )}
+
+              {match.time && (
+                <div className="text-[10px] font-mono text-slate-400 mt-1 whitespace-nowrap">
+                  {match.time}
+                </div>
+              )}
             </div>
 
-            <div className="flex flex-col items-center gap-2 w-[40%]">
-              <div
-                className={cx(
-                  "h-16 w-16 sm:h-20 sm:w-20 rounded-[1.25rem] flex items-center justify-center text-2xl sm:text-3xl font-black shadow-lg ring-4",
-                  darkMode
-                    ? "bg-gray-900 ring-rose-500/20 text-rose-400"
-                    : "bg-gray-50 ring-rose-500/10 text-rose-600"
-                )}
-              >
-                {String(awayTeam).charAt(0)}
+            {/* Away Team Side */}
+            <div className="flex flex-col items-center gap-2.5 w-[42%] min-w-0">
+              <div className="relative group cursor-pointer transition-transform duration-300 hover:scale-105">
+                <TeamCrest
+                  name={awayTeam}
+                  size={72}
+                  className="shadow-2xl ring-4 ring-rose-500/25 sm:w-20 sm:h-20"
+                />
+                <div className="absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-rose-600 text-white shadow-md">
+                  Away
+                </div>
               </div>
-              <div
-                className={cx(
-                  "text-sm sm:text-base font-black text-center truncate w-full",
-                  darkMode ? "text-white" : "text-gray-900"
-                )}
-              >
-                {awayTeam}
+
+              <div className="text-center w-full min-w-0">
+                <div
+                  className={cx(
+                    "text-sm sm:text-base font-black truncate tracking-tight",
+                    darkMode ? "text-white" : "text-slate-900"
+                  )}
+                  title={awayTeam}
+                >
+                  {awayTeam}
+                </div>
+
+                <div className="flex items-center justify-center gap-1.5 mt-1 text-[11px] font-semibold text-slate-400">
+                  {awayPos && (
+                    <span className="px-1.5 py-0.5 rounded-md font-mono font-bold text-[10px] bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                      #{awayPos}
+                    </span>
+                  )}
+                  {match.appg ? (
+                    <span className="font-mono text-[10px] text-slate-400">
+                      {safeNum(match.appg, 0).toFixed(2)} PPG
+                    </span>
+                  ) : null}
+                </div>
+
+                {/* Away Form Pills */}
+                <div className="flex items-center justify-center gap-1 mt-1.5">
+                  {awayFormChars.length > 0 ? (
+                    awayFormChars.map((ch, idx) => (
+                      <span
+                        key={idx}
+                        className={cx(
+                          "w-5 h-5 rounded-md text-[10px] font-black flex items-center justify-center shadow-xs",
+                          ch === "W"
+                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                            : ch === "D"
+                            ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
+                            : "bg-rose-500/20 text-rose-400 border border-rose-500/40"
+                        )}
+                        title={`Form: ${ch}`}
+                      >
+                        {ch}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-[10px] text-slate-500 font-medium italic">Form: N/A</span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="mt-8 relative z-10">
-            <div className="flex justify-between text-[9px] font-extrabold uppercase tracking-widest mb-2 opacity-60">
-              <span>{homeTeam} Edge</span>
-              <span>{awayTeam} Edge</span>
+          {/* Probability Quantum Bar */}
+          <div className="mt-7 relative z-10">
+            <div className="flex justify-between items-center text-[10px] sm:text-[11px] font-black uppercase tracking-wider mb-2">
+              <span className="flex items-center gap-1.5 text-blue-500">
+                <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
+                {homeTeam}: {Math.round(quantVerdict.hWin)}%
+              </span>
+              <span className={cx("font-semibold", darkMode ? "text-slate-400" : "text-slate-500")}>
+                Draw: {Math.round(quantVerdict.draw)}%
+              </span>
+              <span className="flex items-center gap-1.5 text-rose-500">
+                {awayTeam}: {Math.round(quantVerdict.aWin)}%
+                <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
+              </span>
             </div>
+
             <div
               className={cx(
-                "flex h-3 w-full rounded-full overflow-hidden shadow-inner",
-                darkMode ? "bg-white/5" : "bg-gray-100"
+                "flex h-4 w-full rounded-full overflow-hidden p-0.5 border shadow-inner transition-all",
+                darkMode
+                  ? "bg-slate-900/80 border-white/10"
+                  : "bg-slate-100 border-slate-200"
               )}
             >
               <div
-                className="h-full bg-blue-500 transition-all duration-1000 ease-out"
-                style={{
-                  width: `${formatPercent(match.homeWin || match.hWin || 33)}%`,
-                }}
+                className="h-full bg-gradient-to-r from-blue-600 via-indigo-500 to-cyan-400 rounded-l-full transition-all duration-1000 ease-out shadow-[0_0_12px_rgba(59,130,246,0.5)]"
+                style={{ width: `${Math.max(quantVerdict.hWin, 2)}%` }}
+                title={`${homeTeam}: ${quantVerdict.hWin}%`}
               />
               <div
                 className={cx(
                   "h-full transition-all duration-1000 ease-out border-x",
-                  darkMode
-                    ? "bg-white/20 border-gray-900"
-                    : "bg-gray-300 border-white"
+                  darkMode ? "bg-slate-700/60 border-slate-900" : "bg-slate-300 border-white"
                 )}
-                style={{ width: `${formatPercent(match.draw || 34)}%` }}
+                style={{ width: `${Math.max(quantVerdict.draw, 2)}%` }}
+                title={`Draw: ${quantVerdict.draw}%`}
               />
               <div
-                className="h-full bg-rose-500 transition-all duration-1000 ease-out"
-                style={{
-                  width: `${formatPercent(match.awayWin || match.aWin || 33)}%`,
-                }}
+                className="h-full bg-gradient-to-r from-rose-500 via-pink-500 to-amber-500 rounded-r-full transition-all duration-1000 ease-out shadow-[0_0_12px_rgba(244,63,94,0.5)]"
+                style={{ width: `${Math.max(quantVerdict.aWin, 2)}%` }}
+                title={`${awayTeam}: ${quantVerdict.aWin}%`}
               />
             </div>
-            <div className="flex justify-between text-xs font-black mt-2">
-              <span className="text-blue-500">
-                {Math.round(formatPercent(match.homeWin || match.hWin || 0))}%
-              </span>
-              <span className={darkMode ? "text-gray-500" : "text-gray-400"}>
-                Draw {Math.round(formatPercent(match.draw || 0))}%
-              </span>
-              <span className="text-rose-500">
-                {Math.round(formatPercent(match.awayWin || match.aWin || 0))}%
-              </span>
+          </div>
+
+          {/* AI QUANT MODEL VERDICT & 1-CLICK BETSLIP BANNER */}
+          <div
+            className={cx(
+              "mt-5 p-3.5 sm:p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border shadow-sm transition-all",
+              darkMode
+                ? "bg-gradient-to-r from-slate-900/80 via-white/[0.02] to-slate-900/80 border-white/10"
+                : "bg-gradient-to-r from-slate-50 via-white to-slate-50 border-slate-200"
+            )}
+          >
+            <div className="flex items-center gap-3 min-w-0 w-full sm:w-auto">
+              <div
+                className={cx(
+                  "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-black shadow-md",
+                  darkMode
+                    ? "bg-gradient-to-tr from-amber-500 to-emerald-400 text-slate-950"
+                    : "bg-slate-900 text-amber-400"
+                )}
+              >
+                <Zap size={18} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-black tracking-wide flex items-center gap-2 flex-wrap">
+                  <span className={darkMode ? "text-slate-100" : "text-slate-900"}>
+                    {quantVerdict.favorite}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[9px] uppercase font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                    {quantVerdict.confidence}% Confidence
+                  </span>
+                </div>
+                <div className={cx("text-[11px] font-medium mt-0.5 truncate", darkMode ? "text-slate-400" : "text-slate-600")}>
+                  {quantVerdict.summary}
+                </div>
+              </div>
             </div>
+
+            <button
+              onClick={handleToggleBetslip}
+              className={cx(
+                "w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider shrink-0 transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95",
+                isAlreadyInSlip
+                  ? "bg-rose-500/15 text-rose-400 border border-rose-500/30 hover:bg-rose-500/25"
+                  : darkMode
+                  ? "bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black hover:from-emerald-400 hover:to-teal-300 shadow-emerald-500/25"
+                  : "bg-slate-900 text-emerald-400 hover:bg-slate-800"
+              )}
+            >
+              {isAlreadyInSlip ? (
+                <>
+                  <X size={15} />
+                  <span>Remove from Slip</span>
+                </>
+              ) : (
+                <>
+                  <Plus size={15} />
+                  <span>
+                    Add Pick: {match.recommended?.option || "Home"} @ {match.pickOdds || match.recommended?.realOdds || "1.23"}
+                  </span>
+                </>
+              )}
+            </button>
           </div>
         </div>
 
-        {/* RESTORED EDGE SUMMARY PILLS */}
+        {/* RESTYLED 4-COLUMN RESPONSIVE EDGE SUMMARY CARDS */}
         <CardShell
           darkMode={darkMode}
           className="mx-4 mb-4 mt-2 w-[calc(100%-2rem)]"
         >
           <SectionHeader
-            title="Edge Summary"
-            subtitle="Quick take: who leads the key signals"
+            title="Quant Edge Summary"
+            subtitle="Side-by-side performance advantage across key indicators"
             darkMode={darkMode}
             right={
               <Pill darkMode={darkMode} tone="neutral">
-                <Swords className="h-3.5 w-3.5" />
-                Snapshot
+                <Swords className="h-3.5 w-3.5 text-amber-400" />
+                Key Metric Edges
               </Pill>
             }
           />
-          <div className="p-4 flex flex-wrap gap-2">
-            {edges.map((e, i) => (
-              <Pill
-                key={i}
-                darkMode={darkMode}
-                tone={
-                  e.lead === "Even"
-                    ? "neutral"
-                    : e.lead === homeTeam
-                    ? "blue"
-                    : "red"
-                }
-              >
-                <span className="font-semibold">{e.label}:</span>{" "}
-                <span>{e.lead}</span>
-                {e.diff ? (
-                  <span className={cx("ml-1 font-mono")}>
-                    +{e.diff.toFixed(2)}
-                  </span>
-                ) : null}
-              </Pill>
-            ))}
+          <div className="p-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {edges.map((e, i) => {
+              const isHomeLead = e.lead === homeTeam;
+              const isAwayLead = e.lead === awayTeam;
+              const isEven = e.lead === "Even" || !e.lead;
+
+              return (
+                <div
+                  key={i}
+                  className={cx(
+                    "p-3 rounded-2xl border transition-all duration-200 flex flex-col justify-between",
+                    darkMode
+                      ? "bg-white/[0.02] border-white/5 hover:border-white/10 hover:bg-white/[0.04]"
+                      : "bg-slate-50/80 border-slate-200/80 hover:border-slate-300 hover:bg-white"
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-1 mb-2">
+                    <span className={cx("text-[10px] font-black uppercase tracking-wider truncate", darkMode ? "text-slate-400" : "text-slate-500")}>
+                      {e.label}
+                    </span>
+                    <span
+                      className={cx(
+                        "w-2 h-2 rounded-full shrink-0",
+                        isHomeLead
+                          ? "bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.6)]"
+                          : isAwayLead
+                          ? "bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.6)]"
+                          : "bg-slate-400"
+                      )}
+                    />
+                  </div>
+
+                  <div className="flex items-baseline justify-between gap-1">
+                    <div
+                      className={cx(
+                        "text-xs sm:text-sm font-black truncate",
+                        isHomeLead
+                          ? "text-blue-500"
+                          : isAwayLead
+                          ? "text-rose-500"
+                          : darkMode
+                          ? "text-slate-300"
+                          : "text-slate-700"
+                      )}
+                    >
+                      {e.lead}
+                    </div>
+                    {e.diff ? (
+                      <span
+                        className={cx(
+                          "text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-md",
+                          isHomeLead
+                            ? "bg-blue-500/10 text-blue-400"
+                            : isAwayLead
+                            ? "bg-rose-500/10 text-rose-400"
+                            : "bg-slate-500/10 text-slate-400"
+                        )}
+                      >
+                        +{e.diff.toFixed(2)}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {/* Micro Visual Edge Indicator */}
+                  <div className="mt-2.5 h-1.5 w-full rounded-full bg-black/5 dark:bg-white/5 overflow-hidden flex">
+                    <div
+                      className={cx(
+                        "h-full rounded-full transition-all duration-700",
+                        isHomeLead
+                          ? "bg-blue-500"
+                          : isAwayLead
+                          ? "bg-rose-500 ml-auto"
+                          : "bg-slate-400 w-full"
+                      )}
+                      style={{
+                        width: isEven ? "100%" : `${Math.min(100, Math.max(30, (e.diff || 1) * 35))}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </CardShell>
 
