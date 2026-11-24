@@ -62,11 +62,11 @@ async function ensureHistoryTable() {
       );
     `;
 
-    // Purge any corrupted legacy test rows where all legs were identical Under 3.5 or @1.25
+    // Purge any corrupted legacy test rows where all legs were identical Under 3.5 or @1.25, or matches in 2027
     await sql`
       DELETE FROM curated_multi_bet_history
-      WHERE matches::text LIKE '%"Under 3.5"%'
-        AND (matches::text LIKE '%"odds":1.25%' OR matches::text NOT LIKE '%Over%');
+      WHERE matches::text LIKE '%2027-%'
+        OR (matches::text LIKE '%"Under 3.5"%' AND (matches::text LIKE '%"odds":1.25%' OR matches::text NOT LIKE '%Over%'));
     `;
   } catch (err) {
     console.warn("Failed to ensure curated_multi_bet_history table:", err);
@@ -469,7 +469,8 @@ function buildSlip(
   preferredRisks: Array<"safe" | "medium" | "aggressive">,
   minLegs: number,
   maxLegs: number,
-  maxPerLeague = 2
+  maxPerLeague = 2,
+  maxAllowedDateISO?: string
 ): PresetLeg[] {
   const chosenLegs: PresetLeg[] = [];
   const usedMatches = new Set<string>();
@@ -490,6 +491,10 @@ function buildSlip(
   }> = [];
 
   for (const m of availableMatches) {
+    if (maxAllowedDateISO) {
+      const d = getMatchDateStr(m);
+      if (d && d > maxAllowedDateISO) continue;
+    }
     const list = extractEligibleMarkets(m);
     for (const c of list) {
       if (preferredRisks.includes(c.risk)) {
@@ -515,6 +520,9 @@ function buildSlip(
     const c = item.candidate;
     const matchName = String(m.match || `${m.homeTeam} vs ${m.awayTeam}`);
     const league = String(m.fullLeague || m.league || "League");
+
+    const matchDateStr = getMatchDateStr(m);
+    if (maxAllowedDateISO && matchDateStr && matchDateStr > maxAllowedDateISO) continue;
 
     if (usedMatches.has(matchName)) continue;
     const leagueCount = usedLeagues.get(league) || 0;
@@ -572,6 +580,9 @@ function buildSlip(
       const c = item.candidate;
       const matchName = String(m.match || `${m.homeTeam} vs ${m.awayTeam}`);
       const league = String(m.fullLeague || m.league || "League");
+
+      const matchDateStr = getMatchDateStr(m);
+      if (maxAllowedDateISO && matchDateStr && matchDateStr > maxAllowedDateISO) continue;
 
       if (usedMatches.has(matchName)) continue;
       // Relax league limit to 4 and market limit to 6 for deep jackpot slips
@@ -1176,7 +1187,9 @@ export async function GET(req: Request) {
     const tomorrowISO = getLagosDateISO(1);
     const day7ISO = getLagosDateISO(7);
     const day15ISO = getLagosDateISO(15);
+    const day30ISO = getLagosDateISO(30); // Hard 30-day forward schedule cap (no 2027 matches)
     const { mondayISO, sundayISO } = getCurrentMondayToSundayRange();
+    const { sunISO: weekendSunISO } = getUpcomingWeekendRange();
 
     const canAccessSilverTier = userTier === "silver" || userTier === "premium" || userTier === "admin";
     const canAccessPremiumTier = userTier === "premium" || userTier === "admin";
@@ -1199,15 +1212,14 @@ export async function GET(req: Request) {
     // POOL 2: WEEKEND POOL (Strictly Friday >= 17:00 WAT, Saturday, Sunday)
     // ------------------------------------------------------------------
     const weekendMatches = allMatches.filter(isWeekendMatch);
-    // If weekend pool is under 16, include upcoming Monday early fixtures to reach enough matches
+    // If weekend pool is under 16, include upcoming Monday early fixtures to reach enough matches (capped within 7 days)
     const candidateWeekend = weekendMatches.length >= 16
       ? weekendMatches
       : [
           ...weekendMatches,
           ...allMatches.filter((m) => {
             const d = getMatchDateStr(m);
-            const { sunISO } = getUpcomingWeekendRange();
-            return d && d > sunISO;
+            return d && d > weekendSunISO && d <= day7ISO;
           }),
         ];
 
@@ -1216,33 +1228,49 @@ export async function GET(req: Request) {
     // ------------------------------------------------------------------
     const sevenDayMatches = allMatches.filter((m) => {
       const d = getMatchDateStr(m);
-      return !d || (d >= mondayISO && d <= sundayISO);
+      return d && d >= mondayISO && d <= sundayISO;
     });
-    const candidate7Day = sevenDayMatches.length >= 12 ? sevenDayMatches : allMatches;
+    const candidate7Day = sevenDayMatches.length >= 12
+      ? sevenDayMatches
+      : allMatches.filter((m) => {
+          const d = getMatchDateStr(m);
+          return d && d >= todayISO && d <= sundayISO;
+        });
 
     // ------------------------------------------------------------------
     // POOL 4: 15-DAY FORTNIGHT POOL (Today to +15 Days)
     // ------------------------------------------------------------------
     const fifteenDayMatches = allMatches.filter((m) => {
       const d = getMatchDateStr(m);
-      return !d || (d >= todayISO && d <= day15ISO);
+      return d && d >= todayISO && d <= day15ISO;
     });
-    const candidate15Day = fifteenDayMatches.length >= 14 ? fifteenDayMatches : allMatches;
+    const candidate15Day = fifteenDayMatches.length >= 14
+      ? fifteenDayMatches
+      : allMatches.filter((m) => {
+          const d = getMatchDateStr(m);
+          return d && d >= todayISO && d <= day15ISO;
+        });
 
     // ------------------------------------------------------------------
-    // POOL 5: 15+ DAYS ULTRA MARATHON POOL (16+ Days to 30+ Days)
+    // POOL 5: 15+ DAYS ULTRA MARATHON POOL (Strictly 16 to 30 Days Top)
+    // Absolute hard cap: between today and next 30 days maximum. NO 2027 fixtures!
     // ------------------------------------------------------------------
     const marathonMatches = allMatches.filter((m) => {
       const d = getMatchDateStr(m);
-      return !d || d > day15ISO;
+      return d && d > day15ISO && d <= day30ISO;
     });
     const candidateMarathon = marathonMatches.length >= 14
       ? marathonMatches
       : allMatches.filter((m) => {
           const d = getMatchDateStr(m);
-          return !d || d >= day7ISO;
+          return d && d >= todayISO && d <= day30ISO;
         });
-    const finalMarathonPool = candidateMarathon.length >= 14 ? candidateMarathon : allMatches;
+    const finalMarathonPool = candidateMarathon.length >= 14
+      ? candidateMarathon
+      : allMatches.filter((m) => {
+          const d = getMatchDateStr(m);
+          return d && d >= todayISO && d <= day30ISO;
+        });
 
     // ==================================================================
     // SECTION A: MULTI-HORIZON PROGRESSIVE JACKPOT ACCUMULATORS
@@ -1253,7 +1281,7 @@ export async function GET(req: Request) {
     // 4. 15+ Days Ultra Marathon: 5,000x - 10,000x+ (Min ₦5,000,000 return)
     // ==================================================================
     // 1. Weekend ₦1M Mega Jackpot (Friday >= 17:00 through Sunday)
-    const legsWeekend1000x = buildSlip(candidateWeekend, 1000.0, 1600.0, ["safe", "medium", "aggressive"], 14, 18, 2);
+    const legsWeekend1000x = buildSlip(candidateWeekend, 1000.0, 1600.0, ["safe", "medium", "aggressive"], 14, 18, 2, weekendSunISO);
     const oddsWeekend1000x = legsWeekend1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const finalOddsWeekend1000x = Number(Math.max(1000.0, oddsWeekend1000x).toFixed(2));
     const winWeekend1000x = Math.max(1000000, Math.round(1000 * finalOddsWeekend1000x));
@@ -1262,7 +1290,7 @@ export async function GET(req: Request) {
       : 72;
 
     // 2. 7-Day ₦2M Syndicate Acca (Monday to Sunday)
-    const legs7Day1000x = buildSlip(candidate7Day, 2000.0, 2800.0, ["safe", "medium", "aggressive"], 16, 21, 2);
+    const legs7Day1000x = buildSlip(candidate7Day, 2000.0, 2800.0, ["safe", "medium", "aggressive"], 16, 21, 2, sundayISO);
     const odds7Day1000x = legs7Day1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const finalOdds7Day1000x = Number(Math.max(2000.0, odds7Day1000x).toFixed(2));
     const win7Day1000x = Math.max(2000000, Math.round(1000 * finalOdds7Day1000x));
@@ -1271,7 +1299,7 @@ export async function GET(req: Request) {
       : 70;
 
     // 3. 15-Day ₦3.5M Fortnight Builder (Next 15 days)
-    const legs15Day1000x = buildSlip(candidate15Day, 3500.0, 4800.0, ["safe", "medium", "aggressive"], 18, 24, 3);
+    const legs15Day1000x = buildSlip(candidate15Day, 3500.0, 4800.0, ["safe", "medium", "aggressive"], 18, 24, 3, day15ISO);
     const odds15Day1000x = legs15Day1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const finalOdds15Day1000x = Number(Math.max(3500.0, odds15Day1000x).toFixed(2));
     const win15Day1000x = Math.max(3500000, Math.round(1000 * finalOdds15Day1000x));
@@ -1279,8 +1307,8 @@ export async function GET(req: Request) {
       ? Math.round(legs15Day1000x.reduce((acc, l) => acc + l.confidence, 0) / legs15Day1000x.length)
       : 68;
 
-    // 4. 15+ Days ₦5M+ Ultra Marathon (16+ days deep forward calendar)
-    const legsMarathon1000x = buildSlip(finalMarathonPool, 5000.0, 12000.0, ["safe", "medium", "aggressive"], 22, 28, 3);
+    // 4. 15+ Days ₦5M+ Ultra Marathon (16 to 30 days maximum calendar cap)
+    const legsMarathon1000x = buildSlip(finalMarathonPool, 5000.0, 12000.0, ["safe", "medium", "aggressive"], 22, 28, 3, day30ISO);
     const oddsMarathon1000x = legsMarathon1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const finalOddsMarathon1000x = Number(Math.max(5000.0, oddsMarathon1000x).toFixed(2));
     const winMarathon1000x = Math.max(5000000, Math.round(1000 * finalOddsMarathon1000x));
@@ -1353,8 +1381,8 @@ export async function GET(req: Request) {
         confidence: confMarathon1000x,
         stake: 1000,
         potentialWin: winMarathon1000x,
-        resetInfo: "Extended Calendar Schedule (16 to 30+ Days)",
-        description: "Deep forward fixture accumulator for patient investors. Targets high-conviction recurring mathematical value spots across the forward monthly schedule with compounding returns of 5,000x+ to 10,000x+.",
+        resetInfo: `Forward Calendar Schedule (${day15ISO} – ${day30ISO}) • Capped at Next 30 Days Top`,
+        description: "Deep forward fixture accumulator for patient investors. Strictly capped within the next 30 days schedule with compounding returns of 5,000x+ to 10,000x+.",
         matches: canAccessPremiumTier ? legsMarathon1000x : [],
       },
     ];

@@ -418,7 +418,7 @@ export default function MultiBetHub({
                       Multi-Horizon ₦1,000,000 to ₦5,000,000+ Jackpot Accumulators
                     </div>
                     <div className="text-[11px] text-slate-400 mt-0.5">
-                      Calibrated accumulators spread across 4 distinct forward time horizons: Weekend (1,000x+), 7-Day (2,000x+), 15-Day (3,500x+), and 15+ Days Marathon (5,000x+ to 10,000x+).
+                      Calibrated accumulators spread across 4 forward time horizons: Weekend (1,000x+), 7-Day (2,000x+), 15-Day (3,500x+), and 15+ Days Marathon (capped within next 30 days, 5,000x+ to 10,000x+).
                     </div>
                   </div>
                 </div>
