@@ -62,11 +62,10 @@ async function ensureHistoryTable() {
       );
     `;
 
-    // Purge any corrupted legacy test rows where all legs were identical Under 3.5 or @1.25, or matches in 2027
+    // Purge any corrupted legacy test rows where matches were scheduled in 2027
     await sql`
       DELETE FROM curated_multi_bet_history
-      WHERE matches::text LIKE '%2027-%'
-        OR (matches::text LIKE '%"Under 3.5"%' AND (matches::text LIKE '%"odds":1.25%' OR matches::text NOT LIKE '%Over%'));
+      WHERE matches::text LIKE '%2027-%';
     `;
   } catch (err) {
     console.warn("Failed to ensure curated_multi_bet_history table:", err);
@@ -103,6 +102,20 @@ function getMatchDateStr(m: any): string {
     if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
   } catch {}
   return "";
+}
+
+function toSafeDateISO(val: any): string {
+  if (!val) return "";
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+    if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return trimmed.slice(0, 10);
+  }
+  try {
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  } catch {}
+  return String(val || "").slice(0, 10);
 }
 
 function getDayOfWeekInLagos(dateStr: string): number {
@@ -891,21 +904,30 @@ async function autoSettlePendingSlips() {
     }
 
     function findScoreForMatch(matchString: string): string | null {
+      if (!matchString) return null;
       const norm = normMatchName(matchString);
       if (directMap.has(norm)) return directMap.get(norm)!;
 
       const { home, away } = splitTeams(matchString);
-      if (!home || !away) return null;
+      if (home && away) {
+        const directKey = `${home}_${away}`;
+        if (directMap.has(directKey)) return directMap.get(directKey)!;
+        const revKey = `${away}_${home}`;
+        if (directMap.has(revKey)) return directMap.get(revKey)!;
+      }
 
-      const directKey = `${home}_${away}`;
-      if (directMap.has(directKey)) return directMap.get(directKey)!;
+      const stripped = matchString.toLowerCase().replace(/[^a-z0-9]/g, "");
 
       // Fuzzy check in match records
       for (const rec of matchRecords) {
-        if (
-          (teamsMatch(rec.home, home) && teamsMatch(rec.away, away)) ||
-          (rec.label && teamsMatch(rec.label, matchString))
-        ) {
+        if (home && away && teamsMatch(rec.home, home) && teamsMatch(rec.away, away)) {
+          return rec.score;
+        }
+        if (rec.label && teamsMatch(rec.label, matchString)) {
+          return rec.score;
+        }
+        const recStripped = `${rec.home}${rec.away}`.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (stripped && recStripped && (stripped.includes(recStripped) || recStripped.includes(stripped))) {
           return rec.score;
         }
       }
@@ -966,11 +988,16 @@ async function autoSettlePendingSlips() {
       }
 
       if (newStatus !== slip.status || legsModified) {
+        const settledDateVal =
+          newStatus !== "pending"
+            ? (slip.settled_date ? toSafeDateISO(slip.settled_date) : getLagosDateISO(0))
+            : null;
+
         await sql`
           UPDATE curated_multi_bet_history
           SET status = ${newStatus},
               matches = ${JSON.stringify(legs)},
-              settled_date = ${newStatus !== "pending" ? sql`COALESCE(settled_date, CURRENT_DATE)` : null},
+              settled_date = ${settledDateVal},
               updated_at = NOW()
           WHERE id = ${slip.id}
         `;
@@ -1245,16 +1272,26 @@ export async function GET(req: Request) {
     let userTier: "free" | "silver" | "premium" | "admin" = "free";
     try {
       const session = await auth();
-      if (session?.user?.id) {
-        const [u] = await sql`SELECT user_role FROM auth_users WHERE id = ${session.user.id} LIMIT 1`;
+      const userId = session?.user?.id;
+      const userEmail = session?.user?.email;
+      if (userId || userEmail) {
+        const [u] = await sql`
+          SELECT user_role FROM auth_users 
+          WHERE (id = ${userId} OR email = ${userEmail}) 
+          LIMIT 1
+        `;
         const role = String(u?.user_role || "free").toLowerCase();
         if (role === "admin") userTier = "admin";
-        else if (role === "pro" || role === "premium") userTier = "premium";
+        else if (role === "pro" || role === "premium" || role === "vip") userTier = "premium";
         else if (role === "silver") userTier = "silver";
       }
     } catch (authErr) {
       console.warn("Could not resolve user session in multi-bet-presets:", authErr);
     }
+
+    const canAccessSilverTier = userTier === "silver" || userTier === "premium" || userTier === "admin";
+    const canAccessPremiumTier = userTier === "premium" || userTier === "admin";
+    const canAccessTracking = canAccessPremiumTier;
 
     // Check if client is requesting tracked history & outcomes
     if (searchParams.get("history") === "true") {
@@ -1320,21 +1357,36 @@ export async function GET(req: Request) {
         locked: false,
         userTier,
         summary,
-        history: historyRows.map((r) => ({
-          id: r.id,
-          presetTier: r.preset_tier,
-          scope: r.scope,
-          title: r.title,
-          targetOdds: r.target_odds,
-          combinedOdds: Number(r.combined_odds),
-          confidence: Number(r.confidence),
-          stake: Number(r.stake || 1000),
-          potentialWin: Number(r.potential_win || Math.round(Number(r.stake || 1000) * Number(r.combined_odds))),
-          status: r.status,
-          createdDate: r.created_date ? new Date(r.created_date).toISOString().slice(0, 10) : "",
-          settledDate: r.settled_date ? new Date(r.settled_date).toISOString().slice(0, 10) : null,
-          matches: Array.isArray(r.matches) ? r.matches : (typeof r.matches === "string" ? JSON.parse(r.matches) : []),
-        })),
+        history: historyRows.map((r) => {
+          let parsedMatches: any[] = [];
+          try {
+            if (Array.isArray(r.matches)) {
+              parsedMatches = r.matches;
+            } else if (typeof r.matches === "string") {
+              parsedMatches = JSON.parse(r.matches);
+            } else if (r.matches && typeof r.matches === "object") {
+              parsedMatches = Object.values(r.matches);
+            }
+          } catch {
+            parsedMatches = [];
+          }
+
+          return {
+            id: r.id,
+            presetTier: r.preset_tier,
+            scope: r.scope,
+            title: r.title,
+            targetOdds: r.target_odds,
+            combinedOdds: Number(r.combined_odds) || 0,
+            confidence: Number(r.confidence) || 0,
+            stake: Number(r.stake || 1000),
+            potentialWin: Number(r.potential_win || Math.round(Number(r.stake || 1000) * Number(r.combined_odds || 0))),
+            status: r.status,
+            createdDate: toSafeDateISO(r.created_date),
+            settledDate: r.settled_date ? toSafeDateISO(r.settled_date) : null,
+            matches: parsedMatches,
+          };
+        }),
       });
     }
 
@@ -1360,9 +1412,6 @@ export async function GET(req: Request) {
     const day30ISO = getLagosDateISO(30); // Hard 30-day forward schedule cap (no 2027 matches)
     const { mondayISO, sundayISO } = getCurrentMondayToSundayRange();
     const { sunISO: weekendSunISO } = getUpcomingWeekendRange();
-
-    const canAccessSilverTier = userTier === "silver" || userTier === "premium" || userTier === "admin";
-    const canAccessPremiumTier = userTier === "premium" || userTier === "admin";
 
     // ------------------------------------------------------------------
     // POOL 1: TODAY POOL (Strict calendar today, or next 24h if late night)

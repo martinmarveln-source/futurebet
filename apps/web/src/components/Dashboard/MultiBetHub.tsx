@@ -1055,8 +1055,17 @@ export default function MultiBetHub({
                   Settling match outcomes and retrieving verified ledger...
                 </div>
               ) : groupedHistory.length === 0 ? (
-                <div className="p-12 text-center text-sm text-slate-400 border border-white/5 rounded-3xl bg-white/[0.02]">
-                  No historical slips match the current filter "{trackerFilter}".
+                <div className="p-12 text-center text-sm text-slate-400 border border-white/5 rounded-3xl bg-white/[0.02] flex flex-col items-center justify-center gap-3">
+                  <p>No historical slips match the current filter "{trackerFilter}".</p>
+                  {trackerFilter !== "all" && (
+                    <button
+                      type="button"
+                      onClick={() => setTrackerFilter("all")}
+                      className="px-4 py-2 rounded-xl bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs font-bold hover:bg-amber-500/25 transition-all shadow-sm active:scale-95"
+                    >
+                      View All Historical Slips
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-10">
