@@ -29,6 +29,13 @@ interface BookingRequest {
   nativeCode?: string; // For admin attaching a verified code
 }
 
+const BOT_BASE_URL =
+  process.env.NEXT_PUBLIC_CONVERT_BET_BOT_URL ||
+  process.env.CONVERT_BET_BOT_URL ||
+  (process.env.CONVERT_BET_BOT_REF
+    ? `https://t.me/ConvertBetBot?start=${process.env.CONVERT_BET_BOT_REF}`
+    : "https://t.me/ConvertBetBot");
+
 export const BOOKMAKERS = {
   SPORTYBET: {
     id: "SPORTYBET",
@@ -40,7 +47,7 @@ export const BOOKMAKERS = {
     searchUrl: (term: string) =>
       `https://www.sportybet.com/ng/m/sports/search?keyword=${encodeURIComponent(term)}`,
     appUrl: "sportybet://sports/football",
-    telegramBot: "https://t.me/ConvertBetBot",
+    telegramBot: BOT_BASE_URL,
     codeLength: 6,
     codePlaceholder: "e.g. BC79KA",
   },
@@ -54,7 +61,7 @@ export const BOOKMAKERS = {
     searchUrl: (term: string) =>
       `https://sports.bet9ja.com/search?keyword=${encodeURIComponent(term)}`,
     appUrl: "bet9ja://sports",
-    telegramBot: "https://t.me/ConvertBetBot",
+    telegramBot: BOT_BASE_URL,
     codeLength: 6,
     codePlaceholder: "e.g. 3KX7Q2M",
   },
@@ -68,7 +75,7 @@ export const BOOKMAKERS = {
     searchUrl: (term: string) =>
       `https://1xbet.ng/en/line/football?q=${encodeURIComponent(term)}`,
     appUrl: "1xbet://betslip",
-    telegramBot: "https://t.me/ConvertBetBot",
+    telegramBot: BOT_BASE_URL,
     codeLength: 6,
     codePlaceholder: "e.g. G89K1",
   },
@@ -82,7 +89,7 @@ export const BOOKMAKERS = {
     searchUrl: (term: string) =>
       `https://www.betking.com/sports/search?keyword=${encodeURIComponent(term)}`,
     appUrl: "betking://sports",
-    telegramBot: "https://t.me/ConvertBetBot",
+    telegramBot: BOT_BASE_URL,
     codeLength: 6,
     codePlaceholder: "e.g. BK8910",
   },
@@ -96,7 +103,7 @@ export const BOOKMAKERS = {
     searchUrl: (term: string) =>
       `https://www.betway.com.ng/sport/soccer?search=${encodeURIComponent(term)}`,
     appUrl: "betway://sports",
-    telegramBot: "https://t.me/ConvertBetBot",
+    telegramBot: BOT_BASE_URL,
     codeLength: 6,
     codePlaceholder: "e.g. BW1245",
   },

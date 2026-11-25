@@ -208,7 +208,8 @@ export default function BookingCodeModal({
       description: "In the bot: 1. Tap 'Book My Picks to Code', 2. Paste your picks.",
       duration: 6000,
     });
-    window.open("https://t.me/ConvertBetBot", "_blank", "noopener,noreferrer");
+    const botUrl = bookingData?.telegramBot || "https://t.me/ConvertBetBot";
+    window.open(botUrl, "_blank", "noopener,noreferrer");
   };
 
   const handleCopyShareText = async () => {
