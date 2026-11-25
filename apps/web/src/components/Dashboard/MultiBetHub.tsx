@@ -60,6 +60,24 @@ function formatDateHeader(dateStr: string): string {
   return dateStr;
 }
 
+function formatPillDate(dateStr: string): string {
+  if (!dateStr || dateStr === "Recent") return "Recent";
+  try {
+    const parts = dateStr.split("-");
+    if (parts.length === 3) {
+      const [y, m, d] = parts.map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+      return dt.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC",
+      });
+    }
+  } catch {}
+  return dateStr;
+}
+
 interface MultiBetHubProps {
   darkMode?: boolean;
   isAdmin?: boolean;
@@ -80,6 +98,7 @@ export default function MultiBetHub({
   const [activeTab, setActiveTab] = useState<"live" | "tracker">("live");
   const [scope, setScope] = useState<"today" | "weekend" | "jackpot">("today");
   const [trackerFilter, setTrackerFilter] = useState<"all" | "won" | "lost" | "pending">("all");
+  const [selectedDate, setSelectedDate] = useState<string>("latest");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [cardModalSlip, setCardModalSlip] = useState<any | null>(null);
   const [trackingSlipId, setTrackingSlipId] = useState<string | null>(null);
@@ -278,6 +297,15 @@ export default function MultiBetHub({
       };
     });
   }, [filteredHistory]);
+
+  // Grouped slips filtered by selected date to save space as days accumulate (Premium & Admin)
+  const visibleGroups = useMemo(() => {
+    if (groupedHistory.length === 0) return [];
+    if (selectedDate === "all") return groupedHistory;
+    const target = selectedDate === "latest" ? groupedHistory[0]?.dateKey : selectedDate;
+    const matched = groupedHistory.filter((g) => g.dateKey === target);
+    return matched.length > 0 ? matched : groupedHistory.slice(0, 1);
+  }, [groupedHistory, selectedDate]);
 
   return (
     <div className="w-full flex flex-col gap-6 py-4">
@@ -1047,6 +1075,136 @@ export default function MultiBetHub({
                     </div>
                   </div>
                 </div>
+
+                {/* DATE SELECTOR BAR (PREMIUM & ADMIN EXCLUSIVE) */}
+                {groupedHistory.length > 0 && (
+                  <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/25">
+                        <Calendar size={14} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-black uppercase tracking-wider text-slate-200">
+                            Select Date:
+                          </span>
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            PRO / ADMIN
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-slate-400">
+                          {selectedDate === "all"
+                            ? `Showing all ${groupedHistory.length} dates`
+                            : `Showing ${formatDateHeader(visibleGroups[0]?.dateKey || "")}`}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Date Pills & Jump Dropdown */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {/* All Dates Pill */}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDate("all")}
+                        className={cn(
+                          "px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 border active:scale-95",
+                          selectedDate === "all"
+                            ? "bg-amber-500 text-slate-950 border-amber-500 shadow-md font-black"
+                            : darkMode
+                            ? "bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10"
+                            : "bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900"
+                        )}
+                      >
+                        <span>All Dates</span>
+                        <span
+                          className={cn(
+                            "px-1.5 py-0.2 rounded-full text-[10px] font-mono",
+                            selectedDate === "all"
+                              ? "bg-slate-950/20 text-slate-950 font-black"
+                              : "bg-white/10 text-slate-400"
+                          )}
+                        >
+                          {groupedHistory.length}
+                        </span>
+                      </button>
+
+                      {/* Quick Date Pills (up to 4 most recent) */}
+                      {groupedHistory.slice(0, 4).map((group) => {
+                        const isSelected =
+                          selectedDate === group.dateKey ||
+                          (selectedDate === "latest" && group.dateKey === groupedHistory[0]?.dateKey);
+                        return (
+                          <button
+                            key={group.dateKey}
+                            type="button"
+                            onClick={() => setSelectedDate(group.dateKey)}
+                            className={cn(
+                              "px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border active:scale-95",
+                              isSelected
+                                ? "bg-amber-500 text-slate-950 border-amber-500 shadow-md font-black"
+                                : darkMode
+                                ? "bg-white/5 border-white/10 text-slate-300 hover:text-white hover:bg-white/10"
+                                : "bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900"
+                            )}
+                          >
+                            <span>{formatPillDate(group.dateKey)}</span>
+                            <span
+                              className={cn(
+                                "px-1.5 py-0.2 rounded-full text-[10px] font-mono",
+                                isSelected
+                                  ? "bg-slate-950/20 text-slate-950 font-black"
+                                  : "bg-white/10 text-slate-400"
+                              )}
+                            >
+                              {group.items.length}
+                            </span>
+                            {group.won > 0 && (
+                              <span
+                                className={cn(
+                                  "text-[10px] font-black",
+                                  isSelected ? "text-slate-950" : "text-emerald-400"
+                                )}
+                              >
+                                {group.won}W
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+
+                      {/* Jump to Any Date Dropdown (if more than 4 dates exist) */}
+                      {groupedHistory.length > 4 && (
+                        <div className="relative">
+                          <select
+                            value={
+                              selectedDate === "latest"
+                                ? groupedHistory[0]?.dateKey
+                                : selectedDate
+                            }
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                            className={cn(
+                              "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all appearance-none cursor-pointer pr-7",
+                              darkMode
+                                ? "bg-slate-900 border-white/15 text-slate-300 hover:border-amber-500/50"
+                                : "bg-white border-slate-300 text-slate-700 hover:border-amber-500"
+                            )}
+                          >
+                            <option value="all">Jump to Date...</option>
+                            {groupedHistory.map((g) => (
+                              <option key={g.dateKey} value={g.dateKey}>
+                                {formatDateHeader(g.dateKey)} ({g.items.length} slips)
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronRight
+                            size={12}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* HISTORICAL TICKETS LIST GROUPED BY DATE */}
@@ -1054,22 +1212,33 @@ export default function MultiBetHub({
                 <div className="p-12 text-center text-sm text-slate-400 animate-pulse">
                   Settling match outcomes and retrieving verified ledger...
                 </div>
-              ) : groupedHistory.length === 0 ? (
+              ) : visibleGroups.length === 0 ? (
                 <div className="p-12 text-center text-sm text-slate-400 border border-white/5 rounded-3xl bg-white/[0.02] flex flex-col items-center justify-center gap-3">
                   <p>No historical slips match the current filter "{trackerFilter}".</p>
-                  {trackerFilter !== "all" && (
-                    <button
-                      type="button"
-                      onClick={() => setTrackerFilter("all")}
-                      className="px-4 py-2 rounded-xl bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs font-bold hover:bg-amber-500/25 transition-all shadow-sm active:scale-95"
-                    >
-                      View All Historical Slips
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {trackerFilter !== "all" && (
+                      <button
+                        type="button"
+                        onClick={() => setTrackerFilter("all")}
+                        className="px-4 py-2 rounded-xl bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs font-bold hover:bg-amber-500/25 transition-all shadow-sm active:scale-95"
+                      >
+                        Reset Filter to All
+                      </button>
+                    )}
+                    {selectedDate !== "all" && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDate("all")}
+                        className="px-4 py-2 rounded-xl bg-white/5 text-slate-300 border border-white/10 text-xs font-bold hover:bg-white/10 transition-all shadow-sm active:scale-95"
+                      >
+                        View All Dates
+                      </button>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-10">
-                  {groupedHistory.map((group) => (
+                  {visibleGroups.map((group) => (
                     <div key={group.dateKey} className="space-y-4">
                       {/* Date Group Header */}
                       <div className="flex items-center justify-between gap-3 px-1 py-1 flex-wrap border-b border-white/10 pb-3">
