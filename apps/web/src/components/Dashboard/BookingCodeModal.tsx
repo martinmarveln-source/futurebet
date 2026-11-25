@@ -204,8 +204,9 @@ export default function BookingCodeModal({
     if (textToCopy) {
       navigator.clipboard?.writeText?.(textToCopy);
     }
-    toast.success("Bot-formatted slip copied to clipboard!", {
-      description: "Paste directly into @ConvertBetBot on Telegram.",
+    toast.success("Picks copied to clipboard!", {
+      description: "In the bot: 1. Tap 'Book My Picks to Code', 2. Paste your picks.",
+      duration: 6000,
     });
     window.open("https://t.me/ConvertBetBot", "_blank", "noopener,noreferrer");
   };
@@ -417,7 +418,7 @@ export default function BookingCodeModal({
                   </p>
                 </>
               ) : (
-                <div className="w-full p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-left space-y-2.5">
+                <div className="w-full p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-left space-y-3">
                   <div className="flex items-center gap-2">
                     <AlertTriangle size={16} className="text-amber-400 shrink-0" />
                     <div className="text-xs font-black text-amber-300 uppercase">
@@ -427,12 +428,34 @@ export default function BookingCodeModal({
                   <p className="text-[11px] text-slate-300 leading-relaxed">
                     Convert these <span className="font-bold text-white">{displayMatches.length} selections</span> ({bookingData?.totalOdds || 0}x) into an official {currentBookieConfig.name} booking code in 5 seconds via Telegram.
                   </p>
+
+                  {/* 3-Step Guide for ConvertBetBot */}
+                  <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-[11px] space-y-2">
+                    <div className="font-bold text-amber-300 text-[10px] uppercase tracking-wider flex items-center gap-1.5">
+                      <span>How to convert in ConvertBetBot:</span>
+                    </div>
+                    <div className="space-y-1.5 text-slate-300">
+                      <div className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px] font-black shrink-0 mt-0.5">1</span>
+                        <span>In the bot, tap <strong className="text-white bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">📝 Book My Picks to Code</strong></span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px] font-black shrink-0 mt-0.5">2</span>
+                        <span>Paste the copied picks into the message box</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px] font-black shrink-0 mt-0.5">3</span>
+                        <span>Select <strong className="text-emerald-400">{currentBookieConfig.name}</strong> to get your code!</span>
+                      </div>
+                    </div>
+                  </div>
+
                   <button
                     onClick={handleOpenConverter}
-                    className="w-full py-2.5 px-4 rounded-xl text-xs font-black bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all"
+                    className="w-full py-3 px-4 rounded-xl text-xs font-black bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white flex items-center justify-center gap-2 shadow-lg shadow-sky-500/20 active:scale-95 transition-all"
                   >
-                    <Bot size={15} />
-                    <span>Copy & Open in Telegram Converter (@ConvertBetBot)</span>
+                    <Bot size={16} />
+                    <span>Copy Picks & Open @ConvertBetBot</span>
                   </button>
                 </div>
               )}

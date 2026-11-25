@@ -546,9 +546,9 @@ export async function POST(req: Request) {
 
             let pick = "home win";
             if (mkt.includes("double chance")) {
-              if (opt.includes("home or draw") || opt.includes("1x")) pick = "1X";
-              else if (opt.includes("draw or away") || opt.includes("x2")) pick = "X2";
-              else pick = "12";
+              if (opt.includes("home or draw") || opt.includes("1x")) pick = "home win or draw";
+              else if (opt.includes("draw or away") || opt.includes("x2")) pick = "away win or draw";
+              else pick = "home or away win";
             } else if (mkt.includes("over") || mkt.includes("under")) {
               if (mkt.includes("1.5")) pick = mkt.includes("under") ? "under 1.5" : "over 1.5";
               else if (mkt.includes("3.5")) pick = mkt.includes("under") ? "under 3.5" : "over 3.5";
