@@ -62,6 +62,12 @@ async function ensureHistoryTable() {
       );
     `;
 
+    // Ensure booking_codes column exists for native SportyBet/Bet9ja codes
+    await sql`
+      ALTER TABLE curated_multi_bet_history 
+      ADD COLUMN IF NOT EXISTS booking_codes JSONB DEFAULT '{}'::jsonb;
+    `;
+
     // Purge any corrupted legacy test rows where matches were scheduled in 2027
     await sql`
       DELETE FROM curated_multi_bet_history
@@ -1442,6 +1448,7 @@ export async function GET(req: Request) {
             status: r.status,
             createdDate: toSafeDateISO(r.created_date),
             settledDate: r.settled_date ? toSafeDateISO(r.settled_date) : null,
+            bookingCodes: r.booking_codes || {},
             matches: parsedMatches,
           };
         }),
@@ -1781,6 +1788,34 @@ export async function GET(req: Request) {
       console.warn("Auto-settle background error:", e)
     );
 
+    // Attach slipId and any pre-existing verified booking_codes to each active slip
+    const slipRecordIds = activeSlips.map(
+      (s) => `${s.id}_${scope}_${s.id === "longshot_1000x" ? mondayISO : todayISO}`
+    );
+    let dbCodesMap: Record<string, any> = {};
+    if (process.env.DATABASE_URL) {
+      try {
+        const codeRows = await sql`
+          SELECT id, booking_codes FROM curated_multi_bet_history 
+          WHERE id = ANY(${slipRecordIds});
+        `;
+        if (codeRows && codeRows.length > 0) {
+          for (const r of codeRows) {
+            dbCodesMap[r.id] = r.booking_codes || {};
+          }
+        }
+      } catch (e) {}
+    }
+
+    const enhancedSlips = activeSlips.map((s) => {
+      const recId = `${s.id}_${scope}_${s.id === "longshot_1000x" ? mondayISO : todayISO}`;
+      return {
+        ...s,
+        slipId: recId,
+        bookingCodes: dbCodesMap[recId] || {},
+      };
+    });
+
     return NextResponse.json({
       success: true,
       scope,
@@ -1788,7 +1823,7 @@ export async function GET(req: Request) {
       weekRange: { mondayISO, sundayISO },
       generatedAt: new Date().toISOString(),
       userTier,
-      slips: activeSlips,
+      slips: enhancedSlips,
     });
   } catch (error: any) {
     console.error("Multi-Bet Presets GET error:", error);

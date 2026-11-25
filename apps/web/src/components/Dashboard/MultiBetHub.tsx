@@ -35,6 +35,7 @@ import { toast } from "sonner";
 import useBetslipStore from "@/store/betslipStore";
 import { formatSlipLeague, formatSlipMarketLabel, formatNaira } from "@/utils/matchUtils";
 import { SlipCardModal } from "./SlipCardModal";
+import BookingCodeModal from "./BookingCodeModal";
 import UpgradeButton from "./UpgradeButton";
 
 function cn(...classes: any[]) {
@@ -102,6 +103,13 @@ export default function MultiBetHub({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [cardModalSlip, setCardModalSlip] = useState<any | null>(null);
   const [trackingSlipId, setTrackingSlipId] = useState<string | null>(null);
+  const [bookingModalSlip, setBookingModalSlip] = useState<any | null>(null);
+  const [bookingModalOpen, setBookingModalOpen] = useState(false);
+
+  const handleOpenBookingModal = useCallback((slip: any) => {
+    setBookingModalSlip(slip);
+    setBookingModalOpen(true);
+  }, []);
 
   const addMatch = useBetslipStore((s) => s.addMatch);
   const betslipMatches = useBetslipStore((s) => s.matches);
@@ -675,6 +683,29 @@ export default function MultiBetHub({
                         >
                           {slip.description}
                         </p>
+
+                        {/* Verified Bookmaker Code Badges */}
+                        {slip.bookingCodes && Object.keys(slip.bookingCodes).length > 0 && (
+                          <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                            {Object.entries(slip.bookingCodes).map(([bookie, code]) => (
+                              <button
+                                key={bookie}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigator.clipboard?.writeText?.(String(code));
+                                  toast.success(`Copied ${bookie.toUpperCase()} code: ${code}`);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase font-mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all shadow-sm active:scale-95"
+                                title={`Click to copy ${bookie} code`}
+                              >
+                                <Ticket size={11} className="text-emerald-400" />
+                                <span>{bookie}: {String(code)}</span>
+                                <Copy size={10} className="text-emerald-400/80 ml-0.5" />
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       {/* MATCHES LIST */}
@@ -774,6 +805,27 @@ export default function MultiBetHub({
                           >
                             <Plus size={15} />
                             <span>Load All ({slip.matchesCount})</span>
+                          </button>
+
+                          {/* 1-Click Real Bookmaker Router / Booking Code Modal */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenBookingModal(slip)}
+                            title="Get 1-click booking codes for SportyBet, Bet9ja, and 1xBet"
+                            className={cn(
+                              "px-3 py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 shrink-0 active:scale-95",
+                              slip.bookingCodes?.sportybet
+                                ? "border-emerald-500/50 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 shadow-sm shadow-emerald-500/10"
+                                : darkMode
+                                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                                : "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                            )}
+                          >
+                            <Ticket size={14} className="text-emerald-400" />
+                            <span className="hidden sm:inline">
+                              {slip.bookingCodes?.sportybet ? `Code: ${slip.bookingCodes.sportybet}` : "Book Code"}
+                            </span>
+                            <span className="sm:hidden">Code</span>
                           </button>
 
                           {/* 1-Click Track Slip in Personal Portfolio (Pro/Admin only) */}
@@ -1441,14 +1493,28 @@ export default function MultiBetHub({
                                     ? `Settled on ${hSlip.settledDate}`
                                     : "Awaiting match conclusions"}
                                 </span>
-                                <button
-                                  type="button"
-                                  onClick={() => setCardModalSlip(hSlip)}
-                                  className="font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1"
-                                >
-                                  <ImageIcon size={12} />
-                                  <span>Slip Card</span>
-                                </button>
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenBookingModal(hSlip)}
+                                    className="font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors"
+                                  >
+                                    <Ticket size={12} />
+                                    <span>
+                                      {hSlip.bookingCodes?.sportybet
+                                        ? `Code: ${hSlip.bookingCodes.sportybet}`
+                                        : "Booking Code"}
+                                    </span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setCardModalSlip(hSlip)}
+                                    className="font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors"
+                                  >
+                                    <ImageIcon size={12} />
+                                    <span>Slip Card</span>
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           );
@@ -1472,6 +1538,27 @@ export default function MultiBetHub({
           totalOdds={cardModalSlip.combinedOdds || 1}
           slipTitle={cardModalSlip.title || "FutureBet Curated Multi-Bet"}
           darkMode={darkMode}
+        />
+      )}
+
+      {/* 1-CLICK REAL BOOKMAKER ROUTER & BOOKING CODE MODAL */}
+      {bookingModalSlip && (
+        <BookingCodeModal
+          open={bookingModalOpen}
+          onClose={() => {
+            setBookingModalOpen(false);
+            setBookingModalSlip(null);
+          }}
+          matches={bookingModalSlip.matches || []}
+          slipId={bookingModalSlip.slipId || bookingModalSlip.id}
+          slipTitle={bookingModalSlip.title || "FutureBet Curated Multi-Bet"}
+          stake={bookingModalSlip.stake || 1000}
+          userTier={userTier}
+          darkMode={darkMode}
+          onCodeUpdated={() => {
+            refetchHistory();
+            refetch();
+          }}
         />
       )}
     </div>

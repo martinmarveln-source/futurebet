@@ -1507,6 +1507,7 @@ export default function BetSlip({ darkMode = false }) {
         initialBookmaker={selectedBookie}
         darkMode={darkMode}
         stake={grandTotalStake || totalKellyStake || 0}
+        userTier={isPro ? "premium" : "free"}
       />
 
       {/* Viral HD Slip Card Studio Modal */}
