@@ -200,11 +200,12 @@ export default function BookingCodeModal({
   };
 
   const handleOpenConverter = () => {
-    if (bookingData?.shareText) {
-      navigator.clipboard?.writeText?.(bookingData.shareText);
+    const textToCopy = bookingData?.botConverterText || bookingData?.shareText;
+    if (textToCopy) {
+      navigator.clipboard?.writeText?.(textToCopy);
     }
-    toast.info("Opening @ConvertBetBot on Telegram...", {
-      description: "Slip copied to clipboard. Paste into the bot to get a native code.",
+    toast.success("Bot-formatted slip copied to clipboard!", {
+      description: "Paste directly into @ConvertBetBot on Telegram.",
     });
     window.open("https://t.me/ConvertBetBot", "_blank", "noopener,noreferrer");
   };

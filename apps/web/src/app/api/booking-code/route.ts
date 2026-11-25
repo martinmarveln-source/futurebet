@@ -535,6 +535,36 @@ export async function POST(req: Request) {
       ),
     ].join("\n");
 
+    // Strict clean format for Telegram Bet Converter Bots (NO headers, NO emojis, NO URLs)
+    const botConverterText = isVerifiedNative
+      ? `${config.name} ${displayCode}`
+      : validMatches
+          .map((m) => {
+            const matchName = m.match.replace(" - ", " vs ");
+            const mkt = (m.selectedMarket || "").toLowerCase();
+            const opt = (m.selectedOption || "").toLowerCase();
+
+            let pick = "home win";
+            if (mkt.includes("double chance")) {
+              if (opt.includes("home or draw") || opt.includes("1x")) pick = "1X";
+              else if (opt.includes("draw or away") || opt.includes("x2")) pick = "X2";
+              else pick = "12";
+            } else if (mkt.includes("over") || mkt.includes("under")) {
+              if (mkt.includes("1.5")) pick = mkt.includes("under") ? "under 1.5" : "over 1.5";
+              else if (mkt.includes("3.5")) pick = mkt.includes("under") ? "under 3.5" : "over 3.5";
+              else pick = mkt.includes("under") ? "under 2.5" : "over 2.5";
+            } else if (mkt.includes("btts") || mkt.includes("gg")) {
+              pick = opt.includes("no") || opt.includes("ng") ? "no goal" : "both teams to score";
+            } else {
+              if (opt.includes("home") || opt === "1") pick = "home win";
+              else if (opt.includes("away") || opt === "2") pick = "away win";
+              else pick = "draw";
+            }
+
+            return `${matchName} - ${pick}`;
+          })
+          .join("\n");
+
     const payload = {
       success: true,
       slipId: slipId || null,
@@ -555,6 +585,7 @@ export async function POST(req: Request) {
       telegramBot: config.telegramBot,
       shareText,
       fastSlipText,
+      botConverterText,
       matches: validMatches,
       createdAt: new Date().toISOString(),
     };
