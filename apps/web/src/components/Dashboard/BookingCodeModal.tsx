@@ -260,7 +260,12 @@ export default function BookingCodeModal({
       toast.success(resData.message || `Verified ${currentBookieConfig.name} code saved!`);
       setAdminCodeInput("");
       setShowAdminInput(false);
-      await fetchBookingCode(selectedBookie);
+
+      if (resData.payload) {
+        setBookingData(resData.payload);
+      } else {
+        await fetchBookingCode(selectedBookie);
+      }
       if (onCodeUpdated) onCodeUpdated(clean, selectedBookie);
     } catch (err) {
       toast.error(err.message || "Failed to attach booking code");
