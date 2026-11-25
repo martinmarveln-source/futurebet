@@ -112,7 +112,7 @@ export default function MultiBetHub({
       if (!res.ok) throw new Error("Failed to load tracking history");
       return res.json();
     },
-    staleTime: 1000 * 60 * 5, // 5 mins cache
+    staleTime: 1000 * 20, // 20s cache for fast settlement updates
     enabled: activeTab === "tracker",
     refetchOnWindowFocus: false,
   });
@@ -253,7 +253,7 @@ export default function MultiBetHub({
     const groups: Record<string, any[]> = {};
 
     list.forEach((s: any) => {
-      const rawDate = s.settledDate || s.createdDate || "Recent";
+      const rawDate = s.createdDate || s.settledDate || "Recent";
       if (!groups[rawDate]) groups[rawDate] = [];
       groups[rawDate].push(s);
     });
@@ -970,25 +970,50 @@ export default function MultiBetHub({
                     </h3>
                   </div>
 
-                  {/* Filter Pills */}
-                  <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white/5 border border-white/10">
-                    {(["all", "won", "lost", "pending"] as const).map((st) => (
-                      <button
-                        key={st}
-                        type="button"
-                        onClick={() => setTrackerFilter(st)}
-                        className={cn(
-                          "px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider transition-all",
-                          trackerFilter === st
-                            ? "bg-amber-500 text-slate-950 font-black shadow-sm"
-                            : darkMode
-                            ? "text-slate-400 hover:text-white"
-                            : "text-slate-600 hover:text-slate-950"
-                        )}
-                      >
-                        {st}
-                      </button>
-                    ))}
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    {/* Filter Pills */}
+                    <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white/5 border border-white/10">
+                      {(["all", "won", "lost", "pending"] as const).map((st) => (
+                        <button
+                          key={st}
+                          type="button"
+                          onClick={() => setTrackerFilter(st)}
+                          className={cn(
+                            "px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider transition-all",
+                            trackerFilter === st
+                              ? "bg-amber-500 text-slate-950 font-black shadow-sm"
+                              : darkMode
+                              ? "text-slate-400 hover:text-white"
+                              : "text-slate-600 hover:text-slate-950"
+                          )}
+                        >
+                          {st}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Sync / Refresh Results Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        refetchHistory();
+                        toast.success("Syncing match results and settling outcomes from database...");
+                      }}
+                      disabled={isHistoryLoading || isHistoryRefetching}
+                      title="Fetch latest match results and auto-settle outcomes"
+                      className={cn(
+                        "px-3 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 border shadow-sm active:scale-95",
+                        darkMode
+                          ? "bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
+                          : "bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100"
+                      )}
+                    >
+                      <RefreshCw
+                        size={13}
+                        className={isHistoryLoading || isHistoryRefetching ? "animate-spin text-amber-400" : "text-amber-400"}
+                      />
+                      <span>Sync Results</span>
+                    </button>
                   </div>
                 </div>
 

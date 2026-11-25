@@ -648,6 +648,38 @@ function buildSlip(
 /* ------------------------------------------------------------------ */
 /*  Persistence & Auto-Settlement Engine                              */
 /* ------------------------------------------------------------------ */
+function normalizeTeam(str: string): string {
+  return String(str || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // strip accents
+    .replace(/[^a-z0-9]/g, " ")     // replace all punctuation/hyphens with space
+    .replace(/\b(fc|cf|sc|ac|afc|united|utd|city|town|club|athletic|wanderers|rovers|the|de|la|del|da|do|pr)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function teamsMatch(teamA: string, teamB: string): boolean {
+  const a = normalizeTeam(teamA);
+  const b = normalizeTeam(teamB);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (a.includes(b) || b.includes(a)) return true;
+
+  const wordsA = a.split(" ").filter((w) => w.length >= 3);
+  const wordsB = b.split(" ").filter((w) => w.length >= 3);
+  if (wordsA.length > 0 && wordsB.length > 0) {
+    const common = wordsA.filter((w) => wordsB.includes(w));
+    if (common.length >= Math.min(wordsA.length, wordsB.length)) return true;
+  }
+
+  if (a.length >= 4 && b.length >= 4 && (a.startsWith(b.slice(0, 4)) || b.startsWith(a.slice(0, 4)))) {
+    return true;
+  }
+
+  return false;
+}
+
 async function persistCuratedSlips(
   slips: PresetSlip[],
   scope: string,
@@ -663,7 +695,7 @@ async function persistCuratedSlips(
       const potentialWin = Number(slip.potentialWin || Math.round(stake * slip.combinedOdds));
 
       const [existing] = await sql`
-        SELECT id, status FROM curated_multi_bet_history WHERE id = ${slipRecordId} LIMIT 1
+        SELECT id, status, matches FROM curated_multi_bet_history WHERE id = ${slipRecordId} LIMIT 1
       `;
 
       if (!existing) {
@@ -688,12 +720,30 @@ async function persistCuratedSlips(
           )
         `;
       } else if (existing.status === "pending") {
+        // Merge with any existing scores so we never wipe evaluated results
+        let currentMatches: any[] = [];
+        try {
+          currentMatches = Array.isArray(existing.matches) ? existing.matches : JSON.parse(existing.matches || "[]");
+        } catch {}
+
+        const merged = slip.matches.map((newLeg) => {
+          const matchExisting = currentMatches.find((cm) => normMatchName(cm.match) === normMatchName(newLeg.match));
+          if (matchExisting?.ftScore || matchExisting?.status) {
+            return {
+              ...newLeg,
+              ftScore: matchExisting.ftScore || newLeg.ftScore,
+              status: matchExisting.status || newLeg.status,
+            };
+          }
+          return newLeg;
+        });
+
         await sql`
           UPDATE curated_multi_bet_history
           SET combined_odds = ${slip.combinedOdds},
               confidence = ${slip.confidence},
               potential_win = ${potentialWin},
-              matches = ${JSON.stringify(slip.matches)},
+              matches = ${JSON.stringify(merged)},
               updated_at = NOW()
           WHERE id = ${slipRecordId}
         `;
@@ -710,40 +760,157 @@ async function autoSettlePendingSlips() {
     const pendingSlips = await sql`
       SELECT * FROM curated_multi_bet_history
       WHERE status = 'pending'
-      ORDER BY created_date DESC
-      LIMIT 40
+      ORDER BY created_date DESC, created_at DESC
+      LIMIT 60
     `;
 
     if (!pendingSlips || pendingSlips.length === 0) return;
 
+    // 1. Fetch finished matches from matches_cache across all score fields (ft_score, raw_data->>ftScore, etc.)
     const finishedMatches = await sql`
-      SELECT match_date, home_team, away_team, match_label, ft_score, raw_data
+      SELECT 
+        match_date::text as match_date_str,
+        home_team, 
+        away_team, 
+        match_label, 
+        COALESCE(
+          NULLIF(TRIM(ft_score), ''),
+          NULLIF(TRIM(raw_data->>'ftScore'), ''),
+          NULLIF(TRIM(raw_data->>'ft_score'), ''),
+          NULLIF(TRIM(raw_data->>'cScore'), '')
+        ) as score
       FROM matches_cache
-      WHERE ft_score IS NOT NULL AND ft_score != ''
-        AND match_date >= (CURRENT_DATE - INTERVAL '30 days')
-      ORDER BY match_date DESC
-      LIMIT 300
+      WHERE (
+        (ft_score IS NOT NULL AND TRIM(ft_score) != '')
+        OR (raw_data->>'ftScore' IS NOT NULL AND TRIM(raw_data->>'ftScore') != '')
+        OR (raw_data->>'ft_score' IS NOT NULL AND TRIM(raw_data->>'ft_score') != '')
+        OR (raw_data->>'cScore' IS NOT NULL AND TRIM(raw_data->>'cScore') != '')
+      )
+      ORDER BY match_date DESC NULLS LAST
+      LIMIT 3000
     `;
 
-    if (!finishedMatches || finishedMatches.length === 0) return;
+    // 2. Fetch settled matches from user_performance_tracking
+    let trackingMatches: any[] = [];
+    try {
+      trackingMatches = await sql`
+        SELECT match_name, actual_result as score
+        FROM user_performance_tracking
+        WHERE actual_result IS NOT NULL 
+          AND TRIM(actual_result) != '' 
+          AND actual_result NOT LIKE 'TICKET:%'
+        ORDER BY id DESC
+        LIMIT 1000
+      `;
+    } catch {}
 
-    const matchScoreMap = new Map<string, string>();
-    for (const fm of finishedMatches) {
-      const score = String(fm.ft_score || "").trim();
-      if (!score) continue;
-      const h = String(fm.home_team || "").toLowerCase().trim();
-      const a = String(fm.away_team || "").toLowerCase().trim();
+    interface MatchRecord {
+      home: string;
+      away: string;
+      label: string;
+      score: string;
+    }
+
+    const matchRecords: MatchRecord[] = [];
+    const directMap = new Map<string, string>();
+
+    for (const fm of finishedMatches || []) {
+      const score = String(fm.score || "").trim();
+      if (!score || !/^\d+\s*[:\-]\s*\d+$/.test(score)) continue;
+
+      const h = String(fm.home_team || "").trim();
+      const a = String(fm.away_team || "").trim();
+      const label = String(fm.match_label || "").trim();
+
+      matchRecords.push({ home: h, away: a, label, score });
       if (h && a) {
-        matchScoreMap.set(`${h} vs ${a}`, score);
-        matchScoreMap.set(`${h} - ${a}`, score);
-        matchScoreMap.set(`${h}_${a}`, score);
+        directMap.set(`${normMatchName(h)} vs ${normMatchName(a)}`, score);
+        directMap.set(`${normMatchName(h)} - ${normMatchName(a)}`, score);
+        directMap.set(`${normMatchName(h)}_${normMatchName(a)}`, score);
       }
-      if (fm.match_label) {
-        matchScoreMap.set(normMatchName(fm.match_label), score);
+      if (label) {
+        directMap.set(normMatchName(label), score);
       }
-      if (fm.raw_data?.match) {
-        matchScoreMap.set(normMatchName(fm.raw_data.match), score);
+    }
+
+    for (const tm of trackingMatches || []) {
+      const score = String(tm.score || "").trim();
+      if (!score || !/^\d+\s*[:\-]\s*\d+$/.test(score)) continue;
+      const mName = String(tm.match_name || "").trim();
+      if (mName) {
+        directMap.set(normMatchName(mName), score);
+        const { home, away } = splitTeams(mName);
+        if (home && away) {
+          matchRecords.push({ home, away, label: mName, score });
+        }
       }
+    }
+
+    // Google Sheets live fallback function for any missed scores
+    let sheetFetched = false;
+    async function fetchMissedResultsSheet() {
+      if (sheetFetched) return;
+      sheetFetched = true;
+      try {
+        const csvUrl = 'https://docs.google.com/spreadsheets/d/1FkwBHYn00egVeyKVgI7OBEU96wMmf30v-aLKosFdDok/gviz/tq?tqx=out:csv&sheet=missed_Results';
+        const res = await fetch(csvUrl, { cache: 'no-store' });
+        if (!res.ok) return;
+        const text = await res.text();
+        const lines = text.split(/\r?\n/).filter(line => line.trim());
+        if (lines.length < 2) return;
+        const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
+        const hIdx = headers.indexOf('home_team');
+        const aIdx = headers.indexOf('away_team');
+        const sIdx = headers.indexOf('ft_score');
+        const lIdx = headers.indexOf('match_label');
+        if (hIdx === -1 || aIdx === -1 || sIdx === -1) return;
+
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim());
+          const score = cols[sIdx];
+          if (!score || !/^\d+\s*[:\-]\s*\d+$/.test(score)) continue;
+          const h = cols[hIdx];
+          const a = cols[aIdx];
+          const lbl = lIdx !== -1 ? cols[lIdx] : `${h} vs ${a}`;
+          if (h && a) {
+            directMap.set(`${normMatchName(h)} vs ${normMatchName(a)}`, score);
+            directMap.set(`${normMatchName(h)} - ${normMatchName(a)}`, score);
+            matchRecords.push({ home: h, away: a, label: lbl, score });
+
+            // Backfill matches_cache asynchronously so subsequent queries are instant
+            sql`
+              UPDATE matches_cache 
+              SET ft_score = ${score}, synced_at = NOW()
+              WHERE home_team = ${h} AND away_team = ${a} AND (ft_score IS NULL OR ft_score = '')
+            `.catch(() => {});
+          }
+        }
+      } catch (sheetErr) {
+        console.warn("Could not fetch missed_Results fallback:", sheetErr);
+      }
+    }
+
+    function findScoreForMatch(matchString: string): string | null {
+      const norm = normMatchName(matchString);
+      if (directMap.has(norm)) return directMap.get(norm)!;
+
+      const { home, away } = splitTeams(matchString);
+      if (!home || !away) return null;
+
+      const directKey = `${home}_${away}`;
+      if (directMap.has(directKey)) return directMap.get(directKey)!;
+
+      // Fuzzy check in match records
+      for (const rec of matchRecords) {
+        if (
+          (teamsMatch(rec.home, home) && teamsMatch(rec.away, away)) ||
+          (rec.label && teamsMatch(rec.label, matchString))
+        ) {
+          return rec.score;
+        }
+      }
+
+      return null;
     }
 
     for (const slip of pendingSlips) {
@@ -766,26 +933,12 @@ async function autoSettlePendingSlips() {
           continue;
         }
 
-        const legNorm = normMatchName(leg.match);
-        let ftScore: string | null = null;
+        let ftScore = findScoreForMatch(leg.match);
 
-        if (matchScoreMap.has(legNorm)) {
-          ftScore = matchScoreMap.get(legNorm)!;
-        } else {
-          const { home, away } = splitTeams(leg.match);
-          if (home && away) {
-            const key = `${home}_${away}`;
-            if (matchScoreMap.has(key)) {
-              ftScore = matchScoreMap.get(key)!;
-            } else {
-              for (const [mapKey, sc] of matchScoreMap.entries()) {
-                if (mapKey.includes(home) && mapKey.includes(away)) {
-                  ftScore = sc;
-                  break;
-                }
-              }
-            }
-          }
+        // If not found in DB caches, attempt live Google Sheet lookup
+        if (!ftScore) {
+          await fetchMissedResultsSheet();
+          ftScore = findScoreForMatch(leg.match);
         }
 
         if (ftScore) {
@@ -817,7 +970,7 @@ async function autoSettlePendingSlips() {
           UPDATE curated_multi_bet_history
           SET status = ${newStatus},
               matches = ${JSON.stringify(legs)},
-              settled_date = ${newStatus !== "pending" ? sql`CURRENT_DATE` : null},
+              settled_date = ${newStatus !== "pending" ? sql`COALESCE(settled_date, CURRENT_DATE)` : null},
               updated_at = NOW()
           WHERE id = ${slip.id}
         `;
@@ -1108,10 +1261,8 @@ export async function GET(req: Request) {
       await ensureHistoryTable();
       await seedRealisticHistoryIfSparse();
 
-      const canAccessTracking = userTier === "premium" || userTier === "admin";
-      if (canAccessTracking) {
-        await autoSettlePendingSlips();
-      }
+      // Always auto-settle pending slips against database scores & live sheets
+      await autoSettlePendingSlips();
 
       const historyRows = await sql`
         SELECT * FROM curated_multi_bet_history
@@ -1516,6 +1667,11 @@ export async function GET(req: Request) {
 
     persistCuratedSlips(slipsToPersist, scope, todayISO, { mondayISO, sundayISO }).catch((e) =>
       console.warn("Slip persistence background error:", e)
+    );
+
+    // Run background auto-settlement continuously
+    autoSettlePendingSlips().catch((e) =>
+      console.warn("Auto-settle background error:", e)
     );
 
     return NextResponse.json({
