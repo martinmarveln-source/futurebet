@@ -248,29 +248,35 @@ function extractEligibleMarkets(m: any): Array<{
   const ftsAvg = (hfts + afts) / 2;
   const parsedScore = parseFtScore(m.cScore || m.predictedScore);
 
-  // 1. Double Chance 1X (Super Safe)
+  // 1. Double Chance 1X (Super Safe - Home Fortress Priority)
   const calc1XOdds = dc1X >= 1.15 ? dc1X : ((hWin + draw) > 0 ? Number((1 / (((hWin + draw) / 100) * 1.08)).toFixed(2)) : 1.30);
   if (calc1XOdds >= 1.15 && calc1XOdds <= 1.55 && (hWin + draw) >= 65) {
+    const isFortress = hppg >= 1.65 || hWin >= 48;
     candidates.push({
       market: "Double Chance",
       option: "1X",
       odds: calc1XOdds,
-      confidence: Math.round(Math.min(90, hWin + draw)),
+      confidence: Math.round(isFortress ? Math.min(92, (hWin + draw) + 3) : Math.min(90, hWin + draw)),
       risk: "safe",
-      reason: hppg >= 1.5 ? `Home resilience (${hppg.toFixed(2)} PPG) & ${Math.round(hWin + draw)}% 1X probability` : `Solid 1X cushion (${Math.round(hWin + draw)}%)`,
+      reason: isFortress ? `Home fortress (${hppg.toFixed(2)} PPG) & ${Math.round(hWin + draw)}% 1X probability` : `Solid 1X cushion (${Math.round(hWin + draw)}%)`,
     });
   }
 
-  // 2. Double Chance X2 (Super Safe)
+  // 2. Double Chance X2 (Strict Away Gate - Weed out Home Fortress traps)
   const calcX2Odds = dcX2 >= 1.15 ? dcX2 : ((aWin + draw) > 0 ? Number((1 / (((aWin + draw) / 100) * 1.08)).toFixed(2)) : 1.32);
-  if (calcX2Odds >= 1.15 && calcX2Odds <= 1.55 && (aWin + draw) >= 65) {
+  // Strict Away X2 Gate:
+  // - Never pick X2 if home team is competent at home (hppg >= 1.35 or hWin >= 35%)
+  // - Require distinct away superiority: appg >= 1.50, (appg - hppg) >= 0.25, and aWin >= 40%
+  const isHomeStrong = hppg >= 1.35 || hWin >= 35;
+  const isAwaySuperior = appg >= 1.50 && (appg - hppg) >= 0.25 && aWin >= 40;
+  if (!isHomeStrong && isAwaySuperior && calcX2Odds >= 1.15 && calcX2Odds <= 1.55 && (aWin + draw) >= 68) {
     candidates.push({
       market: "Double Chance",
       option: "X2",
       odds: calcX2Odds,
-      confidence: Math.round(Math.min(90, aWin + draw)),
+      confidence: Math.round(Math.min(88, aWin + draw)),
       risk: "safe",
-      reason: appg >= 1.5 ? `Away form (${appg.toFixed(2)} PPG) with ${Math.round(aWin + draw)}% X2 probability` : `Solid X2 cushion (${Math.round(aWin + draw)}%)`,
+      reason: `Away road dominance (${appg.toFixed(2)} vs ${hppg.toFixed(2)} PPG) with ${Math.round(aWin + draw)}% X2 projection`,
     });
   }
 
@@ -287,7 +293,7 @@ function extractEligibleMarkets(m: any): Array<{
     });
   }
 
-  // 4. Over 1.5 Goals (High Win Rate)
+  // 4. Over 1.5 Goals (High Win Rate Banker)
   const o15Chance = toNum(m.hgsOver15 || m.o15 || 75);
   const calcO15Odds = o15Odds >= 1.18 ? o15Odds : (o15Chance > 0 ? Number((1 / ((o15Chance / 100) * 1.06)).toFixed(2)) : 1.26);
   if (calcO15Odds >= 1.18 && calcO15Odds <= 1.48 && o15Chance >= 72) {
@@ -301,20 +307,21 @@ function extractEligibleMarkets(m: any): Array<{
     });
   }
 
-  // 5. Clean 1X2 Home Win
+  // 5. Clean 1X2 Home Win (Home Fortress Priority)
   if (hOdds >= 1.35 && hOdds <= 2.15 && hWin >= 50) {
+    const isFortress = hppg >= 1.65;
     candidates.push({
       market: "1X2",
       option: "Home",
       odds: Number(hOdds.toFixed(2)),
-      confidence: Math.round(hWin),
-      risk: "medium",
-      reason: hppg >= 1.6 ? `Strong home form (${hppg.toFixed(2)} PPG) & ${hWin}% win model` : `Clear home model edge (${hWin}% win likelihood)`,
+      confidence: Math.round(isFortress ? Math.min(92, hWin + 4) : hWin),
+      risk: isFortress ? "safe" : "medium",
+      reason: isFortress ? `Dominant home fortress (${hppg.toFixed(2)} PPG) & ${Math.round(hWin)}% win model` : `Clear home model edge (${Math.round(hWin)}% win likelihood)`,
     });
   }
 
   // 6. Clean 1X2 Away Win
-  if (aOdds >= 1.45 && aOdds <= 2.25 && aWin >= 46) {
+  if (aOdds >= 1.45 && aOdds <= 2.25 && aWin >= 46 && !isHomeStrong) {
     candidates.push({
       market: "1X2",
       option: "Away",
@@ -356,25 +363,25 @@ function extractEligibleMarkets(m: any): Array<{
   }
 
   // 9. Under 2.5 Goals (Strict Empirical Defensive Proof Required)
-  // Only selected when the statistics actually support defensive containment:
-  // - High Clean Sheet rate (combined >= 30% or at least one team >= 40%)
-  // - High Failed To Score rate (combined >= 25% or at least one team >= 35%)
-  // - Low expected goals (average goals <= 2.25 if provided)
-  // - Neither team consistently playing Over 2.5
-  // - Model predicted scoreline total <= 2
-  // - Head-to-Head not dominated by Overs (h2hUN >= 50% or unrecorded)
-  const hasCSDefense25 = cleanSheetAvg >= 30 || hcs >= 40 || acs >= 40;
-  const hasFTSSupport25 = ftsAvg >= 25 || hfts >= 35 || afts >= 35;
-  const isAvgGoalsLow25 = avgGoals === 0 || avgGoals <= 2.25;
-  const notHighOverTrend25 = !(hOv2 >= 50 && aOv2 >= 50);
-  const isPredLowScore25 = !parsedScore || parsedScore.total <= 2;
-  const h2hNotOver25 = h2hUN === 0 || h2hUN >= 50;
+  // Elite defensive requirements to prevent upsets (e.g. Charlton vs Lincoln 4-0):
+  // - High Clean Sheet rate (combined cleanSheetAvg >= 45% or both teams >= 42%)
+  // - High Failed To Score rate (combined ftsAvg >= 40% or both teams >= 38%)
+  // - Strictly low avg goals (avgGoals > 0 && avgGoals <= 1.90)
+  // - Model predicted scoreline total <= 1 (predicts 0-0 or 1-0 only)
+  // - Both teams must have low Over 2.5 trends (hOv2 <= 35 && aOv2 <= 35)
+  // - un25 model probability >= 68%
+  const hasCSDefense25 = cleanSheetAvg >= 45 || (hcs >= 42 && acs >= 42);
+  const hasFTSSupport25 = ftsAvg >= 40 || (hfts >= 38 && afts >= 38);
+  const isAvgGoalsLow25 = avgGoals > 0 && avgGoals <= 1.90;
+  const notHighOverTrend25 = (hOv2 <= 35 && aOv2 <= 35);
+  const isPredLowScore25 = parsedScore && parsedScore.total <= 1;
+  const h2hNotOver25 = h2hUN === 0 || h2hUN >= 60;
 
-  const isUnder25Supported = un25 >= 60 && hasCSDefense25 && hasFTSSupport25 && isAvgGoalsLow25 && notHighOverTrend25 && isPredLowScore25 && h2hNotOver25;
+  const isUnder25Supported = un25 >= 68 && hasCSDefense25 && hasFTSSupport25 && isAvgGoalsLow25 && notHighOverTrend25 && isPredLowScore25 && h2hNotOver25;
   const calcU25Odds = u25Odds >= 1.50 ? u25Odds : (un25 > 0 ? Number((1 / ((un25 / 100) * 1.08)).toFixed(2)) : 1.75);
 
   if (isUnder25Supported && calcU25Odds >= 1.45 && calcU25Odds <= 2.25) {
-    const csDesc = cleanSheetAvg > 0 ? `${Math.round(cleanSheetAvg)}% clean sheet rate` : "resilient defensive shape";
+    const csDesc = cleanSheetAvg > 0 ? `${Math.round(cleanSheetAvg)}% clean sheet rate` : "elite defensive shape";
     const ftsDesc = ftsAvg > 0 ? `${Math.round(ftsAvg)}% failed-to-score trend` : "low conversion rate";
     candidates.push({
       market: "Under 2.5",
@@ -382,17 +389,17 @@ function extractEligibleMarkets(m: any): Array<{
       odds: calcU25Odds,
       confidence: Math.round(Math.min(86, un25)),
       risk: "medium",
-      reason: `Defensive containment verified: ${csDesc} & ${ftsDesc}`,
+      reason: `Elite defensive containment verified: ${csDesc} & ${ftsDesc} (avg ${avgGoals.toFixed(2)} goals)`,
     });
   }
 
-  // 10. Under 3.5 Goals (Strictly for Genuine Low-Scoring Profiles)
-  // Requires proven defensive compactness, average goals <= 2.65, and model scoreline <= 3
+  // 10. Under 3.5 Goals (Preferred Safe Defensive Cushion Market)
+  // Provides 3-goal protection against random goals (covers 0-0, 1-0, 0-1, 1-1, 2-0, 0-2, 2-1, 1-2, 3-0, 0-3)
   const isAvgUnder35 = avgGoals === 0 || avgGoals <= 2.65;
-  const hasU35DefensiveBase = cleanSheetAvg >= 20 || ftsAvg >= 20 || (hcs >= 30 || acs >= 30) || (hfts >= 25 || afts >= 25);
+  const hasU35DefensiveBase = cleanSheetAvg >= 22 || ftsAvg >= 22 || (hcs >= 28 || acs >= 28) || (hfts >= 25 || afts >= 25);
   const isPredUnder35 = !parsedScore || parsedScore.total <= 3;
   const notHighScoringClash = !(hOv2 >= 65 && aOv2 >= 65);
-  const isUnder35Supported = (un25 >= 55 || (hppg > 0 && hppg <= 1.35 && appg > 0 && appg <= 1.35)) && isAvgUnder35 && hasU35DefensiveBase && isPredUnder35 && notHighScoringClash;
+  const isUnder35Supported = (un25 >= 50 || (hppg > 0 && hppg <= 1.40 && appg > 0 && appg <= 1.40)) && isAvgUnder35 && hasU35DefensiveBase && isPredUnder35 && notHighScoringClash;
 
   const calcU35Odds = u35Odds >= 1.18 ? u35Odds : (un25 > 0 ? Number((1 / (Math.min(0.88, (un25 + 20) / 100) * 1.06)).toFixed(2)) : 1.28);
   if (isUnder35Supported && calcU35Odds >= 1.18 && calcU35Odds <= 1.45) {
@@ -400,7 +407,7 @@ function extractEligibleMarkets(m: any): Array<{
       market: "Under 3.5",
       option: "Under 3.5",
       odds: calcU35Odds,
-      confidence: Math.round(Math.min(84, un25 > 0 ? un25 + 8 : 76)),
+      confidence: Math.round(Math.min(86, un25 > 0 ? un25 + 12 : 78)),
       risk: "safe",
       reason: `Defensive resilience & verified low conceding rate (${Math.round(cleanSheetAvg)}% CS / ${Math.round(ftsAvg)}% FTS)`,
     });
@@ -470,7 +477,9 @@ function buildSlip(
   minLegs: number,
   maxLegs: number,
   maxPerLeague = 2,
-  maxAllowedDateISO?: string
+  maxAllowedDateISO?: string,
+  globalUsageMap?: Map<string, number>,
+  maxGlobalUsage = 2
 ): PresetLeg[] {
   const chosenLegs: PresetLeg[] = [];
   const usedMatches = new Set<string>();
@@ -514,7 +523,7 @@ function buildSlip(
     ? Math.max(maxLegs, targetMinOdds >= 5000 ? 28 : targetMinOdds >= 3000 ? 24 : 20)
     : maxLegs;
 
-  // Pass 1: Standard pick adhering to league and market limits
+  // Pass 1: Standard pick adhering to league, market, and cross-slip limits
   for (const item of allCandidates) {
     const m = item.match;
     const c = item.candidate;
@@ -525,6 +534,8 @@ function buildSlip(
     if (maxAllowedDateISO && matchDateStr && matchDateStr > maxAllowedDateISO) continue;
 
     if (usedMatches.has(matchName)) continue;
+    if (globalUsageMap && (globalUsageMap.get(matchName) || 0) >= maxGlobalUsage) continue;
+
     const leagueCount = usedLeagues.get(league) || 0;
     if (leagueCount >= maxPerLeague) continue;
 
@@ -551,6 +562,9 @@ function buildSlip(
     });
 
     usedMatches.add(matchName);
+    if (globalUsageMap) {
+      globalUsageMap.set(matchName, (globalUsageMap.get(matchName) || 0) + 1);
+    }
     usedLeagues.set(league, leagueCount + 1);
     usedMarkets.set(c.market, marketCount + 1);
     cumulativeOdds = newOdds;
@@ -585,6 +599,8 @@ function buildSlip(
       if (maxAllowedDateISO && matchDateStr && matchDateStr > maxAllowedDateISO) continue;
 
       if (usedMatches.has(matchName)) continue;
+      if (globalUsageMap && (globalUsageMap.get(matchName) || 0) >= (maxGlobalUsage + 1)) continue;
+
       // Relax league limit to 4 and market limit to 6 for deep jackpot slips
       const leagueCount = usedLeagues.get(league) || 0;
       if (leagueCount >= 4) continue;
@@ -606,6 +622,9 @@ function buildSlip(
       });
 
       usedMatches.add(matchName);
+      if (globalUsageMap) {
+        globalUsageMap.set(matchName, (globalUsageMap.get(matchName) || 0) + 1);
+      }
       usedLeagues.set(league, leagueCount + 1);
       usedMarkets.set(c.market, marketCount + 1);
       cumulativeOdds = newOdds;
@@ -1280,8 +1299,10 @@ export async function GET(req: Request) {
     // 3. 15-Day Fortnight Builder: 3,500x - 4,800x (Min ₦3,500,000 return)
     // 4. 15+ Days Ultra Marathon: 5,000x - 10,000x+ (Min ₦5,000,000 return)
     // ==================================================================
+    const jackpotUsageMap = new Map<string, number>();
+
     // 1. Weekend ₦1M Mega Jackpot (Friday >= 17:00 through Sunday)
-    const legsWeekend1000x = buildSlip(candidateWeekend, 1000.0, 1600.0, ["safe", "medium", "aggressive"], 14, 18, 2, weekendSunISO);
+    const legsWeekend1000x = buildSlip(candidateWeekend, 1000.0, 1600.0, ["safe", "medium", "aggressive"], 14, 18, 2, weekendSunISO, jackpotUsageMap, 2);
     const oddsWeekend1000x = legsWeekend1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const finalOddsWeekend1000x = Number(Math.max(1000.0, oddsWeekend1000x).toFixed(2));
     const winWeekend1000x = Math.max(1000000, Math.round(1000 * finalOddsWeekend1000x));
@@ -1290,7 +1311,7 @@ export async function GET(req: Request) {
       : 72;
 
     // 2. 7-Day ₦2M Syndicate Acca (Monday to Sunday)
-    const legs7Day1000x = buildSlip(candidate7Day, 2000.0, 2800.0, ["safe", "medium", "aggressive"], 16, 21, 2, sundayISO);
+    const legs7Day1000x = buildSlip(candidate7Day, 2000.0, 2800.0, ["safe", "medium", "aggressive"], 16, 21, 2, sundayISO, jackpotUsageMap, 2);
     const odds7Day1000x = legs7Day1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const finalOdds7Day1000x = Number(Math.max(2000.0, odds7Day1000x).toFixed(2));
     const win7Day1000x = Math.max(2000000, Math.round(1000 * finalOdds7Day1000x));
@@ -1299,7 +1320,7 @@ export async function GET(req: Request) {
       : 70;
 
     // 3. 15-Day ₦3.5M Fortnight Builder (Next 15 days)
-    const legs15Day1000x = buildSlip(candidate15Day, 3500.0, 4800.0, ["safe", "medium", "aggressive"], 18, 24, 3, day15ISO);
+    const legs15Day1000x = buildSlip(candidate15Day, 3500.0, 4800.0, ["safe", "medium", "aggressive"], 18, 24, 3, day15ISO, jackpotUsageMap, 2);
     const odds15Day1000x = legs15Day1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const finalOdds15Day1000x = Number(Math.max(3500.0, odds15Day1000x).toFixed(2));
     const win15Day1000x = Math.max(3500000, Math.round(1000 * finalOdds15Day1000x));
@@ -1308,7 +1329,7 @@ export async function GET(req: Request) {
       : 68;
 
     // 4. 15+ Days ₦5M+ Ultra Marathon (16 to 30 days maximum calendar cap)
-    const legsMarathon1000x = buildSlip(finalMarathonPool, 5000.0, 12000.0, ["safe", "medium", "aggressive"], 22, 28, 3, day30ISO);
+    const legsMarathon1000x = buildSlip(finalMarathonPool, 5000.0, 12000.0, ["safe", "medium", "aggressive"], 22, 28, 3, day30ISO, jackpotUsageMap, 2);
     const oddsMarathon1000x = legsMarathon1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const finalOddsMarathon1000x = Number(Math.max(5000.0, oddsMarathon1000x).toFixed(2));
     const winMarathon1000x = Math.max(5000000, Math.round(1000 * finalOddsMarathon1000x));
@@ -1389,22 +1410,25 @@ export async function GET(req: Request) {
 
     // ==================================================================
     // SECTION B: STANDARD ODDS TIERS (2+, 3+, 5+, 10+)
+    // Uses standardUsageMap to eliminate cross-slip contamination
+    // (no single match can appear in more than 2 preset slips per day)
     // ==================================================================
     const activePool = scope === "weekend" ? candidateWeekend : candidateToday;
+    const standardUsageMap = new Map<string, number>();
 
-    const legs2x = buildSlip(activePool, 2.0, 2.45, ["safe"], 2, 3);
+    const legs2x = buildSlip(activePool, 2.0, 2.45, ["safe"], 2, 3, 2, undefined, standardUsageMap, 2);
     const odds2x = legs2x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const conf2x = legs2x.length > 0 ? Math.round(legs2x.reduce((acc, l) => acc + l.confidence, 0) / legs2x.length) : 84;
 
-    const legs3x = buildSlip(activePool, 3.0, 3.85, ["safe", "medium"], 3, 4);
+    const legs3x = buildSlip(activePool, 3.0, 3.85, ["safe", "medium"], 3, 4, 2, undefined, standardUsageMap, 2);
     const odds3x = legs3x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const conf3x = legs3x.length > 0 ? Math.round(legs3x.reduce((acc, l) => acc + l.confidence, 0) / legs3x.length) : 74;
 
-    const legs5x = buildSlip(activePool, 5.0, 6.75, ["safe", "medium", "aggressive"], 4, 6);
+    const legs5x = buildSlip(activePool, 5.0, 6.75, ["safe", "medium", "aggressive"], 4, 6, 2, undefined, standardUsageMap, 2);
     const odds5x = legs5x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const conf5x = legs5x.length > 0 ? Math.round(legs5x.reduce((acc, l) => acc + l.confidence, 0) / legs5x.length) : 58;
 
-    const legs10x = buildSlip(activePool, 10.0, 14.50, ["safe", "medium", "aggressive"], 6, 9);
+    const legs10x = buildSlip(activePool, 10.0, 14.50, ["safe", "medium", "aggressive"], 6, 9, 2, undefined, standardUsageMap, 2);
     const odds10x = legs10x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const conf10x = legs10x.length > 0 ? Math.round(legs10x.reduce((acc, l) => acc + l.confidence, 0) / legs10x.length) : 45;
 
