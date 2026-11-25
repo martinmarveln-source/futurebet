@@ -341,15 +341,13 @@ export default function BetSlip({ darkMode = false }) {
 
   const handleRouteToBookie = () => {
     if (!isPro) {
-      alert(
-        "🔒 Premium Feature: Upgrade to Pro to unlock 1-Click Multi-Bookmaker Booking Codes!"
-      );
+      toast.error("🔒 Upgrade to Pro to unlock 1-Click Bookmaker Routing!");
       window.dispatchEvent(new CustomEvent("futurebet:trigger-premium"));
       return;
     }
 
     if (!matches || matches.length === 0) {
-      alert("Please add at least one match to your betslip first.");
+      toast.error("Please add at least one match to your betslip first.");
       return;
     }
 
@@ -599,21 +597,21 @@ export default function BetSlip({ darkMode = false }) {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => {
-              setInitialLookupCode("");
-              setLoadCodeModalOpen(true);
-            }}
+            onClick={handleRouteToBookie}
+            disabled={!total}
             className={cn(
-              "px-3.5 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-1.5",
-              darkMode
-                ? "border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300"
-                : "border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700"
+              "px-3.5 py-2 rounded-xl text-xs font-black border transition flex items-center gap-1.5 shadow-sm active:scale-95",
+              !total
+                ? "opacity-30 cursor-not-allowed"
+                : darkMode
+                ? "border-emerald-500/40 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 shadow-emerald-500/10"
+                : "border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 shadow-emerald-500/10"
             )}
-            title="Enter FB- Booking Code or shared ticket code to reveal complete matches"
+            title="Book this slip to SportyBet, Bet9ja, or convert via Telegram Bot"
           >
-            <Ticket size={14} />
-            <span className="hidden sm:inline">Load FB- Code</span>
-            <span className="sm:hidden">Load Code</span>
+            <Ticket size={14} className="text-emerald-400" />
+            <span className="hidden sm:inline">Book to Bookmaker</span>
+            <span className="sm:hidden">Book Slip</span>
           </button>
 
           <button
@@ -670,77 +668,56 @@ export default function BetSlip({ darkMode = false }) {
         </div>
       </div>
 
-      {/* QUICK FB- BOOKING CODE REVEAL BAR */}
-      <div
-        className={cn(
-          "rounded-2xl border p-3.5 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm transition-all",
-          darkMode
-            ? "border-amber-500/20 bg-gradient-to-r from-amber-500/[0.08] via-emerald-500/[0.04] to-transparent"
-            : "border-amber-200 bg-gradient-to-r from-amber-50 via-emerald-50/40 to-white"
-        )}
-      >
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div
-            className={cn(
-              "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-inner",
-              darkMode
-                ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                : "bg-amber-100 text-amber-700 border border-amber-200"
-            )}
-          >
-            <Ticket size={18} />
-          </div>
-          <div>
-            <div className="text-xs font-black tracking-tight flex items-center gap-1.5">
-              <span>Have a FutureBet Ticket Code?</span>
-              <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                Reveal Matches
-              </span>
+      {/* 1-CLICK REAL BOOKMAKER ROUTER BANNER */}
+      {total > 0 && (
+        <div
+          className={cn(
+            "rounded-2xl border p-3.5 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm transition-all",
+            darkMode
+              ? "border-emerald-500/25 bg-gradient-to-r from-emerald-500/[0.08] via-slate-900 to-transparent"
+              : "border-emerald-200 bg-gradient-to-r from-emerald-50 via-teal-50/40 to-white"
+          )}
+        >
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div
+              className={cn(
+                "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-inner",
+                darkMode
+                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                  : "bg-emerald-100 text-emerald-700 border border-emerald-200"
+              )}
+            >
+              <Ticket size={18} />
             </div>
-            <div className={cn("text-[11px] font-medium mt-0.5", darkMode ? "text-slate-400" : "text-slate-500")}>
-              Enter codes like <span className="font-mono text-amber-400 font-bold">FB-2KU3R</span> to unlock all hidden selections and load into BetSlip.
+            <div>
+              <div className="text-xs font-black tracking-tight flex items-center gap-1.5">
+                <span>Book to Nigerian Bookmakers</span>
+                <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  Instant Converter
+                </span>
+              </div>
+              <div className={cn("text-[11px] font-medium mt-0.5", darkMode ? "text-slate-400" : "text-slate-500")}>
+                Convert your <span className="font-bold text-white">{total} selections</span> ({totalOdds}x Odds) directly into a SportyBet or Bet9ja booking code.
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-          <input
-            type="text"
-            value={quickCodeInput}
-            onChange={(e) => setQuickCodeInput(e.target.value.toUpperCase())}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && quickCodeInput.trim()) {
-                setInitialLookupCode(quickCodeInput.trim());
-                setLoadCodeModalOpen(true);
-              }
-            }}
-            placeholder="e.g. FB-2KU3R"
-            className={cn(
-              "px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold uppercase border outline-none w-full sm:w-36 transition-all",
-              darkMode
-                ? "bg-white/5 border-white/10 text-amber-300 focus:border-amber-400 placeholder:text-slate-600"
-                : "bg-white border-slate-300 text-amber-700 focus:border-amber-500 placeholder:text-slate-400"
-            )}
-          />
-          <button
-            onClick={() => {
-              if (quickCodeInput.trim()) {
-                setInitialLookupCode(quickCodeInput.trim());
-              }
-              setLoadCodeModalOpen(true);
-            }}
-            className={cn(
-              "px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider shrink-0 transition-all flex items-center gap-1.5 shadow-md active:scale-[0.98]",
-              darkMode
-                ? "bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-slate-950 font-black"
-                : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/20"
-            )}
-          >
-            <span>Reveal</span>
-            <ArrowRight size={13} />
-          </button>
+          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+            <button
+              onClick={handleRouteToBookie}
+              className={cn(
+                "w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider shrink-0 transition-all flex items-center justify-center gap-2 shadow-md active:scale-[0.98]",
+                darkMode
+                  ? "bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 hover:from-emerald-400 hover:to-teal-300 font-black shadow-emerald-500/20"
+                  : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/20"
+              )}
+            >
+              <Ticket size={15} />
+              <span>Book Slip Now</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Warnings */}
       {missingSelection && total > 0 && (

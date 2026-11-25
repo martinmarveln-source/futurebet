@@ -392,56 +392,49 @@ export default function BookingCodeModal({
                   <RefreshCw size={18} className="animate-spin" />
                   Routing {currentBookieConfig.name} Booking Code...
                 </div>
-              ) : (
+              ) : isVerified ? (
                 <>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">
-                    {isVerified
-                      ? `Official ${currentBookieConfig.name} Booking Code`
-                      : `FutureBet Ticket Reference Code`}
+                  <div className="text-[10px] font-black uppercase tracking-widest text-emerald-400 mb-1.5 flex items-center gap-1.5">
+                    <CheckCircle2 size={13} />
+                    <span>Official {currentBookieConfig.name} Booking Code</span>
                   </div>
 
                   <div
                     onClick={handleCopyCode}
-                    className={cn(
-                      "cursor-pointer group flex items-center gap-3 border px-6 py-3 rounded-2xl transition-all shadow-inner",
-                      isVerified
-                        ? "bg-emerald-950/60 hover:bg-emerald-900/70 border-emerald-400 hover:border-emerald-300 shadow-emerald-500/10"
-                        : "bg-black/50 hover:bg-black/70 border-slate-700 hover:border-slate-500"
-                    )}
-                    title={`Click to copy code`}
+                    className="cursor-pointer group flex items-center gap-3 border px-6 py-3 rounded-2xl transition-all shadow-inner bg-emerald-950/60 hover:bg-emerald-900/70 border-emerald-400 hover:border-emerald-300 shadow-emerald-500/10"
+                    title="Click to copy code"
                   >
-                    <span
-                      className={cn(
-                        "font-mono text-2xl sm:text-3xl font-black tracking-widest group-hover:scale-105 transition-transform",
-                        isVerified ? "text-emerald-400" : "text-amber-300"
-                      )}
-                    >
-                      {bookingData?.bookingCode || "FB-TICKET"}
+                    <span className="font-mono text-2xl sm:text-3xl font-black tracking-widest group-hover:scale-105 transition-transform text-emerald-400">
+                      {bookingData?.bookingCode}
                     </span>
-                    <div
-                      className={cn(
-                        "w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border transition-colors",
-                        isVerified
-                          ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
-                          : "bg-amber-500/20 text-amber-300 border-amber-500/30"
-                      )}
-                    >
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border transition-colors bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
                       {copied ? <Check size={16} /> : <Copy size={16} />}
                     </div>
                   </div>
 
-                  <p className="text-[11px] text-slate-400 mt-2.5">
-                    {copied ? (
-                      <span className="text-emerald-400 font-bold">✓ Code copied to clipboard!</span>
-                    ) : isVerified ? (
-                      <span className="text-emerald-400 font-bold">
-                        Ready to load in {currentBookieConfig.name} App / Web
-                      </span>
-                    ) : (
-                      "Click above to copy reference, or convert to native code below"
-                    )}
+                  <p className="text-[11px] text-emerald-400 font-bold mt-2.5">
+                    {copied ? "✓ Code copied to clipboard!" : `Paste into ${currentBookieConfig.name} "Load Bet" to stake`}
                   </p>
                 </>
+              ) : (
+                <div className="w-full p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-left space-y-2.5">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle size={16} className="text-amber-400 shrink-0" />
+                    <div className="text-xs font-black text-amber-300 uppercase">
+                      Convert Selections to {currentBookieConfig.name}
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    Convert these <span className="font-bold text-white">{displayMatches.length} selections</span> ({bookingData?.totalOdds || 0}x) into an official {currentBookieConfig.name} booking code in 5 seconds via Telegram.
+                  </p>
+                  <button
+                    onClick={handleOpenConverter}
+                    className="w-full py-2.5 px-4 rounded-xl text-xs font-black bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all"
+                  >
+                    <Bot size={15} />
+                    <span>Copy & Open in Telegram Converter (@ConvertBetBot)</span>
+                  </button>
+                </div>
               )}
             </div>
 

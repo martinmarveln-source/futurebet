@@ -258,7 +258,7 @@ function generateTicketReference(bookieKey: BookmakerKey, matches: MatchItem[]):
     body += charPool[chunk % charPool.length];
   }
 
-  return `FB-${config.prefix}${body}`;
+  return `TICKET-${body}`;
 }
 
 /**
