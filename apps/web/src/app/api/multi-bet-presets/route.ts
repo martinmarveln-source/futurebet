@@ -67,6 +67,13 @@ async function ensureHistoryTable() {
       DELETE FROM curated_multi_bet_history
       WHERE matches::text LIKE '%2027-%';
     `;
+
+    // Ensure future matches in matches_cache never hold premature ft_score values
+    await sql`
+      UPDATE matches_cache
+      SET ft_score = NULL
+      WHERE match_date > CURRENT_DATE AND ft_score IS NOT NULL;
+    `;
   } catch (err) {
     console.warn("Failed to ensure curated_multi_bet_history table:", err);
   }
@@ -133,6 +140,37 @@ function getCurrentMondayToSundayRange() {
   const mondayISO = getLagosDateISO(diffToMonday);
   const sundayISO = getLagosDateISO(diffToMonday + 6);
   return { mondayISO, sundayISO };
+}
+
+function isMatchFinished(dateStr: string, timeStr?: string): boolean {
+  const todayISO = getLagosDateISO(0);
+  if (!dateStr) return false;
+  const d = dateStr.slice(0, 10);
+  if (d > todayISO) return false; // Strictly in the future (tomorrow or later)
+  if (d < todayISO) return true;  // Yesterday or earlier match days are past
+
+  // Today: check kickoff time if provided
+  if (!timeStr) return true;
+  const matchTime = timeStr.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!matchTime) return true;
+
+  try {
+    const lagosNow = new Date();
+    const lagosHour = parseInt(
+      new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", hour: "2-digit", hour12: false }).format(lagosNow),
+      10
+    );
+    const lagosMinute = parseInt(
+      new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", minute: "2-digit" }).format(lagosNow),
+      10
+    );
+    const currentMinutes = lagosHour * 60 + lagosMinute;
+    const matchMinutes = parseInt(matchTime[1], 10) * 60 + parseInt(matchTime[2], 10);
+    // Official FT only available if at least 110 minutes have elapsed since kickoff
+    return currentMinutes >= matchMinutes + 110;
+  } catch {
+    return true;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -770,16 +808,17 @@ async function persistCuratedSlips(
 async function autoSettlePendingSlips() {
   try {
     await ensureHistoryTable();
-    const pendingSlips = await sql`
+    const slipsToCheck = await sql`
       SELECT * FROM curated_multi_bet_history
-      WHERE status = 'pending'
+      WHERE status = 'pending' 
+         OR created_date >= (CURRENT_DATE - INTERVAL '15 days')
       ORDER BY created_date DESC, created_at DESC
-      LIMIT 60
+      LIMIT 100
     `;
 
-    if (!pendingSlips || pendingSlips.length === 0) return;
+    if (!slipsToCheck || slipsToCheck.length === 0) return;
 
-    // 1. Fetch finished matches from matches_cache across all score fields (ft_score, raw_data->>ftScore, etc.)
+    // 1. Fetch finished matches from matches_cache across verified full-time score fields ONLY (NEVER cScore / predicted scores!)
     const finishedMatches = await sql`
       SELECT 
         match_date::text as match_date_str,
@@ -789,16 +828,15 @@ async function autoSettlePendingSlips() {
         COALESCE(
           NULLIF(TRIM(ft_score), ''),
           NULLIF(TRIM(raw_data->>'ftScore'), ''),
-          NULLIF(TRIM(raw_data->>'ft_score'), ''),
-          NULLIF(TRIM(raw_data->>'cScore'), '')
+          NULLIF(TRIM(raw_data->>'ft_score'), '')
         ) as score
       FROM matches_cache
-      WHERE (
-        (ft_score IS NOT NULL AND TRIM(ft_score) != '')
-        OR (raw_data->>'ftScore' IS NOT NULL AND TRIM(raw_data->>'ftScore') != '')
-        OR (raw_data->>'ft_score' IS NOT NULL AND TRIM(raw_data->>'ft_score') != '')
-        OR (raw_data->>'cScore' IS NOT NULL AND TRIM(raw_data->>'cScore') != '')
-      )
+      WHERE match_date <= CURRENT_DATE
+        AND (
+          (ft_score IS NOT NULL AND TRIM(ft_score) != '')
+          OR (raw_data->>'ftScore' IS NOT NULL AND TRIM(raw_data->>'ftScore') != '')
+          OR (raw_data->>'ft_score' IS NOT NULL AND TRIM(raw_data->>'ft_score') != '')
+        )
       ORDER BY match_date DESC NULLS LAST
       LIMIT 3000
     `;
@@ -935,7 +973,7 @@ async function autoSettlePendingSlips() {
       return null;
     }
 
-    for (const slip of pendingSlips) {
+    for (const slip of slipsToCheck) {
       let legs: PresetLeg[] = [];
       try {
         legs = Array.isArray(slip.matches) ? slip.matches : JSON.parse(slip.matches);
@@ -950,11 +988,22 @@ async function autoSettlePendingSlips() {
       let legsModified = false;
 
       for (const leg of legs) {
-        if (leg.status === "won" || leg.status === "lost") {
-          if (leg.status === "lost") anyLost = true;
+        const legDate = getMatchDateStr(leg);
+        const legTime = String(leg.time || "").trim();
+
+        // 1. If match is NOT finished (future date or match kickoff hasn't completed), it CANNOT have an FT score!
+        if (!isMatchFinished(legDate, legTime)) {
+          if (leg.status !== "pending" || leg.ftScore) {
+            leg.status = "pending";
+            leg.ftScore = null;
+            legsModified = true;
+          }
+          allDecided = false;
+          allWon = false;
           continue;
         }
 
+        // 2. If match is finished, check for verified FT score:
         let ftScore = findScoreForMatch(leg.match);
 
         // If not found in DB caches, attempt live Google Sheet lookup
@@ -965,9 +1014,11 @@ async function autoSettlePendingSlips() {
 
         if (ftScore) {
           const outcome = evaluateLegOutcome(leg.selectedMarket, leg.selectedOption, ftScore);
-          leg.ftScore = ftScore;
-          leg.status = outcome;
-          legsModified = true;
+          if (leg.ftScore !== ftScore || leg.status !== outcome) {
+            leg.ftScore = ftScore;
+            leg.status = outcome;
+            legsModified = true;
+          }
           if (outcome === "lost") {
             anyLost = true;
           } else if (outcome !== "won") {
@@ -975,6 +1026,13 @@ async function autoSettlePendingSlips() {
             allWon = false;
           }
         } else {
+          // Finished date, but official score not yet published in database
+          if (leg.status !== "pending" || leg.ftScore) {
+            // Revert any fake or predicted score
+            leg.status = "pending";
+            leg.ftScore = null;
+            legsModified = true;
+          }
           allDecided = false;
           allWon = false;
         }
