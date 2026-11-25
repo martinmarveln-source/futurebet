@@ -438,7 +438,7 @@ export default function BookingCodeModal({
                     <div className="space-y-1.5 text-slate-300">
                       <div className="flex items-start gap-2">
                         <span className="w-4 h-4 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px] font-black shrink-0 mt-0.5">1</span>
-                        <span>In the bot, tap <strong className="text-white bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">📝 Book My Picks to Code</strong></span>
+                        <span>In the bot, tap <strong className="text-white bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">📝 Book My Picks to Code</strong> (or <em>Generate Bet Code</em>)</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <span className="w-4 h-4 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px] font-black shrink-0 mt-0.5">2</span>

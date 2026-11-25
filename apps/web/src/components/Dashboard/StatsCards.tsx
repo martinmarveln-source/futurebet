@@ -115,7 +115,7 @@ export default function StatsCards({
             darkMode ? "text-emerald-400" : "text-emerald-600"
           )}
         >
-          Avg Chance
+          Avg Win Chance
         </span>
         <span
           className={cx(
@@ -127,7 +127,7 @@ export default function StatsCards({
         </span>
       </div>
 
-      {/* Item 4: Avg Rating */}
+      {/* Item 4: Model Score */}
       <div
         className={cx(
           "flex items-center gap-2 px-3.5 py-1.5 rounded-full border shadow-sm backdrop-blur-md transition-colors",
@@ -142,7 +142,7 @@ export default function StatsCards({
             darkMode ? "text-indigo-400" : "text-indigo-600"
           )}
         >
-          Avg Rating
+          Model Score
         </span>
         <span
           className={cx(
@@ -154,7 +154,7 @@ export default function StatsCards({
         </span>
       </div>
 
-      {/* Item 5: Interactive +EV Targets Filter Button */}
+      {/* Item 5: Interactive High Value Picks Filter Button */}
       <button
         type="button"
         onClick={() => setEvOnly && setEvOnly(!evOnly)}
@@ -168,8 +168,8 @@ export default function StatsCards({
         )}
         title={
           evOnly
-            ? "Active +EV filter. Click to show all matches."
-            : "Click to filter for +EV Value Targets only"
+            ? "Active High Value filter. Click to show all matches."
+            : "Click to filter for High Value AI targets only"
         }
       >
         <Zap
@@ -184,7 +184,7 @@ export default function StatsCards({
           )}
         />
         <span className="text-[10px] font-extrabold uppercase tracking-widest">
-          {evOnly ? "Active: +EV Only" : "+EV Targets"}
+          {evOnly ? "Active: High Value" : "⚡ High Value Picks"}
         </span>
         <span
           className={cx(

@@ -99,8 +99,6 @@ export function ExploreTab({
         />
       </div>
 
-      <SocialLinks darkMode={darkMode} />
-
       <MatchesList
         matchesLoading={matchesLoading}
         matchesError={matchesError}
@@ -113,6 +111,10 @@ export function ExploreTab({
         isPro={isPro}
         activeMarket={activeMarket}
       />
+
+      <div className="mt-8">
+        <SocialLinks darkMode={darkMode} />
+      </div>
     </div>
   );
 }

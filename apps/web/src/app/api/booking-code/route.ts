@@ -547,15 +547,21 @@ export async function POST(req: Request) {
       ? `${config.name} ${displayCode}`
       : validMatches
           .map((m) => {
-            const matchName = m.match.replace(" - ", " vs ");
+            // Strip league/country parentheticals like "(England - Championship)" so bot fuzzy match succeeds
+            const matchName = (m.match || "")
+              .replace(/\s*\([^)]*\)/g, "")
+              .replace(/\s+-\s+/, " vs ")
+              .replace(/\s+v\s+/i, " vs ")
+              .trim();
+
             const mkt = (m.selectedMarket || "").toLowerCase();
             const opt = (m.selectedOption || "").toLowerCase();
 
             let pick = "home win";
             if (mkt.includes("double chance")) {
-              if (opt.includes("home or draw") || opt.includes("1x")) pick = "home win or draw";
-              else if (opt.includes("draw or away") || opt.includes("x2")) pick = "away win or draw";
-              else pick = "home or away win";
+              if (opt.includes("home or draw") || opt.includes("1x") || opt === "1") pick = "home win or draw";
+              else if (opt.includes("draw or away") || opt.includes("x2") || opt === "2") pick = "away win or draw";
+              else pick = "home win or away win";
             } else if (mkt.includes("over") || mkt.includes("under")) {
               if (mkt.includes("1.5")) pick = mkt.includes("under") ? "under 1.5" : "over 1.5";
               else if (mkt.includes("3.5")) pick = mkt.includes("under") ? "under 3.5" : "over 3.5";
