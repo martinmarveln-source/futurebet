@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ShieldCheck,
@@ -109,10 +109,66 @@ export default function MultiBetHub({
   const [bookingModalSlip, setBookingModalSlip] = useState<any | null>(null);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   // H2H button state — opens TeamComparisonModal pre-seeded with the selected match
-  const [h2hModal, setH2hModal] = useState<{ home: string; away: string } | null>(null);
+  const [h2hModal, setH2hModal] = useState<any | null>(null);
+  const matchesCacheRef = useRef<any[] | null>(null);
   // Admin delete+regenerate — tracks which leg indices have been marked for removal per slip
   const [removedLegs, setRemovedLegs] = useState<Record<string, Set<number>>>({});
   const [regeneratingSlipId, setRegeneratingSlipId] = useState<string | null>(null);
+
+  // Lookup full match stats from /api/matches so TeamComparisonModal displays real PPG/goals/H2H/recent form
+  const handleOpenH2H = useCallback(async (leg: any) => {
+    const parts = String(leg.match || "").split(/\s+(?:-|–|—|vs\.?)\s+/i);
+    const home = parts[0]?.trim() || leg.match;
+    const away = parts[1]?.trim() || "";
+    const fallbackObj = {
+      match: leg.match,
+      homeTeam: home,
+      awayTeam: away,
+      league: leg.league,
+      country: leg.country,
+      date: leg.date,
+      time: leg.time,
+      selectedMarket: leg.selectedMarket,
+      selectedOption: leg.selectedOption,
+      odds: leg.odds,
+    };
+
+    try {
+      let pool = matchesCacheRef.current;
+      if (!pool) {
+        const toastId = toast.loading("Loading match comparison stats...");
+        const res = await fetch("/api/matches");
+        toast.dismiss(toastId);
+        if (res.ok) {
+          const json = await res.json();
+          pool = Array.isArray(json?.matches) ? json.matches : [];
+          matchesCacheRef.current = pool;
+        }
+      }
+      if (pool && pool.length > 0) {
+        const norm = (s: string) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const hNorm = norm(home);
+        const aNorm = norm(away);
+        const mNorm = norm(leg.match);
+        const found = pool.find((m: any) => {
+          const mh = norm(m.homeTeam);
+          const ma = norm(m.awayTeam);
+          const mm = norm(m.match || `${m.homeTeam}${m.awayTeam}`);
+          if (mm && mNorm && mm === mNorm) return true;
+          if (hNorm && aNorm && mh && ma) {
+            return (mh.includes(hNorm) || hNorm.includes(mh)) && (ma.includes(aNorm) || aNorm.includes(ma));
+          }
+          return false;
+        });
+        if (found) {
+          setH2hModal({ ...found, ...fallbackObj, homeTeam: found.homeTeam || home, awayTeam: found.awayTeam || away });
+          return;
+        }
+      }
+    } catch {}
+
+    setH2hModal(fallbackObj);
+  }, []);
 
   const handleOpenBookingModal = useCallback((slip: any) => {
     setBookingModalSlip(slip);
@@ -923,21 +979,7 @@ export default function MultiBetHub({
                                   {/* H2H / Compare Button */}
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      const parts = String(leg.match || "").split(/\s+(?:-|–|—|vs\.?)\s+/i);
-                                      setH2hModal({
-                                        match: leg.match,
-                                        homeTeam: parts[0]?.trim() || leg.match,
-                                        awayTeam: parts[1]?.trim() || "",
-                                        league: leg.league,
-                                        country: leg.country,
-                                        date: leg.date,
-                                        time: leg.time,
-                                        selectedMarket: leg.selectedMarket,
-                                        selectedOption: leg.selectedOption,
-                                        odds: leg.odds,
-                                      });
-                                    }}
+                                    onClick={() => handleOpenH2H(leg)}
                                     title="View H2H & Team Comparison"
                                     className={cn(
                                       "p-1.5 rounded-lg border transition-all active:scale-95",
@@ -985,6 +1027,29 @@ export default function MultiBetHub({
                               </div>
                             );
                           })}
+                        </div>
+                      ) : !slip.isLocked ? (
+                        /* NO QUALIFYING MATCHES TODAY (Unlocked user, 0 selections) */
+                        <div
+                          className={cn(
+                            "p-6 rounded-2xl border text-center space-y-2 mb-5",
+                            darkMode ? "bg-white/[0.02] border-white/10" : "bg-slate-50 border-slate-200"
+                          )}
+                        >
+                          <div className="mx-auto w-10 h-10 rounded-2xl bg-slate-500/15 border border-slate-500/30 flex items-center justify-center text-slate-400">
+                            <Calendar size={18} />
+                          </div>
+                          <h4 className={cn("text-sm font-black", darkMode ? "text-slate-200" : "text-slate-800")}>
+                            No Qualifying Matches Available
+                          </h4>
+                          <p
+                            className={cn(
+                              "text-xs max-w-sm mx-auto leading-relaxed",
+                              darkMode ? "text-slate-400" : "text-slate-600"
+                            )}
+                          >
+                            There aren&apos;t enough qualifying fixtures in today&apos;s pool for this slip tier. Check back later or switch to <strong>Weekend Slips</strong>.
+                          </p>
                         </div>
                       ) : (
                         /* LOCKED TEASER */
@@ -1731,21 +1796,7 @@ export default function MultiBetHub({
                                         <div className="flex items-center gap-2 shrink-0">
                                           <button
                                             type="button"
-                                            onClick={() => {
-                                              const parts = String(leg.match || "").split(/\s+(?:-|–|—|vs\.?)\s+/i);
-                                              setH2hModal({
-                                                match: leg.match,
-                                                homeTeam: parts[0]?.trim() || leg.match,
-                                                awayTeam: parts[1]?.trim() || "",
-                                                league: leg.league,
-                                                country: leg.country,
-                                                date: leg.date,
-                                                time: leg.time,
-                                                selectedMarket: leg.selectedMarket,
-                                                selectedOption: leg.selectedOption,
-                                                odds: leg.odds,
-                                              });
-                                            }}
+                                            onClick={() => handleOpenH2H(leg)}
                                             title="View H2H & Team Comparison"
                                             className={cn(
                                               "p-1.5 rounded-lg border transition-all active:scale-95",
