@@ -3317,49 +3317,102 @@ export default function MatchCard({
                       </div>
                     )}
                     <div className="space-y-4">
-                      <div className="space-y-2">
-                        <div className="text-sm font-bold">
-                          Betting Recommendation
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          <div className="rounded-xl border p-2 text-center bg-green-500/10 border-green-400/30">
-                            <div className="text-[10px] opacity-70">Market</div>
-                            <div className="text-sm font-extrabold">
-                              {intelligence?.recommendation?.market || "—"}
+                      {/* Executive Verdict Hero Card */}
+                      <div
+                        className={cn(
+                          "rounded-2xl border p-4 sm:p-5 transition-all",
+                          darkMode
+                            ? "bg-slate-900/90 border-slate-700/80"
+                            : "bg-slate-50/90 border-slate-200"
+                        )}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                          <div className="space-y-1.5 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span
+                                className={cn(
+                                  "text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md border",
+                                  darkMode
+                                    ? "bg-blue-500/15 text-blue-300 border-blue-500/30"
+                                    : "bg-blue-50 text-blue-700 border-blue-200"
+                                )}
+                              >
+                                {intelligence?.recommendation?.market || "Market"}
+                              </span>
+                              <span
+                                className={cn(
+                                  "text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md border",
+                                  intelligence?.confidence === "Elite" || intelligence?.confidence === "High"
+                                    ? darkMode
+                                      ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                                      : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                    : darkMode
+                                    ? "bg-slate-800 text-slate-300 border-slate-700"
+                                    : "bg-white text-slate-700 border-slate-200"
+                                )}
+                              >
+                                {intelligence?.confidence || "—"} Confidence • {intelligence?.primaryEdge || "Edge"}
+                              </span>
                             </div>
-                          </div>
-                          <div className="rounded-xl border p-2 text-center bg-blue-500/10 border-blue-400/30">
-                            <div className="text-[10px] opacity-70">
-                              Selection
-                            </div>
-                            <div className="text-sm font-extrabold">
+                            <div
+                              className={cn(
+                                "text-lg sm:text-xl font-black tracking-tight",
+                                darkMode ? "text-white" : "text-slate-900"
+                              )}
+                            >
                               {intelligence?.recommendation?.selection || "—"}
                             </div>
+                            <div
+                              className={cn(
+                                "text-xs font-medium",
+                                darkMode ? "text-slate-300" : "text-slate-600"
+                              )}
+                            >
+                              Stake Tier:{" "}
+                              <span className={cn("font-bold", darkMode ? "text-white" : "text-slate-900")}>
+                                {intelligence?.recommendation?.stakeTier || "—"}
+                              </span>
+                            </div>
                           </div>
-                          <div className="rounded-xl border p-2 text-center bg-indigo-500/10 border-indigo-400/30">
-                            <div className="text-[10px] opacity-70">
-                              Confidence
+
+                          {/* Confidence Gauge */}
+                          <div
+                            className={cn(
+                              "sm:min-w-[150px] rounded-xl border p-3 shrink-0",
+                              darkMode
+                                ? "bg-slate-950/60 border-slate-800"
+                                : "bg-white border-slate-200 shadow-xs"
+                            )}
+                          >
+                            <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider mb-1.5">
+                              <span className={darkMode ? "text-slate-400" : "text-slate-500"}>Confidence</span>
+                              <span
+                                className={cn(
+                                  "font-black tabular-nums",
+                                  Number(intelligence?.recommendation?.confidence || 0) >= 75
+                                    ? "text-emerald-500"
+                                    : "text-blue-600 dark:text-blue-400"
+                                )}
+                              >
+                                {intelligence?.recommendation?.confidence ?? "—"}
+                                {intelligence?.recommendation?.confidence !== undefined ? "%" : ""}
+                              </span>
                             </div>
-                            <div className="text-sm font-extrabold">
-                              {intelligence?.recommendation?.confidence ?? "—"}
-                              {intelligence?.recommendation?.confidence !==
-                              undefined
-                                ? "%"
-                                : ""}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 gap-2">
-                          <div className="rounded-xl border p-2 text-center bg-indigo-500/10 border-indigo-400/30">
-                            <div className="text-[10px] opacity-70">
-                              Stake Tier
-                            </div>
-                            <div className="text-sm font-extrabold">
-                              {intelligence?.recommendation?.stakeTier || "—"}
+                            <div className={cn("h-2 w-full rounded-full overflow-hidden", darkMode ? "bg-slate-800" : "bg-slate-100")}>
+                              <div
+                                className={cn(
+                                  "h-full rounded-full transition-all duration-500",
+                                  Number(intelligence?.recommendation?.confidence || 0) >= 75
+                                    ? "bg-emerald-500"
+                                    : "bg-blue-600"
+                                )}
+                                style={{ width: `${Math.min(100, Math.max(0, Number(intelligence?.recommendation?.confidence || 0)))}%` }}
+                              />
                             </div>
                           </div>
                         </div>
                       </div>
+
                       <div
                         className={cn(
                           !canSeeAiInsight && "blur-sm pointer-events-none"
@@ -3367,122 +3420,114 @@ export default function MatchCard({
                       >
                         <div className="space-y-4">
                           {pickOdds && valueEdge !== null && valueEdge > 5 && (
-                            <div className="relative">
-                              <div className="rounded-2xl border p-3 bg-green-500/10 border-green-400/30">
-                                <div className="flex items-center gap-2 text-sm font-extrabold text-green-500">
-                                  🔥 Market Value Detected
+                            <div
+                              className={cn(
+                                "rounded-2xl border p-4",
+                                darkMode
+                                  ? "bg-emerald-950/30 border-emerald-500/30"
+                                  : "bg-emerald-50/70 border-emerald-200"
+                              )}
+                            >
+                              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                                Positive Expected Value (+EV) Detected
+                              </div>
+                              <div className="grid grid-cols-3 gap-2.5 mt-3">
+                                <div className={cn("rounded-xl border p-2.5 text-center", darkMode ? "bg-slate-900/70 border-slate-800" : "bg-white border-emerald-100")}>
+                                  <div className={cn("text-[11px] font-semibold", darkMode ? "text-slate-400" : "text-slate-500")}>Model</div>
+                                  <div className={cn("font-black text-sm tabular-nums", darkMode ? "text-white" : "text-slate-900")}>
+                                    {intelligence?.recommendation?.confidence ?? "—"}
+                                    {intelligence?.recommendation?.confidence !== undefined ? "%" : ""}
+                                  </div>
                                 </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
-                                  <div className="rounded-lg border p-2 text-center bg-white/5">
-                                    <div className="text-[10px] opacity-70">
-                                      Model
-                                    </div>
-                                    <div className="font-bold">
-                                      {intelligence?.recommendation
-                                        ?.confidence ?? "—"}
-                                      {intelligence?.recommendation
-                                        ?.confidence !== undefined
-                                        ? "%"
-                                        : ""}
-                                    </div>
+                                <div className={cn("rounded-xl border p-2.5 text-center", darkMode ? "bg-slate-900/70 border-slate-800" : "bg-white border-emerald-100")}>
+                                  <div className={cn("text-[11px] font-semibold", darkMode ? "text-slate-400" : "text-slate-500")}>Market</div>
+                                  <div className={cn("font-black text-sm tabular-nums", darkMode ? "text-white" : "text-slate-900")}>
+                                    {pickOdds ? `${Math.round((1 / pickOdds) * 100)}%` : "—"}
                                   </div>
-                                  <div className="rounded-lg border p-2 text-center bg-white/5">
-                                    <div className="text-[10px] opacity-70">
-                                      Market
-                                    </div>
-                                    <div className="font-bold">
-                                      {pickOdds
-                                        ? `${Math.round((1 / pickOdds) * 100)}%`
-                                        : "—"}
-                                    </div>
-                                  </div>
-                                  <div className="rounded-lg border p-2 text-center bg-white/5">
-                                    <div className="text-[10px] opacity-70">
-                                      Edge
-                                    </div>
-                                    <div className="font-bold text-green-500">
-                                      {intelligence?.recommendation
-                                        ?.expectedValue !== undefined
-                                        ? `+${intelligence.recommendation.expectedValue}%`
-                                        : "—"}
-                                    </div>
+                                </div>
+                                <div className={cn("rounded-xl border p-2.5 text-center", darkMode ? "bg-slate-900/70 border-slate-800" : "bg-white border-emerald-100")}>
+                                  <div className={cn("text-[11px] font-semibold", darkMode ? "text-slate-400" : "text-slate-500")}>Edge</div>
+                                  <div className="font-black text-sm tabular-nums text-emerald-600 dark:text-emerald-400">
+                                    {intelligence?.recommendation?.expectedValue !== undefined
+                                      ? `+${intelligence.recommendation.expectedValue}%`
+                                      : "—"}
                                   </div>
                                 </div>
                               </div>
                             </div>
                           )}
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                            <div className="rounded-xl border p-2 text-center bg-blue-500/10 border-blue-400/30">
-                              <div className="text-[10px] opacity-70">
+
+                          {/* 3-Column Quantitative Telemetry Strip */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                            <div
+                              className={cn(
+                                "rounded-xl border p-3",
+                                darkMode ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-200"
+                              )}
+                            >
+                              <div className={cn("text-[11px] font-semibold uppercase tracking-wider", darkMode ? "text-slate-400" : "text-slate-500")}>
                                 Model Trust
                               </div>
-                              <div className="text-sm font-extrabold">
+                              <div className={cn("text-base font-black tabular-nums mt-0.5", darkMode ? "text-white" : "text-slate-900")}>
                                 {intelligence?.modelTrust ?? "—"}
-                                {intelligence?.modelTrust !== undefined
-                                  ? "%"
-                                  : ""}
+                                {intelligence?.modelTrust !== undefined ? "%" : ""}
                               </div>
                             </div>
-                            <div className="rounded-xl border p-2 text-center bg-indigo-500/10 border-indigo-400/30">
-                              <div className="text-[10px] opacity-70">
+                            <div
+                              className={cn(
+                                "rounded-xl border p-3",
+                                darkMode ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-200"
+                              )}
+                            >
+                              <div className={cn("text-[11px] font-semibold uppercase tracking-wider", darkMode ? "text-slate-400" : "text-slate-500")}>
                                 Edge Tier
                               </div>
-                              <div className="text-sm font-extrabold">
+                              <div className={cn("text-base font-black mt-0.5", darkMode ? "text-blue-300" : "text-blue-700")}>
                                 {intelligence?.edgeTier || "—"}
                               </div>
                             </div>
-                            <div className="rounded-xl border p-2 text-center bg-orange-500/10 border-orange-400/30">
-                              <div className="text-[10px] opacity-70">
+                            <div
+                              className={cn(
+                                "rounded-xl border p-3",
+                                darkMode ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-200"
+                              )}
+                            >
+                              <div className={cn("text-[11px] font-semibold uppercase tracking-wider", darkMode ? "text-slate-400" : "text-slate-500")}>
                                 Volatility
                               </div>
-                              <div className="text-sm font-extrabold">
+                              <div className={cn("text-base font-black mt-0.5", darkMode ? "text-slate-100" : "text-slate-900")}>
                                 {intelligence?.volatility || "—"}
                               </div>
                             </div>
                           </div>
-                          <div
-                            className={cn(
-                              "rounded-2xl border p-3 text-sm font-extrabold",
-                              intelligence?.confidence === "Elite"
-                                ? darkMode
-                                  ? "border-sky-400/40 bg-sky-500/10 text-sky-300"
-                                  : "border-sky-300 bg-sky-50 text-sky-700"
-                                : intelligence?.confidence === "High"
-                                ? darkMode
-                                  ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300"
-                                  : "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                : darkMode
-                                ? "border-blue-400/30 bg-blue-500/10 text-blue-300"
-                                : "border-blue-200 bg-blue-50 text-blue-700"
-                            )}
-                          >
-                            {intelligence?.confidence || "—"} Confidence •{" "}
-                            {intelligence?.primaryEdge || "—"}
+
+                          {/* Structured 2-Column Analytical Breakdown */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <InsightBlock
+                              title="Match Overview"
+                              darkMode={darkMode}
+                            >
+                              {intelligence?.narratives?.overview || "—"}
+                            </InsightBlock>
+                            <InsightBlock
+                              title="Tactical & Statistical Edge"
+                              darkMode={darkMode}
+                            >
+                              {intelligence?.narratives?.tactical || "—"}
+                            </InsightBlock>
+                            <InsightBlock
+                              title="Market Alignment"
+                              darkMode={darkMode}
+                            >
+                              {intelligence?.narratives?.marketAlignment || "—"}
+                            </InsightBlock>
+                            <InsightBlock
+                              title="Goal Environment Projection"
+                              darkMode={darkMode}
+                            >
+                              {intelligence?.narratives?.goalProjection || "—"}
+                            </InsightBlock>
                           </div>
-                          <InsightBlock
-                            title="Match Overview"
-                            darkMode={darkMode}
-                          >
-                            {intelligence?.narratives?.overview || "—"}
-                          </InsightBlock>
-                          <InsightBlock
-                            title="Tactical & Statistical Edge"
-                            darkMode={darkMode}
-                          >
-                            {intelligence?.narratives?.tactical || "—"}
-                          </InsightBlock>
-                          <InsightBlock
-                            title="Market Alignment"
-                            darkMode={darkMode}
-                          >
-                            {intelligence?.narratives?.marketAlignment || "—"}
-                          </InsightBlock>
-                          <InsightBlock
-                            title="Goal Environment Projection"
-                            darkMode={darkMode}
-                          >
-                            {intelligence?.narratives?.goalProjection || "—"}
-                          </InsightBlock>
                           <InsightBlock
                             title="Risk Exposure Report"
                             darkMode={darkMode}

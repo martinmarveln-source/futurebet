@@ -64,32 +64,32 @@ function SectionHeader({ title, darkMode, guideOpen, onToggleGuide }) {
 
 const themeColors = {
   blue: {
-    dark: "border-blue-500/50 bg-blue-500/15 text-blue-200 shadow-[0_0_10px_rgba(59,130,246,0.15)]",
-    light: "border-blue-200 bg-blue-50 text-blue-700 shadow-sm",
+    dark: "border-blue-500/50 bg-blue-500/15 text-blue-200",
+    light: "border-blue-600 bg-blue-50 text-blue-800 shadow-xs",
   },
   violet: {
-    dark: "border-violet-500/50 bg-violet-500/15 text-violet-200 shadow-[0_0_10px_rgba(139,92,246,0.15)]",
-    light: "border-violet-200 bg-violet-50 text-violet-700 shadow-sm",
+    dark: "border-indigo-500/50 bg-indigo-500/15 text-indigo-200",
+    light: "border-indigo-600 bg-indigo-50 text-indigo-800 shadow-xs",
   },
   emerald: {
-    dark: "border-emerald-500/50 bg-emerald-500/15 text-emerald-200 shadow-[0_0_10px_rgba(16,185,129,0.15)]",
-    light: "border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm",
+    dark: "border-emerald-500/50 bg-emerald-500/15 text-emerald-200",
+    light: "border-emerald-600 bg-emerald-50 text-emerald-800 shadow-xs",
   },
   indigo: {
-    dark: "border-indigo-500/50 bg-indigo-500/15 text-indigo-200 shadow-[0_0_10px_rgba(99,102,241,0.15)]",
-    light: "border-indigo-200 bg-indigo-50 text-indigo-700 shadow-sm",
+    dark: "border-blue-500/50 bg-blue-500/15 text-blue-200",
+    light: "border-blue-600 bg-blue-50 text-blue-800 shadow-xs",
   },
   amber: {
-    dark: "border-amber-500/50 bg-amber-500/15 text-amber-200 shadow-[0_0_10px_rgba(245,158,11,0.15)]",
-    light: "border-amber-200 bg-amber-50 text-amber-700 shadow-sm",
+    dark: "border-slate-500/50 bg-slate-700/40 text-slate-100",
+    light: "border-slate-700 bg-slate-100 text-slate-900 shadow-xs",
   },
   cyan: {
-    dark: "border-cyan-500/50 bg-cyan-500/15 text-cyan-200 shadow-[0_0_10px_rgba(6,182,212,0.15)]",
-    light: "border-cyan-200 bg-cyan-50 text-cyan-700 shadow-sm",
+    dark: "border-sky-500/50 bg-sky-500/15 text-sky-200",
+    light: "border-sky-600 bg-sky-50 text-sky-800 shadow-xs",
   },
   rose: {
-    dark: "border-rose-500/50 bg-rose-500/15 text-rose-200 shadow-[0_0_10px_rgba(244,63,94,0.15)]",
-    light: "border-rose-200 bg-rose-50 text-rose-700 shadow-sm",
+    dark: "border-slate-500/50 bg-slate-700/40 text-slate-100",
+    light: "border-slate-700 bg-slate-100 text-slate-900 shadow-xs",
   },
 };
 
@@ -338,8 +338,8 @@ export default function AutoPickModal({
               className={cn(
                 "h-10 w-10 rounded-2xl flex items-center justify-center ring-1 shadow-sm",
                 darkMode
-                  ? "bg-amber-500/10 ring-amber-500/30 text-amber-400"
-                  : "bg-amber-50 ring-amber-200 text-amber-600"
+                  ? "bg-blue-600/15 ring-blue-500/30 text-blue-400"
+                  : "bg-blue-50 ring-blue-200 text-blue-600"
               )}
             >
               <Sparkles className="h-5 w-5" />
@@ -350,11 +350,11 @@ export default function AutoPickModal({
               </h3>
               <p
                 className={cn(
-                  "text-xs mt-0.5 tracking-wide opacity-80",
-                  darkMode ? "text-gray-400" : "text-gray-600"
+                  "text-xs mt-0.5 tracking-wide",
+                  darkMode ? "text-slate-400" : "text-slate-600"
                 )}
               >
-                Build a premium slip instantly.
+                Build an algorithmic slip in seconds.
               </p>
             </div>
           </div>
@@ -377,6 +377,66 @@ export default function AutoPickModal({
         </div>
 
         <div className="p-4 space-y-5 overflow-y-auto flex-1 custom-scrollbar">
+          {/* Quick 1-Tap Strategy Presets */}
+          <div>
+            <div className={cn("text-xs font-bold mb-2", darkMode ? "text-slate-300" : "text-slate-700")}>
+              Quick Strategy Presets
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setAutoRisk?.("safe");
+                  setAutoCount?.(4);
+                  setAutoMarkets?.({ all: false, m1x2: false, doubleChance: true, overUnder: true, btts: false, haOverUnder15: false, correctScore: false });
+                }}
+                className={cn(
+                  "px-3 py-2 rounded-xl border text-left transition-all active:scale-[0.98]",
+                  darkMode
+                    ? "bg-slate-900/70 border-slate-700 hover:border-emerald-500/50 text-slate-200"
+                    : "bg-slate-50 border-slate-200 hover:border-emerald-500 text-slate-800"
+                )}
+              >
+                <div className="text-[11px] font-black text-emerald-600 dark:text-emerald-400">Safe 4-Fold</div>
+                <div className={cn("text-[10px]", darkMode ? "text-slate-400" : "text-slate-500")}>DC + O/U • Low Risk</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAutoRisk?.("ev");
+                  setAutoCount?.(5);
+                  setAutoMarkets?.({ all: true, m1x2: true, doubleChance: true, overUnder: true, btts: true, haOverUnder15: false, correctScore: false });
+                }}
+                className={cn(
+                  "px-3 py-2 rounded-xl border text-left transition-all active:scale-[0.98]",
+                  darkMode
+                    ? "bg-slate-900/70 border-slate-700 hover:border-blue-500/50 text-slate-200"
+                    : "bg-slate-50 border-slate-200 hover:border-blue-500 text-slate-800"
+                )}
+              >
+                <div className="text-[11px] font-black text-blue-600 dark:text-blue-400">Value (+EV)</div>
+                <div className={cn("text-[10px]", darkMode ? "text-slate-400" : "text-slate-500")}>5 Picks • Best Edge</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAutoRisk?.("balanced");
+                  setAutoCount?.(10);
+                  setAutoMarkets?.({ all: true, m1x2: true, doubleChance: true, overUnder: true, btts: true, haOverUnder15: false, correctScore: false });
+                }}
+                className={cn(
+                  "px-3 py-2 rounded-xl border text-left transition-all active:scale-[0.98]",
+                  darkMode
+                    ? "bg-slate-900/70 border-slate-700 hover:border-indigo-500/50 text-slate-200"
+                    : "bg-slate-50 border-slate-200 hover:border-indigo-500 text-slate-800"
+                )}
+              >
+                <div className="text-[11px] font-black text-indigo-600 dark:text-indigo-400">10-Leg Acca</div>
+                <div className={cn("text-[10px]", darkMode ? "text-slate-400" : "text-slate-500")}>Balanced • High Yield</div>
+              </button>
+            </div>
+          </div>
+
           {/* Date Range Section */}
           <div>
             <SectionHeader
@@ -1310,7 +1370,7 @@ export default function AutoPickModal({
                 e.preventDefault();
                 onPreview(e);
               }}
-              className="w-full sm:flex-1 px-4 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-black uppercase tracking-widest hover:brightness-110 transition-all active:scale-[0.98] shadow-lg shadow-amber-500/20"
+              className="w-full sm:flex-1 px-4 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-widest transition-all active:scale-[0.98] shadow-md"
             >
               Preview
             </button>
@@ -1321,7 +1381,7 @@ export default function AutoPickModal({
                 onConfirm(e);
               }}
               disabled={!autoPreview?.length}
-              className="w-full sm:flex-1 px-4 py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-black uppercase tracking-widest hover:brightness-110 transition-all active:scale-[0.98] disabled:opacity-50 disabled:grayscale shadow-lg shadow-blue-500/20"
+              className="w-full sm:flex-1 px-4 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black uppercase tracking-widest transition-all active:scale-[0.98] disabled:opacity-50 disabled:grayscale shadow-md"
             >
               Add Picks
             </button>
