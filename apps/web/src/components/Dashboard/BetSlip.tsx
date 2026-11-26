@@ -397,7 +397,7 @@ export default function BetSlip({ darkMode = false }) {
         return alert(result.message);
       return alert("Failed to track ticket.");
     }
-    alert(`Tracked: ${result.ticketId}`);
+    alert(result.ticketId ? `Tracked: ${result.ticketId}` : `Tracked ${result.totalBets || 1} ticket(s)!`);
 
     // 🔥 UX FIX: Clear the inputs so old stakes don't accidentally get applied to new tickets
     setSystemStakes({});

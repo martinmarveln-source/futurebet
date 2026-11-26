@@ -601,7 +601,7 @@ const useBetslipStore = create(
             uniqueMatches.push(m);
           }
         }
-        const slip = uniqueMatches.slice(0, 20);
+        const slip = uniqueMatches.slice(0, 40);
 
         // Log picks to portfolio API
         slip.forEach((m) => {
@@ -650,10 +650,11 @@ const useBetslipStore = create(
         const createdAt = new Date().toISOString();
 
         Object.entries(stakesToProcess).forEach(([sizeStr, stakeVal]) => {
-          const comboSize = Number(sizeStr);
+          const rawComboSize = Number(sizeStr);
           const stake = Number(stakeVal);
-          if (!Number.isFinite(stake) || stake <= 0) return;
+          if (!Number.isFinite(stake) || stake <= 0 || !Number.isFinite(rawComboSize) || rawComboSize <= 0) return;
 
+          const comboSize = Math.min(rawComboSize, slip.length);
           const combos = getStoreCombinations(slip, comboSize);
 
           combos.forEach((combo) => {
