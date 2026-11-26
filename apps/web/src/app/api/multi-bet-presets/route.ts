@@ -62,10 +62,14 @@ async function ensureHistoryTable() {
       );
     `;
 
-    // Ensure booking_codes column exists for native SportyBet/Bet9ja codes
+    // Ensure booking_codes and admin_trimmed columns exist
     await sql`
       ALTER TABLE curated_multi_bet_history 
       ADD COLUMN IF NOT EXISTS booking_codes JSONB DEFAULT '{}'::jsonb;
+    `;
+    await sql`
+      ALTER TABLE curated_multi_bet_history 
+      ADD COLUMN IF NOT EXISTS admin_trimmed BOOLEAN DEFAULT FALSE;
     `;
 
     // Purge any corrupted legacy test rows where matches were scheduled in 2027
@@ -89,6 +93,7 @@ async function ensureHistoryTable() {
 /*  Admin Match Exclusions (DB + in-memory fallback)                  */
 /* ------------------------------------------------------------------ */
 const excludedMatchesCache = new Map<string, Set<string>>();
+const adminTrimmedCache = new Map<string, { matches: PresetLeg[]; combinedOdds: number; confidence: number }>();
 
 async function ensureExcludedTable() {
   if (!process.env.DATABASE_URL) return;
@@ -860,7 +865,7 @@ async function persistCuratedSlips(
       const potentialWin = Number(slip.potentialWin || Math.round(stake * slip.combinedOdds));
 
       const [existing] = await sql`
-        SELECT id, status, matches FROM curated_multi_bet_history WHERE id = ${slipRecordId} LIMIT 1
+        SELECT id, status, matches, admin_trimmed FROM curated_multi_bet_history WHERE id = ${slipRecordId} LIMIT 1
       `;
 
       if (!existing) {
@@ -884,7 +889,7 @@ async function persistCuratedSlips(
             NOW()
           )
         `;
-      } else if (existing.status === "pending") {
+      } else if (existing.status === "pending" && !existing.admin_trimmed) {
         // Merge with any existing scores so we never wipe evaluated results
         let currentMatches: any[] = [];
         try {
@@ -1916,20 +1921,29 @@ export async function GET(req: Request) {
       console.warn("Auto-settle background error:", e)
     );
 
-    // Attach slipId and any pre-existing verified booking_codes to each active slip
+    // Attach slipId, any pre-existing verified booking_codes, and any admin-trimmed overrides
     const slipRecordIds = activeSlips.map(
       (s) => `${s.id}_${scope}_${s.id === "longshot_1000x" ? mondayISO : todayISO}`
     );
     let dbCodesMap: Record<string, any> = {};
+    let dbTrimmedMap: Record<string, { matches: PresetLeg[]; combinedOdds: number; confidence: number }> = {};
     if (process.env.DATABASE_URL) {
       try {
         const codeRows = await sql`
-          SELECT id, booking_codes FROM curated_multi_bet_history 
+          SELECT id, booking_codes, matches, combined_odds, confidence, admin_trimmed FROM curated_multi_bet_history 
           WHERE id = ANY(${slipRecordIds});
         `;
         if (codeRows && codeRows.length > 0) {
           for (const r of codeRows) {
             dbCodesMap[r.id] = r.booking_codes || {};
+            if (r.admin_trimmed) {
+              const parsed = Array.isArray(r.matches) ? r.matches : JSON.parse(r.matches || "[]");
+              dbTrimmedMap[r.id] = {
+                matches: parsed,
+                combinedOdds: Number(r.combined_odds || 1),
+                confidence: Number(r.confidence || 70),
+              };
+            }
           }
         }
       } catch (e) {}
@@ -1937,6 +1951,20 @@ export async function GET(req: Request) {
 
     const enhancedSlips = activeSlips.map((s) => {
       const recId = `${s.id}_${scope}_${s.id === "longshot_1000x" ? mondayISO : todayISO}`;
+      const trimmed = dbTrimmedMap[recId] || adminTrimmedCache.get(recId);
+      if (trimmed) {
+        const stakeVal = s.stake || 1000;
+        return {
+          ...s,
+          slipId: recId,
+          bookingCodes: dbCodesMap[recId] || {},
+          combinedOdds: trimmed.combinedOdds,
+          matchesCount: trimmed.matches.length,
+          confidence: trimmed.confidence,
+          potentialWin: Math.round(stakeVal * trimmed.combinedOdds),
+          matches: s.isLocked ? [] : trimmed.matches,
+        };
+      }
       return {
         ...s,
         slipId: recId,
@@ -1984,7 +2012,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { action, slipId, stake, matches: payloadMatches, combinedOdds, title, excludedMatches } = body;
+    const { action, slipId, stake, matches: payloadMatches, combinedOdds, title, excludedMatches, matchName, matchNames } = body;
 
     if (action === "regenerate_slip") {
       if (role !== "admin") {
@@ -1993,11 +2021,115 @@ export async function POST(req: Request) {
       if (!slipId || !Array.isArray(excludedMatches) || excludedMatches.length === 0) {
         return NextResponse.json({ error: "slipId and excludedMatches are required." }, { status: 400 });
       }
-      await addExcludedForSlip(String(slipId), excludedMatches.map(String));
+      const sid = String(slipId);
+      await addExcludedForSlip(sid, excludedMatches.map(String));
+      adminTrimmedCache.delete(sid);
+      if (process.env.DATABASE_URL) {
+        try {
+          await ensureHistoryTable();
+          await sql`UPDATE curated_multi_bet_history SET admin_trimmed = FALSE WHERE id = ${sid}`;
+        } catch (err) {
+          console.warn("Failed to reset admin_trimmed on regenerate:", err);
+        }
+      }
       return NextResponse.json({
         success: true,
         message: "Removed match(es) excluded. Slip will regenerate without them.",
       });
+    }
+
+    if (action === "remove_match_from_slip") {
+      if (role !== "admin") {
+        return NextResponse.json({ error: "Admin access required to remove matches from slips." }, { status: 403 });
+      }
+      const sid = String(slipId || "");
+      const namesToRemove: string[] = Array.isArray(matchNames)
+        ? matchNames.map(String).filter(Boolean)
+        : matchName
+        ? [String(matchName)]
+        : [];
+      if (!sid || namesToRemove.length === 0) {
+        return NextResponse.json({ error: "slipId and matchName(s) are required." }, { status: 400 });
+      }
+
+      await addExcludedForSlip(sid, namesToRemove);
+      const removeKeys = new Set(namesToRemove.map(normalizeExcludedKey));
+
+      await ensureHistoryTable();
+      const [slipRow] = await sql`SELECT * FROM curated_multi_bet_history WHERE id = ${sid} LIMIT 1`;
+
+      let currentLegs: PresetLeg[] = [];
+      let rowStake = Number(stake || 1000);
+      if (slipRow) {
+        currentLegs = Array.isArray(slipRow.matches) ? slipRow.matches : JSON.parse(slipRow.matches || "[]");
+        rowStake = Number(slipRow.stake || rowStake);
+      } else if (Array.isArray(payloadMatches)) {
+        currentLegs = payloadMatches;
+      }
+
+      const remaining = currentLegs.filter((leg) => !removeKeys.has(normalizeExcludedKey(leg.match)));
+
+      if (remaining.length === 0) {
+        adminTrimmedCache.delete(sid);
+        if (slipRow) {
+          await sql`DELETE FROM curated_multi_bet_history WHERE id = ${sid}`;
+        }
+        return NextResponse.json({
+          success: true,
+          deletedSlip: true,
+          message: "All matches removed; slip deleted.",
+        });
+      }
+
+      const newOdds = Number(remaining.reduce((acc, l) => acc * Number(l.odds || 1), 1).toFixed(2));
+      const newConf = Math.round(remaining.reduce((acc, l) => acc + Number(l.confidence || 70), 0) / remaining.length);
+      const newPotentialWin = Math.round(rowStake * newOdds);
+
+      const anyLost = remaining.some((l) => l.status === "lost");
+      const allWon = remaining.length > 0 && remaining.every((l) => l.status === "won");
+      const newStatus = anyLost ? "lost" : allWon ? "won" : "pending";
+      const settledDateVal =
+        newStatus !== "pending"
+          ? (slipRow?.settled_date ? toSafeDateISO(slipRow.settled_date) : getLagosDateISO(0))
+          : null;
+
+      adminTrimmedCache.set(sid, { matches: remaining, combinedOdds: newOdds, confidence: newConf });
+
+      if (slipRow) {
+        await sql`
+          UPDATE curated_multi_bet_history
+          SET matches = ${JSON.stringify(remaining)},
+              combined_odds = ${newOdds},
+              confidence = ${newConf},
+              potential_win = ${newPotentialWin},
+              status = ${newStatus},
+              settled_date = ${settledDateVal},
+              admin_trimmed = TRUE,
+              updated_at = NOW()
+          WHERE id = ${sid}
+        `;
+      }
+
+      return NextResponse.json({
+        success: true,
+        remainingCount: remaining.length,
+        combinedOdds: newOdds,
+        message: `Removed ${namesToRemove.length} match(es) from slip. Odds updated to ${newOdds}x.`,
+      });
+    }
+
+    if (action === "delete_slip") {
+      if (role !== "admin") {
+        return NextResponse.json({ error: "Admin access required to delete slips." }, { status: 403 });
+      }
+      const sid = String(slipId || "");
+      if (!sid) {
+        return NextResponse.json({ error: "slipId is required." }, { status: 400 });
+      }
+      adminTrimmedCache.delete(sid);
+      await ensureHistoryTable();
+      await sql`DELETE FROM curated_multi_bet_history WHERE id = ${sid}`;
+      return NextResponse.json({ success: true, message: "Slip deleted." });
     }
 
     if (action === "track_personal") {

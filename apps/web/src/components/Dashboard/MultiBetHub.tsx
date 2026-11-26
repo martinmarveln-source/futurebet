@@ -163,6 +163,97 @@ export default function MultiBetHub({
     }
   }, [scope]);
 
+  // Admin: remove marked match(es) from a Live Slip without replacing them (e.g. postponed match)
+  const handleRemoveMatchesFromSlip = useCallback(async (slip: any, removedIndices: Set<number>) => {
+    const matchNames = Array.from(removedIndices).map((i) => slip.matches?.[i]?.match).filter(Boolean);
+    if (!matchNames.length) return;
+    const sid = slip.slipId || slip.id;
+    setRegeneratingSlipId(sid);
+    try {
+      const res = await fetch("/api/multi-bet-presets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "remove_match_from_slip",
+          slipId: sid,
+          matchNames,
+          matches: slip.matches,
+          stake: slip.stake || 1000,
+        }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        toast.success(result.message || "Match(es) removed from slip.");
+        setRemovedLegs((prev) => { const copy = { ...prev }; delete copy[sid]; return copy; });
+        refetch();
+        refetchHistory();
+      } else {
+        toast.error(result.error || "Failed to remove match(es).");
+      }
+    } catch {
+      toast.error("Failed to remove match(es).");
+    } finally {
+      setRegeneratingSlipId(null);
+    }
+  }, []);
+
+  // Admin: remove a single match (e.g. postponed) from a Tracked/History Slip
+  const handleRemoveTrackerMatch = useCallback(async (hSlip: any, legMatch: string) => {
+    if (!hSlip?.id || !legMatch) return;
+    setRegeneratingSlipId(hSlip.id);
+    try {
+      const res = await fetch("/api/multi-bet-presets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "remove_match_from_slip",
+          slipId: hSlip.id,
+          matchName: legMatch,
+          stake: hSlip.stake || 1000,
+        }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        toast.success(result.message || "Match removed from slip.");
+        refetchHistory();
+        refetch();
+      } else {
+        toast.error(result.error || "Failed to remove match.");
+      }
+    } catch {
+      toast.error("Failed to remove match.");
+    } finally {
+      setRegeneratingSlipId(null);
+    }
+  }, []);
+
+  // Admin: delete an entire slip from Tracker
+  const handleDeleteTrackerSlip = useCallback(async (hSlip: any) => {
+    if (!hSlip?.id) return;
+    setRegeneratingSlipId(hSlip.id);
+    try {
+      const res = await fetch("/api/multi-bet-presets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "delete_slip",
+          slipId: hSlip.id,
+        }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        toast.success("Slip deleted.");
+        refetchHistory();
+      } else {
+        toast.error(result.error || "Failed to delete slip.");
+      }
+    } catch {
+      toast.error("Failed to delete slip.");
+    } finally {
+      setRegeneratingSlipId(null);
+    }
+  }, []);
+
   const addMatch = useBetslipStore((s) => s.addMatch);
   const betslipMatches = useBetslipStore((s) => s.matches);
 
@@ -927,23 +1018,36 @@ export default function MultiBetHub({
                       )}
                     </div>
 
-                    {/* ADMIN REGENERATE BAR (when matches are marked for removal) */}
+                    {/* ADMIN REMOVE / REGENERATE BAR (when matches are marked for removal) */}
                     {isAdmin && !slip.isLocked && (removedLegs[slip.slipId || slip.id]?.size || 0) > 0 && (
-                      <div className="mb-3 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between gap-2">
+                      <div className="mb-3 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between gap-2 flex-wrap">
                         <span className="text-[11px] font-bold text-rose-300">
-                          {removedLegs[slip.slipId || slip.id].size} match(es) marked for removal
+                          {removedLegs[slip.slipId || slip.id].size} match(es) selected
                         </span>
-                        <button
-                          type="button"
-                          disabled={regeneratingSlipId === (slip.slipId || slip.id)}
-                          onClick={() => handleRegenerateSlip(slip, removedLegs[slip.slipId || slip.id])}
-                          className="px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider bg-rose-600 hover:bg-rose-500 text-white transition-all flex items-center gap-1.5 shadow-sm active:scale-95 disabled:opacity-50"
-                        >
-                          <RefreshCw size={12} className={regeneratingSlipId === (slip.slipId || slip.id) ? "animate-spin" : ""} />
-                          <span>
-                            {regeneratingSlipId === (slip.slipId || slip.id) ? "Regenerating..." : "Regenerate Slip"}
-                          </span>
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            disabled={regeneratingSlipId === (slip.slipId || slip.id)}
+                            onClick={() => handleRemoveMatchesFromSlip(slip, removedLegs[slip.slipId || slip.id])}
+                            title="Remove selected match(es) from this slip (e.g. postponed) and recalculate odds"
+                            className="px-2.5 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider bg-slate-700 hover:bg-slate-600 text-white transition-all flex items-center gap-1 shadow-sm active:scale-95 disabled:opacity-50"
+                          >
+                            <Trash2 size={11} />
+                            <span>Remove Only</span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={regeneratingSlipId === (slip.slipId || slip.id)}
+                            onClick={() => handleRegenerateSlip(slip, removedLegs[slip.slipId || slip.id])}
+                            title="Remove selected match(es) and replace with new selections"
+                            className="px-2.5 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider bg-rose-600 hover:bg-rose-500 text-white transition-all flex items-center gap-1 shadow-sm active:scale-95 disabled:opacity-50"
+                          >
+                            <RefreshCw size={11} className={regeneratingSlipId === (slip.slipId || slip.id) ? "animate-spin" : ""} />
+                            <span>
+                              {regeneratingSlipId === (slip.slipId || slip.id) ? "Working..." : "Regenerate"}
+                            </span>
+                          </button>
+                        </div>
                       </div>
                     )}
 
@@ -1677,6 +1781,23 @@ export default function MultiBetHub({
                                               <Clock size={16} className="text-amber-400" />
                                             )}
                                           </div>
+
+                                          {isAdmin && (
+                                            <button
+                                              type="button"
+                                              disabled={regeneratingSlipId === hSlip.id}
+                                              onClick={() => handleRemoveTrackerMatch(hSlip, leg.match)}
+                                              title="Remove this match from slip (e.g. postponed)"
+                                              className={cn(
+                                                "p-1.5 rounded-lg border transition-all active:scale-95 disabled:opacity-50",
+                                                darkMode
+                                                  ? "border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20"
+                                                  : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                                              )}
+                                            >
+                                              <Trash2 size={12} />
+                                            </button>
+                                          )}
                                         </div>
                                       </div>
                                     );
@@ -1712,6 +1833,18 @@ export default function MultiBetHub({
                                     <ImageIcon size={12} />
                                     <span>Slip Card</span>
                                   </button>
+                                  {isAdmin && (
+                                    <button
+                                      type="button"
+                                      disabled={regeneratingSlipId === hSlip.id}
+                                      onClick={() => handleDeleteTrackerSlip(hSlip)}
+                                      title="Delete entire slip"
+                                      className="font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1 transition-colors disabled:opacity-50"
+                                    >
+                                      <Trash2 size={12} />
+                                      <span>Delete Slip</span>
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             </div>
