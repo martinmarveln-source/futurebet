@@ -2012,7 +2012,95 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { action, slipId, stake, matches: payloadMatches, combinedOdds, title, excludedMatches, matchName, matchNames } = body;
+    const { action, slipId, stake, matches: payloadMatches, combinedOdds, title, excludedMatches, matchName, matchNames, legIndex, ftScore, forceStatus } = body;
+
+    if (action === "resettled_all_pending") {
+      if (role !== "admin") {
+        return NextResponse.json({ error: "Admin access required to re-settle slips." }, { status: 403 });
+      }
+      await autoSettlePendingSlips();
+      return NextResponse.json({
+        success: true,
+        message: "All pending slips re-evaluated against official FT scores.",
+      });
+    }
+
+    if (action === "manual_settle_leg") {
+      if (role !== "admin") {
+        return NextResponse.json({ error: "Admin access required to manually settle legs." }, { status: 403 });
+      }
+      const sid = String(slipId || "");
+      if (!sid) {
+        return NextResponse.json({ error: "slipId is required." }, { status: 400 });
+      }
+
+      const rawScore = ftScore !== undefined && ftScore !== null ? String(ftScore).trim() : "";
+      let normalizedScore: string | null = null;
+      if (rawScore) {
+        const parsed = parseFtScore(rawScore);
+        if (!parsed) {
+          return NextResponse.json({ error: "Invalid FT score format. Use e.g. 2-1." }, { status: 400 });
+        }
+        normalizedScore = `${parsed.hg}-${parsed.ag}`;
+      }
+
+      await ensureHistoryTable();
+      const [slipRow] = await sql`SELECT * FROM curated_multi_bet_history WHERE id = ${sid} LIMIT 1`;
+      if (!slipRow) {
+        return NextResponse.json({ error: "Slip not found." }, { status: 404 });
+      }
+
+      const legs: PresetLeg[] = Array.isArray(slipRow.matches) ? slipRow.matches : JSON.parse(slipRow.matches || "[]");
+      let updated = false;
+      const targetKey = normalizeExcludedKey(String(matchName || ""));
+
+      for (let i = 0; i < legs.length; i++) {
+        const isTarget =
+          (typeof legIndex === "number" && i === legIndex) ||
+          (targetKey && normalizeExcludedKey(legs[i].match) === targetKey);
+        if (!isTarget) continue;
+
+        if (forceStatus && ["won", "lost", "pending"].includes(String(forceStatus))) {
+          legs[i].status = forceStatus;
+          if (forceStatus === "pending") legs[i].ftScore = null;
+          else if (normalizedScore) legs[i].ftScore = normalizedScore;
+        } else if (normalizedScore) {
+          legs[i].ftScore = normalizedScore;
+          legs[i].status = evaluateLegOutcome(legs[i].selectedMarket, legs[i].selectedOption, normalizedScore);
+        }
+        updated = true;
+        break;
+      }
+
+      if (!updated) {
+        return NextResponse.json({ error: "Target match leg not found in slip." }, { status: 404 });
+      }
+
+      const anyLost = legs.some((l) => l.status === "lost");
+      const allWon = legs.length > 0 && legs.every((l) => l.status === "won");
+      const newStatus = anyLost ? "lost" : allWon ? "won" : "pending";
+      const settledDateVal =
+        newStatus !== "pending"
+          ? (slipRow.settled_date ? toSafeDateISO(slipRow.settled_date) : getLagosDateISO(0))
+          : null;
+
+      await sql`
+        UPDATE curated_multi_bet_history
+        SET matches = ${JSON.stringify(legs)},
+            status = ${newStatus},
+            settled_date = ${settledDateVal},
+            updated_at = NOW()
+        WHERE id = ${sid}
+      `;
+
+      return NextResponse.json({
+        success: true,
+        slipStatus: newStatus,
+        message: normalizedScore
+          ? `Settled ${matchName || "leg"} with FT ${normalizedScore} (Slip: ${newStatus.toUpperCase()}).`
+          : `Updated leg status (Slip: ${newStatus.toUpperCase()}).`,
+      });
+    }
 
     if (action === "regenerate_slip") {
       if (role !== "admin") {

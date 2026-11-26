@@ -114,6 +114,9 @@ export default function MultiBetHub({
   // Admin delete+regenerate — tracks which leg indices have been marked for removal per slip
   const [removedLegs, setRemovedLegs] = useState<Record<string, Set<number>>>({});
   const [regeneratingSlipId, setRegeneratingSlipId] = useState<string | null>(null);
+  // Admin settlement audit — inline FT score editor & re-settle all pending
+  const [editingLeg, setEditingLeg] = useState<{ slipId: string; idx: number; score: string } | null>(null);
+  const [resettlingAll, setResettlingAll] = useState(false);
 
   // Lookup full match stats from /api/matches so TeamComparisonModal displays real PPG/goals/H2H/recent form
   const handleOpenH2H = useCallback(async (leg: any) => {
@@ -314,6 +317,60 @@ export default function MultiBetHub({
       toast.error("Failed to delete slip.");
     } finally {
       setRegeneratingSlipId(null);
+    }
+  }, []);
+
+  // Admin: manually settle or correct a leg's official FT score
+  const handleManualSettleLeg = useCallback(async (slipId: string, idx: number, matchName: string, ftScore: string) => {
+    if (!slipId || !ftScore.trim()) return;
+    setRegeneratingSlipId(slipId);
+    try {
+      const res = await fetch("/api/multi-bet-presets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "manual_settle_leg",
+          slipId,
+          legIndex: idx,
+          matchName,
+          ftScore: ftScore.trim(),
+        }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        toast.success(result.message || "Leg settled.");
+        setEditingLeg(null);
+        refetchHistory();
+      } else {
+        toast.error(result.error || "Failed to settle leg.");
+      }
+    } catch {
+      toast.error("Failed to settle leg.");
+    } finally {
+      setRegeneratingSlipId(null);
+    }
+  }, []);
+
+  // Admin: re-run auto-settlement across all pending slips
+  const handleResettledAllPending = useCallback(async () => {
+    setResettlingAll(true);
+    try {
+      const res = await fetch("/api/multi-bet-presets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "resettled_all_pending" }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        toast.success(result.message || "Pending slips re-settled.");
+        refetchHistory();
+      } else {
+        toast.error(result.error || "Failed to re-settle slips.");
+      }
+    } catch {
+      toast.error("Failed to re-settle slips.");
+    } finally {
+      setResettlingAll(false);
     }
   }, []);
 
@@ -1382,16 +1439,35 @@ export default function MultiBetHub({
                       className={cn(
                         "px-3 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 border shadow-sm active:scale-95",
                         darkMode
-                          ? "bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
-                          : "bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100"
+                          ? "bg-blue-500/10 border-blue-500/30 text-blue-300 hover:bg-blue-500/20"
+                          : "bg-blue-50 border-blue-300 text-blue-800 hover:bg-blue-100"
                       )}
                     >
                       <RefreshCw
                         size={13}
-                        className={isHistoryLoading || isHistoryRefetching ? "animate-spin text-amber-400" : "text-amber-400"}
+                        className={isHistoryLoading || isHistoryRefetching ? "animate-spin" : ""}
                       />
                       <span>Sync Results</span>
                     </button>
+
+                    {/* Admin One-Click Re-Settle All Pending */}
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={handleResettledAllPending}
+                        disabled={resettlingAll}
+                        title="Admin: Re-evaluate all pending slips against latest official FT scores"
+                        className={cn(
+                          "px-3 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 border shadow-sm active:scale-95 disabled:opacity-50",
+                          darkMode
+                            ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25"
+                            : "bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-500"
+                        )}
+                      >
+                        <ShieldCheck size={13} />
+                        <span>{resettlingAll ? "Re-Settling..." : "Re-Settle Pending"}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -1399,29 +1475,29 @@ export default function MultiBetHub({
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4">
                   <div>
                     <div className="text-[10px] font-black uppercase text-slate-400">Verified Strike Rate</div>
-                    <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-400 mt-1 flex items-center gap-1.5">
-                      <span>{historyData?.summary?.strikeRate || "85.7%"}</span>
+                    <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-500 mt-1 flex items-center gap-1.5">
+                      <span>{historyData?.summary?.strikeRate || "0%"}</span>
                     </div>
                   </div>
 
                   <div>
                     <div className="text-[10px] font-black uppercase text-slate-400">Total Settled Slips</div>
-                    <div className="text-2xl sm:text-3xl font-black font-mono text-white mt-1">
+                    <div className={cn("text-2xl sm:text-3xl font-black font-mono mt-1", darkMode ? "text-white" : "text-slate-900")}>
                       {historyData?.summary?.totalSettled || 0}
                     </div>
                   </div>
 
                   <div>
                     <div className="text-[10px] font-black uppercase text-slate-400">Record (Won / Lost)</div>
-                    <div className="text-2xl sm:text-3xl font-black font-mono text-amber-400 mt-1">
+                    <div className={cn("text-2xl sm:text-3xl font-black font-mono mt-1", darkMode ? "text-blue-300" : "text-blue-700")}>
                       {historyData?.summary?.wonCount || 0}W - {historyData?.summary?.lostCount || 0}L
                     </div>
                   </div>
 
                   <div>
                     <div className="text-[10px] font-black uppercase text-slate-400">Net Return / Yield</div>
-                    <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-400 mt-1">
-                      {historyData?.summary?.roi || "+142%"}
+                    <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-500 mt-1">
+                      {historyData?.summary?.roi || "0%"}
                     </div>
                   </div>
                 </div>
@@ -1748,7 +1824,7 @@ export default function MultiBetHub({
                                               {leg.match}
                                             </span>
                                           </div>
-                                          <div className="text-[10px] text-slate-400 truncate flex items-center gap-1.5">
+                                          <div className="text-[10px] text-slate-400 truncate flex items-center gap-1.5 flex-wrap">
                                             <span>{leg.league}</span>
                                             {leg.ftScore && (
                                               <span
@@ -1760,10 +1836,69 @@ export default function MultiBetHub({
                                                 FT: {leg.ftScore}
                                               </span>
                                             )}
+                                            {isAdmin && editingLeg?.slipId === hSlip.id && editingLeg?.idx === idx && (
+                                              <form
+                                                onSubmit={(e) => {
+                                                  e.preventDefault();
+                                                  handleManualSettleLeg(hSlip.id, idx, leg.match, editingLeg.score);
+                                                }}
+                                                className="inline-flex items-center gap-1 ml-1"
+                                              >
+                                                <input
+                                                  type="text"
+                                                  value={editingLeg.score}
+                                                  onChange={(e) => setEditingLeg({ ...editingLeg, score: e.target.value })}
+                                                  placeholder="2-1"
+                                                  className={cn(
+                                                    "w-12 px-1.5 py-0.5 rounded border text-[11px] font-mono font-bold focus:outline-none",
+                                                    darkMode
+                                                      ? "bg-slate-900 border-blue-500/50 text-white"
+                                                      : "bg-white border-blue-500 text-slate-900"
+                                                  )}
+                                                  autoFocus
+                                                />
+                                                <button
+                                                  type="submit"
+                                                  className="p-0.5 rounded bg-emerald-600 text-white hover:bg-emerald-500"
+                                                  title="Save FT score & re-settle"
+                                                >
+                                                  <Check size={11} />
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => setEditingLeg(null)}
+                                                  className="p-0.5 rounded bg-slate-600 text-white hover:bg-slate-500"
+                                                  title="Cancel"
+                                                >
+                                                  <X size={11} />
+                                                </button>
+                                              </form>
+                                            )}
                                           </div>
                                         </div>
 
-                                        <div className="flex items-center gap-2 shrink-0">
+                                        <div className="flex items-center gap-1.5 shrink-0">
+                                          {isAdmin && (
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                setEditingLeg({
+                                                  slipId: hSlip.id,
+                                                  idx,
+                                                  score: leg.ftScore || "",
+                                                })
+                                              }
+                                              title="Admin: Set or correct official FT score"
+                                              className={cn(
+                                                "px-1.5 py-1 rounded-lg border text-[10px] font-black transition-all active:scale-95",
+                                                darkMode
+                                                  ? "border-slate-600 bg-slate-800 text-slate-200 hover:bg-slate-700"
+                                                  : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+                                              )}
+                                            >
+                                              FT
+                                            </button>
+                                          )}
                                           <button
                                             type="button"
                                             onClick={() => handleOpenH2H(leg)}
