@@ -2379,7 +2379,7 @@ const PremiumIntelligenceReport = React.memo(
 ===================================================================================== */
 
 export default function TeamComparisonModal({
-  match,
+  match: rawMatch = {},
   onClose,
   darkMode = false,
   currentUser: propUser = {},
@@ -2389,6 +2389,81 @@ export default function TeamComparisonModal({
 
   const [mounted, setMounted] = React.useState(false);
   const [showCopyMenu, setShowCopyMenu] = React.useState(false);
+  const [hydratedExtra, setHydratedExtra] = React.useState(null);
+
+  // Auto-hydrate when opened from Lite / VIP / MultiBet / Tracker payloads missing full stats
+  React.useEffect(() => {
+    setHydratedExtra(null);
+    const needsHydration =
+      !rawMatch?.H_Recent &&
+      !rawMatch?.A_Recent &&
+      !rawMatch?.H2H_Match &&
+      Number(rawMatch?.hppg || 0) === 0 &&
+      Number(rawMatch?.appg || 0) === 0 &&
+      Number(rawMatch?.hgs || 0) === 0 &&
+      Number(rawMatch?.ags || 0) === 0;
+    if (!needsHydration) return;
+
+    let cancelled = false;
+    const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const rawName = String(rawMatch?.match || "");
+    const parts = rawName.split(/\s+(?:-|–|—|vs\.?)\s+/i);
+    const hName = String(rawMatch?.homeTeam || parts[0] || "").trim();
+    const aName = String(rawMatch?.awayTeam || parts[1] || "").trim();
+    const hNorm = norm(hName);
+    const aNorm = norm(aName);
+    const mNorm = norm(rawName);
+
+    const findMatch = (pool) => {
+      if (!Array.isArray(pool)) return null;
+      return pool.find((m) => {
+        const mh = norm(m.homeTeam);
+        const ma = norm(m.awayTeam);
+        const mm = norm(m.match || `${m.homeTeam}${m.awayTeam}`);
+        if (mm && mNorm && mm === mNorm) return true;
+        if (hNorm && aNorm && mh && ma) {
+          return (mh.includes(hNorm) || hNorm.includes(mh)) && (ma.includes(aNorm) || aNorm.includes(ma));
+        }
+        return false;
+      });
+    };
+
+    const cached = typeof window !== "undefined" ? window.__futurebetFullMatchesCache : null;
+    if (cached && Date.now() - cached.ts < 5 * 60 * 1000) {
+      const found = findMatch(cached.matches);
+      if (found && !cancelled) setHydratedExtra(found);
+      return () => { cancelled = true; };
+    }
+
+    fetch("/api/matches")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const pool = Array.isArray(data?.matches) ? data.matches : [];
+        if (typeof window !== "undefined" && pool.length > 0) {
+          window.__futurebetFullMatchesCache = { ts: Date.now(), matches: pool };
+        }
+        const found = findMatch(pool);
+        if (found && !cancelled) setHydratedExtra(found);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [rawMatch]);
+
+  const match = React.useMemo(() => {
+    if (!hydratedExtra) return rawMatch || {};
+    return {
+      ...(rawMatch || {}),
+      ...hydratedExtra,
+      selectedMarket: rawMatch?.selectedMarket || hydratedExtra.selectedMarket,
+      selectedOption: rawMatch?.selectedOption || hydratedExtra.selectedOption,
+      odds: rawMatch?.odds || hydratedExtra.odds,
+      country: hydratedExtra.country || rawMatch?.country,
+      league: hydratedExtra.league || rawMatch?.league,
+    };
+  }, [rawMatch, hydratedExtra]);
 
   React.useEffect(() => {
     setMounted(true);
