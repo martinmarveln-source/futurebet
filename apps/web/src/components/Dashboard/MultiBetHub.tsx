@@ -23,6 +23,7 @@ import {
   ChevronRight,
   CheckCircle2,
   XCircle,
+  X,
   Image as ImageIcon,
   Coins,
   BookmarkPlus,
@@ -30,6 +31,7 @@ import {
   Award,
   BarChart3,
   Filter,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import useBetslipStore from "@/store/betslipStore";
@@ -37,6 +39,7 @@ import { formatSlipLeague, formatSlipMarketLabel, formatNaira } from "@/utils/ma
 import { SlipCardModal } from "./SlipCardModal";
 import BookingCodeModal from "./BookingCodeModal";
 import UpgradeButton from "./UpgradeButton";
+import TeamComparisonModal from "./TeamComparisonModal";
 
 function cn(...classes: any[]) {
   return classes.filter(Boolean).join(" ");
@@ -105,11 +108,60 @@ export default function MultiBetHub({
   const [trackingSlipId, setTrackingSlipId] = useState<string | null>(null);
   const [bookingModalSlip, setBookingModalSlip] = useState<any | null>(null);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
+  // H2H button state — opens TeamComparisonModal pre-seeded with the selected match
+  const [h2hModal, setH2hModal] = useState<{ home: string; away: string } | null>(null);
+  // Admin delete+regenerate — tracks which leg indices have been marked for removal per slip
+  const [removedLegs, setRemovedLegs] = useState<Record<string, Set<number>>>({});
+  const [regeneratingSlipId, setRegeneratingSlipId] = useState<string | null>(null);
 
   const handleOpenBookingModal = useCallback((slip: any) => {
     setBookingModalSlip(slip);
     setBookingModalOpen(true);
   }, []);
+
+  // Admin: toggle a leg for removal
+  const handleToggleRemoveLeg = useCallback((slipId: string, idx: number) => {
+    setRemovedLegs((prev) => {
+      const existing = new Set(prev[slipId] || []);
+      if (existing.has(idx)) {
+        existing.delete(idx);
+      } else {
+        existing.add(idx);
+      }
+      return { ...prev, [slipId]: existing };
+    });
+  }, []);
+
+  // Admin: regenerate slip excluding removed legs
+  const handleRegenerateSlip = useCallback(async (slip: any, removedIndices: Set<number>) => {
+    const excludedMatches = Array.from(removedIndices).map((i) => slip.matches?.[i]?.match).filter(Boolean);
+    if (!excludedMatches.length) return;
+    setRegeneratingSlipId(slip.slipId || slip.id);
+    try {
+      const res = await fetch("/api/multi-bet-presets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "regenerate_slip",
+          slipId: slip.slipId || slip.id,
+          excludedMatches,
+          scope,
+        }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        toast.success("Slip regenerated without removed matches.");
+        setRemovedLegs((prev) => { const copy = { ...prev }; delete copy[slip.slipId || slip.id]; return copy; });
+        refetch();
+      } else {
+        toast.error(result.error || "Failed to regenerate slip.");
+      }
+    } catch {
+      toast.error("Failed to regenerate slip.");
+    } finally {
+      setRegeneratingSlipId(null);
+    }
+  }, [scope]);
 
   const addMatch = useBetslipStore((s) => s.addMatch);
   const betslipMatches = useBetslipStore((s) => s.matches);
@@ -486,6 +538,33 @@ export default function MultiBetHub({
               </div>
             </div>
 
+            {/* ISSUE 1: INSUFFICIENT TODAY MATCHES BANNER — Never use tomorrow's fixtures */}
+            {scope === "today" && data?.insufficientTodayMatches && !isLoading && (
+              <div
+                className={cn(
+                  "p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs animate-in fade-in duration-300",
+                  darkMode
+                    ? "bg-slate-900/60 border-slate-600/40 text-slate-300"
+                    : "bg-slate-100 border-slate-300 text-slate-700"
+                )}
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-slate-500/20 text-slate-400 flex items-center justify-center shrink-0 text-base">
+                    ⚠️
+                  </div>
+                  <div>
+                    <div className={cn("font-black uppercase tracking-wide", darkMode ? "text-slate-100" : "text-slate-900")}>
+                      Only {data.availableTodayCount ?? 0} Matches Available Today
+                    </div>
+                    <div className={cn("text-[11px] mt-0.5", darkMode ? "text-slate-400" : "text-slate-600")}>
+                      Not enough today's fixtures to generate a full slip. The selections below are built from what's available.
+                      Check back later or switch to <strong>Weekend Slips</strong> for more options.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* JACKPOT SCOPE EXPLANATION BANNER */}
             {scope === "jackpot" && (
               <div
@@ -607,7 +686,7 @@ export default function MultiBetHub({
                               slip.confidence >= 80
                                 ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
                                 : slip.confidence >= 60
-                                ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                                ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
                                 : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
                             )}
                           >
@@ -714,13 +793,19 @@ export default function MultiBetHub({
                           {slip.matches.map((leg, idx) => {
                             const cleanLeague = formatSlipLeague(leg.country, leg.league);
                             const marketLabel = formatSlipMarketLabel(leg.selectedMarket, leg.selectedOption);
+                            const slipKey = slip.slipId || slip.id;
+                            const isRemoved = removedLegs[slipKey]?.has(idx);
 
                             return (
                               <div
                                 key={idx}
                                 className={cn(
                                   "p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 text-xs",
-                                  darkMode ? "bg-white/[0.03] border-white/5" : "bg-slate-50 border-slate-200"
+                                  isRemoved
+                                    ? "opacity-45 bg-rose-950/20 border-rose-500/30"
+                                    : darkMode
+                                    ? "bg-white/[0.03] border-white/5"
+                                    : "bg-slate-50 border-slate-200"
                                 )}
                               >
                                 <div className="flex flex-col gap-0.5 min-w-0 flex-1">
@@ -729,7 +814,8 @@ export default function MultiBetHub({
                                     <span
                                       className={cn(
                                         "font-bold truncate text-xs sm:text-sm",
-                                        darkMode ? "text-slate-200" : "text-slate-800"
+                                        isRemoved && "line-through text-rose-400",
+                                        !isRemoved && (darkMode ? "text-slate-200" : "text-slate-800")
                                       )}
                                     >
                                       {leg.match}
@@ -742,15 +828,68 @@ export default function MultiBetHub({
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-2 shrink-0">
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {/* H2H / Compare Button */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const parts = String(leg.match || "").split(/\s+(?:-|–|—|vs\.?)\s+/i);
+                                      setH2hModal({
+                                        match: leg.match,
+                                        homeTeam: parts[0]?.trim() || leg.match,
+                                        awayTeam: parts[1]?.trim() || "",
+                                        league: leg.league,
+                                        country: leg.country,
+                                        date: leg.date,
+                                        time: leg.time,
+                                        selectedMarket: leg.selectedMarket,
+                                        selectedOption: leg.selectedOption,
+                                        odds: leg.odds,
+                                      });
+                                    }}
+                                    title="View H2H & Team Comparison"
+                                    className={cn(
+                                      "p-1.5 rounded-lg border transition-all active:scale-95",
+                                      darkMode
+                                        ? "border-blue-500/30 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20"
+                                        : "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                                    )}
+                                  >
+                                    <BarChart3 size={13} />
+                                  </button>
+
                                   <div className="text-right">
-                                    <div className="px-2.5 py-0.5 rounded-lg text-[11px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                                    <div
+                                      className={cn(
+                                        "px-2.5 py-0.5 rounded-lg text-[11px] font-black uppercase tracking-wider border",
+                                        darkMode
+                                          ? "bg-sky-500/15 text-sky-200 border-sky-500/30"
+                                          : "bg-sky-100 text-sky-800 border-sky-200"
+                                      )}
+                                    >
                                       {marketLabel}
                                     </div>
                                     <div className="text-[10px] font-mono text-slate-400 font-bold mt-0.5">
                                       @{Number(leg.odds || 0).toFixed(2)}
                                     </div>
                                   </div>
+
+                                  {/* Admin Delete Leg Toggle */}
+                                  {isAdmin && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleRemoveLeg(slipKey, idx)}
+                                      title={isRemoved ? "Restore match" : "Remove match from slip"}
+                                      className={cn(
+                                        "p-1.5 rounded-lg border transition-all active:scale-95 ml-0.5",
+                                        isRemoved
+                                          ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
+                                          : "border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20"
+                                      )}
+                                    >
+                                      {isRemoved ? <RefreshCw size={12} /> : <Trash2 size={12} />}
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             );
@@ -787,6 +926,26 @@ export default function MultiBetHub({
                         </div>
                       )}
                     </div>
+
+                    {/* ADMIN REGENERATE BAR (when matches are marked for removal) */}
+                    {isAdmin && !slip.isLocked && (removedLegs[slip.slipId || slip.id]?.size || 0) > 0 && (
+                      <div className="mb-3 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-bold text-rose-300">
+                          {removedLegs[slip.slipId || slip.id].size} match(es) marked for removal
+                        </span>
+                        <button
+                          type="button"
+                          disabled={regeneratingSlipId === (slip.slipId || slip.id)}
+                          onClick={() => handleRegenerateSlip(slip, removedLegs[slip.slipId || slip.id])}
+                          className="px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider bg-rose-600 hover:bg-rose-500 text-white transition-all flex items-center gap-1.5 shadow-sm active:scale-95 disabled:opacity-50"
+                        >
+                          <RefreshCw size={12} className={regeneratingSlipId === (slip.slipId || slip.id) ? "animate-spin" : ""} />
+                          <span>
+                            {regeneratingSlipId === (slip.slipId || slip.id) ? "Regenerating..." : "Regenerate Slip"}
+                          </span>
+                        </button>
+                      </div>
+                    )}
 
                     {/* ACTION BAR: 1-Click BetSlip, Track Slip, Share Image, and Share Text */}
                     <div className="pt-4 border-t border-white/10 mt-auto flex items-center justify-between gap-2 flex-wrap">
@@ -859,11 +1018,11 @@ export default function MultiBetHub({
                             className={cn(
                               "px-3 py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 shrink-0 active:scale-95",
                               darkMode
-                                ? "border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
-                                : "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                                ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20"
+                                : "border-indigo-300 bg-indigo-50 text-indigo-800 hover:bg-indigo-100"
                             )}
                           >
-                            <ImageIcon size={14} className="text-amber-400" />
+                            <ImageIcon size={14} className="text-indigo-400" />
                             <span>Share</span>
                           </button>
 
@@ -1453,7 +1612,12 @@ export default function MultiBetHub({
                                           <div className="text-[10px] text-slate-400 truncate flex items-center gap-1.5">
                                             <span>{leg.league}</span>
                                             {leg.ftScore && (
-                                              <span className="px-1.5 py-0.2 rounded bg-white/10 font-mono font-bold text-white">
+                                              <span
+                                                className={cn(
+                                                  "px-1.5 py-0.2 rounded font-mono font-bold",
+                                                  darkMode ? "bg-white/15 text-white" : "bg-slate-200 text-slate-900"
+                                                )}
+                                              >
                                                 FT: {leg.ftScore}
                                               </span>
                                             )}
@@ -1461,8 +1625,42 @@ export default function MultiBetHub({
                                         </div>
 
                                         <div className="flex items-center gap-2 shrink-0">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const parts = String(leg.match || "").split(/\s+(?:-|–|—|vs\.?)\s+/i);
+                                              setH2hModal({
+                                                match: leg.match,
+                                                homeTeam: parts[0]?.trim() || leg.match,
+                                                awayTeam: parts[1]?.trim() || "",
+                                                league: leg.league,
+                                                country: leg.country,
+                                                date: leg.date,
+                                                time: leg.time,
+                                                selectedMarket: leg.selectedMarket,
+                                                selectedOption: leg.selectedOption,
+                                                odds: leg.odds,
+                                              });
+                                            }}
+                                            title="View H2H & Team Comparison"
+                                            className={cn(
+                                              "p-1.5 rounded-lg border transition-all active:scale-95",
+                                              darkMode
+                                                ? "border-blue-500/30 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20"
+                                                : "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                                            )}
+                                          >
+                                            <BarChart3 size={12} />
+                                          </button>
                                           <div className="text-right">
-                                            <div className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-white/10 text-amber-300">
+                                            <div
+                                              className={cn(
+                                                "px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider border",
+                                                darkMode
+                                                  ? "bg-sky-500/15 text-sky-200 border-sky-500/20"
+                                                  : "bg-sky-100 text-sky-800 border-sky-200"
+                                              )}
+                                            >
                                               {formatSlipMarketLabel(leg.selectedMarket, leg.selectedOption)}
                                             </div>
                                             <div className="text-[10px] font-mono text-slate-400 font-bold mt-0.5">
@@ -1509,7 +1707,7 @@ export default function MultiBetHub({
                                   <button
                                     type="button"
                                     onClick={() => setCardModalSlip(hSlip)}
-                                    className="font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors"
+                                    className="font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors"
                                   >
                                     <ImageIcon size={12} />
                                     <span>Slip Card</span>
@@ -1559,6 +1757,15 @@ export default function MultiBetHub({
             refetchHistory();
             refetch();
           }}
+        />
+      )}
+
+      {/* H2H & TEAM COMPARISON MODAL */}
+      {h2hModal && (
+        <TeamComparisonModal
+          match={h2hModal}
+          onClose={() => setH2hModal(null)}
+          darkMode={darkMode}
         />
       )}
     </div>

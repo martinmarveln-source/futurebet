@@ -86,6 +86,98 @@ async function ensureHistoryTable() {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Admin Match Exclusions (DB + in-memory fallback)                  */
+/* ------------------------------------------------------------------ */
+const excludedMatchesCache = new Map<string, Set<string>>();
+
+async function ensureExcludedTable() {
+  if (!process.env.DATABASE_URL) return;
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS curated_excluded_matches (
+        slip_id TEXT NOT NULL,
+        match_name TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (slip_id, match_name)
+      );
+    `;
+  } catch (err) {
+    console.warn("Failed to ensure curated_excluded_matches table:", err);
+  }
+}
+
+function normalizeExcludedKey(name: string): string {
+  return String(name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+async function addExcludedForSlip(slipId: string, matches: string[]) {
+  if (!slipId || !matches.length) return;
+  const set = excludedMatchesCache.get(slipId) || new Set<string>();
+  for (const m of matches) {
+    const k = normalizeExcludedKey(m);
+    if (k) set.add(k);
+  }
+  excludedMatchesCache.set(slipId, set);
+
+  if (process.env.DATABASE_URL) {
+    try {
+      await ensureExcludedTable();
+      for (const m of matches) {
+        const clean = String(m || "").trim();
+        if (!clean) continue;
+        await sql`
+          INSERT INTO curated_excluded_matches (slip_id, match_name)
+          VALUES (${slipId}, ${clean})
+          ON CONFLICT (slip_id, match_name) DO NOTHING;
+        `;
+      }
+    } catch (err) {
+      console.warn("Failed to persist excluded matches:", err);
+    }
+  }
+}
+
+async function getExcludedMapForSlips(slipIds: string[]): Promise<Map<string, Set<string>>> {
+  const result = new Map<string, Set<string>>();
+  for (const id of slipIds) {
+    const cached = excludedMatchesCache.get(id);
+    if (cached) result.set(id, new Set(cached));
+  }
+
+  if (process.env.DATABASE_URL && slipIds.length > 0) {
+    try {
+      await ensureExcludedTable();
+      const rows = await sql`
+        SELECT slip_id, match_name FROM curated_excluded_matches
+        WHERE slip_id = ANY(${slipIds});
+      `;
+      if (rows && rows.length > 0) {
+        for (const r of rows) {
+          const set = result.get(r.slip_id) || new Set<string>();
+          const k = normalizeExcludedKey(r.match_name);
+          if (k) set.add(k);
+          result.set(r.slip_id, set);
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to load excluded matches:", err);
+    }
+  }
+  return result;
+}
+
+function filterPoolByExcluded(pool: any[], slipId: string, excludedMap: Map<string, Set<string>>): any[] {
+  const excludedSet = excludedMap.get(slipId);
+  if (!excludedSet || excludedSet.size === 0) return pool;
+  return pool.filter((m) => {
+    const matchName = m.match || `${m.homeTeam || ""} - ${m.awayTeam || ""}`;
+    const k1 = normalizeExcludedKey(matchName);
+    const k2 = normalizeExcludedKey(`${m.homeTeam || ""} vs ${m.awayTeam || ""}`);
+    return !excludedSet.has(k1) && !excludedSet.has(k2);
+  });
+}
+
+/* ------------------------------------------------------------------ */
 /*  Safe number helper                                                */
 /* ------------------------------------------------------------------ */
 function toNum(val: any, fallback = 0): number {
@@ -218,15 +310,31 @@ function evaluateLegOutcome(market: string, option: string, ftScore: string): "w
   const mkt = (market || "").toLowerCase();
   const opt = (option || "").toLowerCase();
 
-  // 1. Double Chance
-  if (mkt.includes("double") || opt.includes("1x") || opt.includes("x2") || opt.includes("12")) {
+  // 1. Double Chance — handle all text variants (1X, X2, 12, "Home or Draw", "Away Win or Draw", etc.)
+  const isDoubleChanceMkt = mkt.includes("double");
+  const isDoubleChanceOpt =
+    opt.includes("1x") || opt.includes("x2") || opt.includes("12") ||
+    opt.includes("home or draw") || opt.includes("home win or draw") ||
+    opt.includes("draw or away") || opt.includes("away win or draw") || opt.includes("draw or away win") ||
+    opt.includes("home or away") || opt.includes("home win or away") || opt.includes("home or away win");
+
+  if (isDoubleChanceMkt || isDoubleChanceOpt) {
     const homeOrDraw = hg >= ag;
     const drawOrAway = ag >= hg;
     const homeOrAway = hg !== ag;
 
-    if (opt.includes("1x")) return homeOrDraw ? "won" : "lost";
-    if (opt.includes("x2")) return drawOrAway ? "won" : "lost";
-    if (opt.includes("12")) return homeOrAway ? "won" : "lost";
+    // Home or Draw variants
+    if (opt.includes("1x") || opt.includes("home or draw") || opt.includes("home win or draw"))
+      return homeOrDraw ? "won" : "lost";
+    // Away or Draw variants
+    if (opt.includes("x2") || opt.includes("draw or away") || opt.includes("away win or draw") || opt.includes("draw or away win"))
+      return drawOrAway ? "won" : "lost";
+    // Home or Away variants (no draw)
+    if (opt.includes("12") || opt.includes("home or away") || opt.includes("home win or away") || opt.includes("home or away win"))
+      return homeOrAway ? "won" : "lost";
+
+    // Fallback when mkt is Double Chance but option text is unrecognised
+    return "pending";
   }
 
   // 2. Both Teams To Score (BTTS)
@@ -246,10 +354,10 @@ function evaluateLegOutcome(market: string, option: string, ftScore: string): "w
     if (opt.includes("under")) return total < line ? "won" : "lost";
   }
 
-  // 4. Full Time Result (1X2)
-  if (mkt.includes("result") || mkt.includes("1x2") || mkt.includes("match")) {
-    if (opt.includes("home") || opt === "1") return hg > ag ? "won" : "lost";
-    if (opt.includes("away") || opt === "2") return ag > hg ? "won" : "lost";
+  // 4. Full Time Result (1X2) — also handles market stored as plain "1X2", "Home", "Away", "Draw" options
+  if (mkt.includes("result") || mkt.includes("1x2") || mkt.includes("match") || mkt === "1x2" || mkt === "fulltime" || mkt === "full time result") {
+    if (opt.includes("home") || opt === "1" || opt === "home win") return hg > ag ? "won" : "lost";
+    if (opt.includes("away") || opt === "2" || opt === "away win") return ag > hg ? "won" : "lost";
     if (opt.includes("draw") || opt === "x") return hg === ag ? "won" : "lost";
   }
 
@@ -1479,18 +1587,18 @@ export async function GET(req: Request) {
     const { sunISO: weekendSunISO } = getUpcomingWeekendRange();
 
     // ------------------------------------------------------------------
-    // POOL 1: TODAY POOL (Strict calendar today, or next 24h if late night)
+    // POOL 1: TODAY POOL (Strict calendar today ONLY - NEVER use tomorrow)
+    // If fewer than 4 matches exist for today, we still only use today's matches
+    // and surface a clear insufficientTodayMatches flag instead of silently
+    // pulling in tomorrow's fixtures.
     // ------------------------------------------------------------------
     const todayMatches = allMatches.filter((m) => {
       const d = getMatchDateStr(m);
       return d === todayISO;
     });
-    const candidateToday = todayMatches.length >= 4
-      ? todayMatches
-      : allMatches.filter((m) => {
-          const d = getMatchDateStr(m);
-          return d === todayISO || d === tomorrowISO;
-        });
+    // HARD RULE: Never use tomorrowISO for today's slip – state it clearly instead
+    const candidateToday = todayMatches;
+    const insufficientTodayMatches = scope === "today" && todayMatches.length < 4;
 
     // ------------------------------------------------------------------
     // POOL 2: WEEKEND POOL (Strictly Friday >= 17:00 WAT, Saturday, Sunday)
@@ -1564,10 +1672,23 @@ export async function GET(req: Request) {
     // 3. 15-Day Fortnight Builder: 3,500x - 4,800x (Min ₦3,500,000 return)
     // 4. 15+ Days Ultra Marathon: 5,000x - 10,000x+ (Min ₦5,000,000 return)
     // ==================================================================
+    const allSlipIdsForExclusion = [
+      `jackpot_weekend_1000x_${scope}_${todayISO}`,
+      `jackpot_7day_1000x_${scope}_${todayISO}`,
+      `jackpot_15day_1000x_${scope}_${todayISO}`,
+      `jackpot_marathon_1000x_${scope}_${todayISO}`,
+      `banker_2x_${scope}_${todayISO}`,
+      `value_3x_${scope}_${todayISO}`,
+      `multiplier_5x_${scope}_${todayISO}`,
+      `mega_10x_${scope}_${todayISO}`,
+    ];
+    const excludedMap = await getExcludedMapForSlips(allSlipIdsForExclusion);
+
     const jackpotUsageMap = new Map<string, number>();
 
     // 1. Weekend ₦1M Mega Jackpot (Friday >= 17:00 through Sunday)
-    const legsWeekend1000x = buildSlip(candidateWeekend, 1000.0, 1600.0, ["safe", "medium", "aggressive"], 14, 18, 2, weekendSunISO, jackpotUsageMap, 2);
+    const poolWeekend1000x = filterPoolByExcluded(candidateWeekend, `jackpot_weekend_1000x_${scope}_${todayISO}`, excludedMap);
+    const legsWeekend1000x = buildSlip(poolWeekend1000x, 1000.0, 1600.0, ["safe", "medium", "aggressive"], 14, 18, 2, weekendSunISO, jackpotUsageMap, 2);
     const oddsWeekend1000x = legsWeekend1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const finalOddsWeekend1000x = Number(Math.max(1000.0, oddsWeekend1000x).toFixed(2));
     const winWeekend1000x = Math.max(1000000, Math.round(1000 * finalOddsWeekend1000x));
@@ -1576,7 +1697,8 @@ export async function GET(req: Request) {
       : 72;
 
     // 2. 7-Day ₦2M Syndicate Acca (Monday to Sunday)
-    const legs7Day1000x = buildSlip(candidate7Day, 2000.0, 2800.0, ["safe", "medium", "aggressive"], 16, 21, 2, sundayISO, jackpotUsageMap, 2);
+    const pool7Day1000x = filterPoolByExcluded(candidate7Day, `jackpot_7day_1000x_${scope}_${todayISO}`, excludedMap);
+    const legs7Day1000x = buildSlip(pool7Day1000x, 2000.0, 2800.0, ["safe", "medium", "aggressive"], 16, 21, 2, sundayISO, jackpotUsageMap, 2);
     const odds7Day1000x = legs7Day1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const finalOdds7Day1000x = Number(Math.max(2000.0, odds7Day1000x).toFixed(2));
     const win7Day1000x = Math.max(2000000, Math.round(1000 * finalOdds7Day1000x));
@@ -1585,7 +1707,8 @@ export async function GET(req: Request) {
       : 70;
 
     // 3. 15-Day ₦3.5M Fortnight Builder (Next 15 days)
-    const legs15Day1000x = buildSlip(candidate15Day, 3500.0, 4800.0, ["safe", "medium", "aggressive"], 18, 24, 3, day15ISO, jackpotUsageMap, 2);
+    const pool15Day1000x = filterPoolByExcluded(candidate15Day, `jackpot_15day_1000x_${scope}_${todayISO}`, excludedMap);
+    const legs15Day1000x = buildSlip(pool15Day1000x, 3500.0, 4800.0, ["safe", "medium", "aggressive"], 18, 24, 3, day15ISO, jackpotUsageMap, 2);
     const odds15Day1000x = legs15Day1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const finalOdds15Day1000x = Number(Math.max(3500.0, odds15Day1000x).toFixed(2));
     const win15Day1000x = Math.max(3500000, Math.round(1000 * finalOdds15Day1000x));
@@ -1594,7 +1717,8 @@ export async function GET(req: Request) {
       : 68;
 
     // 4. 15+ Days ₦5M+ Ultra Marathon (16 to 30 days maximum calendar cap)
-    const legsMarathon1000x = buildSlip(finalMarathonPool, 5000.0, 12000.0, ["safe", "medium", "aggressive"], 22, 28, 3, day30ISO, jackpotUsageMap, 2);
+    const poolMarathon1000x = filterPoolByExcluded(finalMarathonPool, `jackpot_marathon_1000x_${scope}_${todayISO}`, excludedMap);
+    const legsMarathon1000x = buildSlip(poolMarathon1000x, 5000.0, 12000.0, ["safe", "medium", "aggressive"], 22, 28, 3, day30ISO, jackpotUsageMap, 2);
     const oddsMarathon1000x = legsMarathon1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const finalOddsMarathon1000x = Number(Math.max(5000.0, oddsMarathon1000x).toFixed(2));
     const winMarathon1000x = Math.max(5000000, Math.round(1000 * finalOddsMarathon1000x));
@@ -1681,19 +1805,23 @@ export async function GET(req: Request) {
     const activePool = scope === "weekend" ? candidateWeekend : candidateToday;
     const standardUsageMap = new Map<string, number>();
 
-    const legs2x = buildSlip(activePool, 2.0, 2.45, ["safe"], 2, 3, 2, undefined, standardUsageMap, 2);
+    const pool2x = filterPoolByExcluded(activePool, `banker_2x_${scope}_${todayISO}`, excludedMap);
+    const legs2x = buildSlip(pool2x, 2.0, 2.45, ["safe"], 2, 3, 2, undefined, standardUsageMap, 2);
     const odds2x = legs2x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const conf2x = legs2x.length > 0 ? Math.round(legs2x.reduce((acc, l) => acc + l.confidence, 0) / legs2x.length) : 84;
 
-    const legs3x = buildSlip(activePool, 3.0, 3.85, ["safe", "medium"], 3, 4, 2, undefined, standardUsageMap, 2);
+    const pool3x = filterPoolByExcluded(activePool, `value_3x_${scope}_${todayISO}`, excludedMap);
+    const legs3x = buildSlip(pool3x, 3.0, 3.85, ["safe", "medium"], 3, 4, 2, undefined, standardUsageMap, 2);
     const odds3x = legs3x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const conf3x = legs3x.length > 0 ? Math.round(legs3x.reduce((acc, l) => acc + l.confidence, 0) / legs3x.length) : 74;
 
-    const legs5x = buildSlip(activePool, 5.0, 6.75, ["safe", "medium", "aggressive"], 4, 6, 2, undefined, standardUsageMap, 2);
+    const pool5x = filterPoolByExcluded(activePool, `multiplier_5x_${scope}_${todayISO}`, excludedMap);
+    const legs5x = buildSlip(pool5x, 5.0, 6.75, ["safe", "medium", "aggressive"], 4, 6, 2, undefined, standardUsageMap, 2);
     const odds5x = legs5x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const conf5x = legs5x.length > 0 ? Math.round(legs5x.reduce((acc, l) => acc + l.confidence, 0) / legs5x.length) : 58;
 
-    const legs10x = buildSlip(activePool, 10.0, 14.50, ["safe", "medium", "aggressive"], 6, 9, 2, undefined, standardUsageMap, 2);
+    const pool10x = filterPoolByExcluded(activePool, `mega_10x_${scope}_${todayISO}`, excludedMap);
+    const legs10x = buildSlip(pool10x, 10.0, 14.50, ["safe", "medium", "aggressive"], 6, 9, 2, undefined, standardUsageMap, 2);
     const odds10x = legs10x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const conf10x = legs10x.length > 0 ? Math.round(legs10x.reduce((acc, l) => acc + l.confidence, 0) / legs10x.length) : 45;
 
@@ -1824,6 +1952,9 @@ export async function GET(req: Request) {
       generatedAt: new Date().toISOString(),
       userTier,
       slips: enhancedSlips,
+      // Issue 1: Surfaces clearly when today's match pool is thin – never use tomorrow's fixtures
+      insufficientTodayMatches: insufficientTodayMatches || false,
+      availableTodayCount: todayMatches.length,
     });
   } catch (error: any) {
     console.error("Multi-Bet Presets GET error:", error);
@@ -1853,7 +1984,21 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { action, slipId, stake, matches: payloadMatches, combinedOdds, title } = body;
+    const { action, slipId, stake, matches: payloadMatches, combinedOdds, title, excludedMatches } = body;
+
+    if (action === "regenerate_slip") {
+      if (role !== "admin") {
+        return NextResponse.json({ error: "Admin access required to regenerate slips." }, { status: 403 });
+      }
+      if (!slipId || !Array.isArray(excludedMatches) || excludedMatches.length === 0) {
+        return NextResponse.json({ error: "slipId and excludedMatches are required." }, { status: 400 });
+      }
+      await addExcludedForSlip(String(slipId), excludedMatches.map(String));
+      return NextResponse.json({
+        success: true,
+        message: "Removed match(es) excluded. Slip will regenerate without them.",
+      });
+    }
 
     if (action === "track_personal") {
       await ensureHistoryTable();
