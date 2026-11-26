@@ -2469,8 +2469,18 @@ export default function TeamComparisonModal({
       awayTeam: (parts[1] || "Away Team").trim(),
     };
   }, [match.match, match.homeTeam, match.awayTeam]);
-  const country = match.country || "";
-  const league = match.league || "";
+  const { country, league } = React.useMemo(() => {
+    const rawCountry = String(match.country || "").trim();
+    const rawLeague = String(match.league || "").trim();
+    if (!rawCountry && rawLeague.includes(" - ")) {
+      const idx = rawLeague.indexOf(" - ");
+      return {
+        country: rawLeague.slice(0, idx).trim(),
+        league: rawLeague.slice(idx + 3).trim(),
+      };
+    }
+    return { country: rawCountry, league: rawLeague };
+  }, [match.country, match.league]);
 
   const { homePos, awayPos } = React.useMemo(() => {
     const t = match.table;
@@ -2509,7 +2519,7 @@ export default function TeamComparisonModal({
   React.useEffect(() => {
     if (!country || !league) return;
 
-    fetch(`/api/league-table?country=${country}&league=${league}`)
+    fetch(`/api/league-table?country=${encodeURIComponent(country)}&league=${encodeURIComponent(league)}`)
       .then((res) => res.json())
       .then((data) => setLeagueTable(data.table || []))
       .catch(() => setLeagueTable([]));

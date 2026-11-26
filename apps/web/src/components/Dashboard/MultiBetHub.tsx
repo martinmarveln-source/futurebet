@@ -161,7 +161,14 @@ export default function MultiBetHub({
           return false;
         });
         if (found) {
-          setH2hModal({ ...found, ...fallbackObj, homeTeam: found.homeTeam || home, awayTeam: found.awayTeam || away });
+          setH2hModal({
+            ...found,
+            ...fallbackObj,
+            homeTeam: found.homeTeam || home,
+            awayTeam: found.awayTeam || away,
+            country: found.country || leg.country || "",
+            league: found.league || leg.league || "",
+          });
           return;
         }
       }
