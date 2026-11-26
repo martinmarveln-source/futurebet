@@ -153,7 +153,7 @@ function SmileBanner({ darkMode, user, bestTodayCount, betslipCount, isPro }) {
     : "Explore smart, compare quickly, and build something beautiful.";
 
   return (
-    <section className="relative overflow-hidden rounded-[30px] p-[1px] bg-gradient-to-br from-blue-500/30 via-purple-500/20 to-cyan-400/20">
+    <section className="relative overflow-hidden rounded-[30px] p-[1px] bg-gradient-to-br from-blue-500/30 via-indigo-500/20 to-cyan-400/20">
       <div
         className={cn(
           "relative overflow-hidden rounded-[29px] border px-4 py-4 backdrop-blur-xl sm:px-6 sm:py-5",
@@ -163,11 +163,11 @@ function SmileBanner({ darkMode, user, bestTodayCount, betslipCount, isPro }) {
         )}
       >
         <div className="pointer-events-none absolute -top-10 -left-8 h-40 w-40 rounded-full bg-blue-500/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-10 right-0 h-40 w-40 rounded-full bg-fuchsia-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-10 right-0 h-40 w-40 rounded-full bg-blue-500/10 blur-3xl" />
 
         <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="rounded-2xl bg-gradient-to-br from-yellow-400 via-amber-400 to-orange-400 p-3 shadow-[0_0_30px_rgba(251,191,36,0.35)]">
+            <div className="rounded-2xl bg-gradient-to-br from-sky-400 via-amber-400 to-orange-400 p-3 shadow-[0_0_30px_rgba(251,191,36,0.35)]">
               <Sparkles className="text-white" size={18} />
             </div>
 
@@ -329,7 +329,7 @@ const preloadPerformance = () =>
 ========================= */
 function SocialLinks({ darkMode }) {
   return (
-    <section className="relative overflow-hidden rounded-[28px] p-[1px] bg-gradient-to-br from-blue-500/20 via-purple-500/10 to-cyan-400/20">
+    <section className="relative overflow-hidden rounded-[28px] p-[1px] bg-gradient-to-br from-blue-500/20 via-indigo-500/10 to-cyan-400/20">
       <div
         className={cn(
           "relative rounded-[27px] border p-4 backdrop-blur-xl",
@@ -339,7 +339,7 @@ function SocialLinks({ darkMode }) {
         )}
       >
         <div className="pointer-events-none absolute -top-10 -right-8 h-32 w-32 rounded-full bg-blue-500/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-10 left-0 h-32 w-32 rounded-full bg-fuchsia-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-10 left-0 h-32 w-32 rounded-full bg-blue-500/10 blur-3xl" />
 
         <div className="relative mb-3 flex items-center gap-2">
           <div className="rounded-2xl bg-gradient-to-br from-indigo-500 to-cyan-400 p-2 text-white shadow-lg">
@@ -404,7 +404,7 @@ function SocialLinks({ darkMode }) {
 function StickySocialBar({ darkMode }) {
   return (
     <div className="fixed bottom-3 left-1/2 z-50 w-[95%] max-w-4xl -translate-x-1/2">
-      <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-r from-blue-500/30 via-purple-500/20 to-cyan-400/30 p-[1px] shadow-2xl">
+      <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-r from-blue-500/30 via-indigo-500/20 to-cyan-400/30 p-[1px] shadow-2xl">
         <div
           className={cn(
             "relative flex flex-wrap items-center justify-between gap-3 rounded-[27px] border px-4 py-3 backdrop-blur-xl",
@@ -700,7 +700,7 @@ const HomeCard = React.memo(function HomeCard({
   const count = Array.isArray(list) ? list.length : 0;
 
   return (
-    <div className="relative overflow-hidden rounded-[30px] bg-gradient-to-br from-white/10 via-blue-500/15 to-purple-500/15 p-[1px]">
+    <div className="relative overflow-hidden rounded-[30px] bg-gradient-to-br from-white/10 via-blue-500/15 to-indigo-500/15 p-[1px]">
       <div
         className={cn(
           "relative rounded-[29px] border p-4 backdrop-blur-xl",
@@ -710,7 +710,7 @@ const HomeCard = React.memo(function HomeCard({
         )}
       >
         <div className="pointer-events-none absolute -top-10 -right-10 h-36 w-36 rounded-full bg-blue-500/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-10 left-0 h-36 w-36 rounded-full bg-purple-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-10 left-0 h-36 w-36 rounded-full bg-indigo-500/10 blur-3xl" />
 
         <div className="relative flex items-start justify-between gap-2">
           <div>
@@ -1065,7 +1065,7 @@ export default function FutureBetDashboard() {
     >
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-24 left-[-8%] h-72 w-72 rounded-full bg-blue-500/10 blur-3xl" />
-        <div className="absolute top-40 right-[-6%] h-80 w-80 rounded-full bg-purple-500/10 blur-3xl" />
+        <div className="absolute top-40 right-[-6%] h-80 w-80 rounded-full bg-indigo-500/10 blur-3xl" />
         <div className="absolute bottom-10 left-1/3 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
       </div>
 
@@ -1169,15 +1169,15 @@ export default function FutureBetDashboard() {
               className={tabPill(
                 activeTab === "vip-pick",
                 darkMode
-                  ? "border-yellow-400/30 bg-yellow-500/15 text-yellow-200 shadow-[0_0_28px_rgba(234,179,8,0.16)]"
-                  : "border-yellow-200 bg-yellow-50 text-yellow-700",
+                  ? "border-sky-400/30 bg-sky-500/15 text-sky-200 shadow-[0_0_28px_rgba(234,179,8,0.16)]"
+                  : "border-sky-200 bg-sky-50 text-sky-700",
               )}
             >
               <Crown className="h-4 w-4" />
               <span className="hidden sm:inline">VIP PICK</span>
               <span className="sm:hidden">VIP</span>
               {(isPremium || isAdmin) && (
-                <span className="rounded-full bg-yellow-500 px-1.5 py-0.5 text-[10px] font-black text-white sm:text-xs">
+                <span className="rounded-full bg-sky-500 px-1.5 py-0.5 text-[10px] font-black text-white sm:text-xs">
                   <span className="hidden sm:inline">PREMIUM</span>
                   <span className="sm:hidden">PRO</span>
                 </span>
@@ -1191,14 +1191,14 @@ export default function FutureBetDashboard() {
                 className={tabPill(
                   activeTab === "performance-tracker",
                   darkMode
-                    ? "border-purple-400/30 bg-purple-500/15 text-purple-200 shadow-[0_0_28px_rgba(168,85,247,0.16)]"
-                    : "border-purple-200 bg-purple-50 text-purple-700",
+                    ? "border-indigo-400/30 bg-indigo-500/15 text-indigo-200 shadow-[0_0_28px_rgba(168,85,247,0.16)]"
+                    : "border-indigo-200 bg-indigo-50 text-indigo-700",
                 )}
               >
                 <Target className="h-4 w-4" />
                 <span className="hidden sm:inline">Performance</span>
                 <span className="sm:hidden">Perf</span>
-                <span className="rounded-full bg-purple-500 px-1.5 py-0.5 text-[10px] font-black text-white sm:text-xs">
+                <span className="rounded-full bg-indigo-500 px-1.5 py-0.5 text-[10px] font-black text-white sm:text-xs">
                   <span className="hidden sm:inline">PREMIUM</span>
                   <span className="sm:hidden">PRO</span>
                 </span>

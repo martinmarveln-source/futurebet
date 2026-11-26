@@ -73,7 +73,7 @@ export default function Header({
 
   return (
     <header
-      className={`${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} border-b px-4 py-3`}
+      className={`${darkMode ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-slate-200 text-slate-900"} border-b px-4 py-3`}
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center space-x-4">
@@ -126,17 +126,17 @@ export default function Header({
                       : user.email}
                   </div>
                   {userPermissions && (
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
                       {(userPermissions.isAdmin || userPermissions.isPremium) ? (
-                        <span className="text-yellow-600 font-semibold">
+                        <span className="text-blue-600 dark:text-blue-400 font-semibold">
                           Premium
                         </span>
                       ) : userPermissions.isSilver ? (
-                        <span className="text-gray-600 font-semibold">
+                        <span className="text-slate-700 dark:text-slate-300 font-semibold">
                           Silver
                         </span>
                       ) : (
-                        <span className="text-gray-600">Free</span>
+                        <span className="text-slate-600 dark:text-slate-400">Free</span>
                       )}
 
                     </div>
@@ -146,7 +146,7 @@ export default function Header({
                   !userPermissions?.isAdmin &&
                   !userPermissions?.isSilver && (
                     <UpgradeButton
-                      className="flex items-center space-x-1 px-3 py-1 text-xs font-medium bg-yellow-500 text-white rounded-full hover:bg-yellow-600 transition-colors"
+                      className="flex items-center space-x-1 px-3 py-1 text-xs font-medium bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors"
                     >
                       <span>Upgrade</span>
                     </UpgradeButton>
@@ -154,10 +154,10 @@ export default function Header({
               </div>
               <a
                 href="/account/portfolio"
-                className={`p-2 rounded-lg transition-transform active:scale-95 ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-100 hover:bg-gray-200"}`}
+                className={`p-2 rounded-lg transition-transform active:scale-95 ${darkMode ? "bg-slate-800 hover:bg-slate-700" : "bg-slate-100 hover:bg-slate-200"}`}
                 title="My Prediction Portfolio"
               >
-                <Trophy className="h-5 w-5 text-amber-400" />
+                <Trophy className="h-5 w-5 text-blue-500" />
               </a>
               <a
                 href="/account/profile"

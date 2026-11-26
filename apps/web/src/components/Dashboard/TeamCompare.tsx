@@ -1298,14 +1298,14 @@ function PremiumShell({ darkMode, children }) {
         "relative overflow-hidden rounded-[30px] border p-3 sm:p-4 lg:p-5",
         darkMode
           ? "border-white/10 bg-slate-950/50 shadow-2xl shadow-black/30"
-          : "border-gray-200/80 bg-gradient-to-br from-white via-white to-purple-50/70 shadow-2xl shadow-purple-100/50"
+          : "border-gray-200/80 bg-gradient-to-br from-white via-white to-indigo-50/70 shadow-2xl shadow-indigo-100/50"
       )}
     >
       <div className="pointer-events-none absolute inset-0">
         <div
           className={cn(
             "absolute -top-20 -left-16 h-64 w-64 rounded-full blur-3xl",
-            darkMode ? "bg-purple-500/15" : "bg-purple-200/70"
+            darkMode ? "bg-indigo-500/15" : "bg-indigo-200/70"
           )}
         />
         <div
@@ -1355,9 +1355,9 @@ function ScoreBar({ darkMode, label, value, tone = "emerald" }) {
     tone === "blue"
       ? "from-blue-500 to-cyan-400"
       : tone === "amber"
-      ? "from-amber-500 to-yellow-400"
+      ? "from-amber-500 to-sky-400"
       : tone === "purple"
-      ? "from-purple-500 to-fuchsia-400"
+      ? "from-indigo-500 to-blue-400"
       : "from-emerald-500 to-teal-400";
 
   return (
@@ -1398,8 +1398,8 @@ function MetricCard({
         : "text-amber-600"
       : accent === "purple"
       ? darkMode
-        ? "text-purple-300"
-        : "text-purple-600"
+        ? "text-indigo-300"
+        : "text-indigo-600"
       : accent === "blue"
       ? darkMode
         ? "text-blue-300"
@@ -1463,8 +1463,8 @@ function TonePill({ darkMode, tone = "blue", children }) {
         : "border-emerald-200 bg-emerald-50 text-emerald-700"
       : tone === "purple"
       ? darkMode
-        ? "border-purple-400/20 bg-purple-500/10 text-purple-200"
-        : "border-purple-200 bg-purple-50 text-purple-700"
+        ? "border-indigo-400/20 bg-indigo-500/10 text-indigo-200"
+        : "border-indigo-200 bg-indigo-50 text-indigo-700"
       : tone === "rose"
       ? darkMode
         ? "border-rose-400/20 bg-rose-500/10 text-rose-200"
@@ -1531,8 +1531,8 @@ function TeamProfileCard({
   const badgeClasses =
     color === "purple"
       ? darkMode
-        ? "bg-purple-500/15 border-purple-400/30 text-purple-200"
-        : "bg-purple-50 border-purple-200 text-purple-700"
+        ? "bg-indigo-500/15 border-indigo-400/30 text-indigo-200"
+        : "bg-indigo-50 border-indigo-200 text-indigo-700"
       : darkMode
       ? "bg-blue-500/15 border-blue-400/30 text-blue-200"
       : "bg-blue-50 border-blue-200 text-blue-700";
@@ -1688,7 +1688,7 @@ function MatchupRadarChart({ statsA, statsB, teamA, teamB, darkMode }) {
           >
             {teamB}
           </span>
-          <div className="w-3 h-3 rounded-full bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.8)]"></div>
+          <div className="w-3 h-3 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(168,85,247,0.8)]"></div>
         </div>
       </div>
 
@@ -1863,8 +1863,8 @@ function TeamSearchSpotlight({
   const tonePanel =
     tone === "purple"
       ? darkMode
-        ? "from-purple-500/10 to-fuchsia-500/5 border-purple-400/20"
-        : "from-purple-50 to-fuchsia-50/80 border-purple-200"
+        ? "from-indigo-500/10 to-blue-500/5 border-indigo-400/20"
+        : "from-indigo-50 to-blue-50/80 border-indigo-200"
       : darkMode
       ? "from-blue-500/10 to-cyan-500/5 border-blue-400/20"
       : "from-blue-50 to-cyan-50/80 border-blue-200";
@@ -1872,8 +1872,8 @@ function TeamSearchSpotlight({
   const toneChip =
     tone === "purple"
       ? darkMode
-        ? "bg-purple-500/15 text-purple-200 border-purple-400/30 shadow-[0_0_15px_rgba(168,85,247,0.3)]"
-        : "bg-purple-100 text-purple-700 border-purple-200"
+        ? "bg-indigo-500/15 text-indigo-200 border-indigo-400/30 shadow-[0_0_15px_rgba(168,85,247,0.3)]"
+        : "bg-indigo-100 text-indigo-700 border-indigo-200"
       : darkMode
       ? "bg-blue-500/15 text-blue-200 border-blue-400/30 shadow-[0_0_15px_rgba(59,130,246,0.3)]"
       : "bg-blue-100 text-blue-700 border-blue-200";
@@ -1982,8 +1982,8 @@ function TeamSearchSpotlight({
             "flex items-center justify-between rounded-2xl border p-4 shadow-sm",
             tone === "purple"
               ? darkMode
-                ? "bg-purple-500/10 border-purple-400/20 shadow-[0_0_20px_rgba(168,85,247,0.15)]"
-                : "bg-purple-50 border-purple-200"
+                ? "bg-indigo-500/10 border-indigo-400/20 shadow-[0_0_20px_rgba(168,85,247,0.15)]"
+                : "bg-indigo-50 border-indigo-200"
               : darkMode
               ? "bg-blue-500/10 border-blue-400/20 shadow-[0_0_20px_rgba(59,130,246,0.15)]"
               : "bg-blue-50 border-blue-200"
@@ -1995,8 +1995,8 @@ function TeamSearchSpotlight({
                 "h-12 w-12 shrink-0 rounded-xl flex items-center justify-center text-xl font-black shadow-sm",
                 tone === "purple"
                   ? darkMode
-                    ? "bg-purple-500/20 text-purple-300"
-                    : "bg-white text-purple-600"
+                    ? "bg-indigo-500/20 text-indigo-300"
+                    : "bg-white text-indigo-600"
                   : darkMode
                   ? "bg-blue-500/20 text-blue-300"
                   : "bg-white text-blue-600"
@@ -2018,8 +2018,8 @@ function TeamSearchSpotlight({
                   "text-[10px] uppercase tracking-wider font-bold truncate mt-0.5",
                   tone === "purple"
                     ? darkMode
-                      ? "text-purple-300/70"
-                      : "text-purple-600/70"
+                      ? "text-indigo-300/70"
+                      : "text-indigo-600/70"
                     : darkMode
                     ? "text-blue-300/70"
                     : "text-blue-600/70"
@@ -2035,8 +2035,8 @@ function TeamSearchSpotlight({
               "p-2.5 rounded-xl transition hover:scale-105 active:scale-95 shrink-0",
               tone === "purple"
                 ? darkMode
-                  ? "bg-purple-500/20 text-purple-300 hover:bg-purple-500/30"
-                  : "bg-white text-purple-600 shadow-sm"
+                  ? "bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30"
+                  : "bg-white text-indigo-600 shadow-sm"
                 : darkMode
                 ? "bg-blue-500/20 text-blue-300 hover:bg-blue-500/30"
                 : "bg-white text-blue-600 shadow-sm"
@@ -2073,8 +2073,8 @@ function ProTipCarousel({ darkMode }) {
       className={cn(
         "relative rounded-3xl border p-5 overflow-hidden transition-all duration-500",
         darkMode
-          ? "bg-gradient-to-br from-indigo-500/10 to-purple-500/5 border-indigo-500/20 shadow-[0_0_20px_rgba(99,102,241,0.05)]"
-          : "bg-gradient-to-br from-indigo-50 to-purple-50 border-indigo-200 shadow-sm"
+          ? "bg-gradient-to-br from-indigo-500/10 to-indigo-500/5 border-indigo-500/20 shadow-[0_0_20px_rgba(99,102,241,0.05)]"
+          : "bg-gradient-to-br from-indigo-50 to-indigo-50 border-indigo-200 shadow-sm"
       )}
     >
       {/* Background Watermark Icon */}
@@ -2895,8 +2895,8 @@ export default function TeamCompare({ darkMode = false }) {
             className={cn(
               "rounded-3xl border p-6 sm:p-7",
               darkMode
-                ? "border-white/10 bg-gradient-to-br from-white/10 via-white/[0.04] to-purple-500/[0.08]"
-                : "border-white/80 bg-gradient-to-br from-white via-purple-50 to-amber-50/70"
+                ? "border-white/10 bg-gradient-to-br from-white/10 via-white/[0.04] to-indigo-500/[0.08]"
+                : "border-white/80 bg-gradient-to-br from-white via-indigo-50 to-amber-50/70"
             )}
           >
             <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -2904,8 +2904,8 @@ export default function TeamCompare({ darkMode = false }) {
                 className={cn(
                   "inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[10px] font-bold tracking-[0.18em]",
                   darkMode
-                    ? "bg-purple-500/20 text-purple-200"
-                    : "bg-purple-100 text-purple-700"
+                    ? "bg-indigo-500/20 text-indigo-200"
+                    : "bg-indigo-100 text-indigo-700"
                 )}
               >
                 <Sparkles size={12} />
@@ -2964,8 +2964,8 @@ export default function TeamCompare({ darkMode = false }) {
             className={cn(
               "rounded-3xl border p-6 sm:p-7",
               darkMode
-                ? "border-amber-400/20 bg-gradient-to-br from-amber-500/10 via-yellow-500/5 to-purple-500/10"
-                : "border-amber-200 bg-gradient-to-br from-amber-50 via-yellow-50 to-purple-50"
+                ? "border-amber-400/20 bg-gradient-to-br from-amber-500/10 via-sky-500/5 to-indigo-500/10"
+                : "border-amber-200 bg-gradient-to-br from-amber-50 via-sky-50 to-indigo-50"
             )}
           >
             <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -2984,8 +2984,8 @@ export default function TeamCompare({ darkMode = false }) {
                 className={cn(
                   "inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[10px] font-bold tracking-[0.18em]",
                   darkMode
-                    ? "bg-purple-400/20 text-purple-200"
-                    : "bg-purple-100 text-purple-700"
+                    ? "bg-indigo-400/20 text-indigo-200"
+                    : "bg-indigo-100 text-indigo-700"
                 )}
               >
                 <Sparkles size={12} />
@@ -3095,8 +3095,8 @@ export default function TeamCompare({ darkMode = false }) {
           className={cn(
             "relative overflow-hidden rounded-2xl border px-4 py-3.5 sm:px-6 sm:py-4 transition-all",
             darkMode
-              ? "border-white/10 bg-gradient-to-r from-purple-950/30 via-slate-900/60 to-purple-900/20 shadow-sm"
-              : "border-purple-100 bg-gradient-to-r from-white via-purple-50/40 to-amber-50/30 shadow-sm"
+              ? "border-white/10 bg-gradient-to-r from-indigo-950/30 via-slate-900/60 to-indigo-900/20 shadow-sm"
+              : "border-indigo-100 bg-gradient-to-r from-white via-indigo-50/40 to-amber-50/30 shadow-sm"
           )}
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -3105,8 +3105,8 @@ export default function TeamCompare({ darkMode = false }) {
                 className={cn(
                   "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-black tracking-widest uppercase",
                   darkMode
-                    ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
-                    : "bg-purple-100 text-purple-700 border border-purple-200"
+                    ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                    : "bg-indigo-100 text-indigo-700 border border-indigo-200"
                 )}
               >
                 <Sparkles size={11} />
@@ -3232,8 +3232,8 @@ export default function TeamCompare({ darkMode = false }) {
                       : "bg-emerald-50 border-emerald-200 text-emerald-700"
                     : item.tone === "purple"
                     ? darkMode
-                      ? "bg-purple-500/15 border-purple-400/20 text-purple-200"
-                      : "bg-purple-50 border-purple-200 text-purple-700"
+                      ? "bg-indigo-500/15 border-indigo-400/20 text-indigo-200"
+                      : "bg-indigo-50 border-indigo-200 text-indigo-700"
                     : item.tone === "rose"
                     ? darkMode
                       ? "bg-rose-500/15 border-rose-400/20 text-rose-200"
@@ -3414,8 +3414,8 @@ export default function TeamCompare({ darkMode = false }) {
               className={cn(
                 "hidden xl:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 h-10 w-10 items-center justify-center rounded-full border shadow-md transition-all hover:scale-110 active:scale-95 group",
                 darkMode
-                  ? "border-purple-400/30 bg-slate-900 text-purple-300 hover:border-purple-400 hover:bg-slate-800"
-                  : "border-purple-200 bg-white text-purple-600 hover:border-purple-300 hover:bg-purple-50 shadow-purple-200/50"
+                  ? "border-indigo-400/30 bg-slate-900 text-indigo-300 hover:border-indigo-400 hover:bg-slate-800"
+                  : "border-indigo-200 bg-white text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50 shadow-indigo-200/50"
               )}
             >
               <ArrowLeftRight size={16} className="transition-transform group-hover:rotate-180 duration-300" />
@@ -3431,8 +3431,8 @@ export default function TeamCompare({ darkMode = false }) {
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold shadow-xs transition-transform active:scale-95",
                   darkMode
-                    ? "border-purple-400/30 bg-slate-900 text-purple-300 hover:bg-slate-800"
-                    : "border-purple-200 bg-white text-purple-700 hover:bg-purple-50"
+                    ? "border-indigo-400/30 bg-slate-900 text-indigo-300 hover:bg-slate-800"
+                    : "border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50"
                 )}
               >
                 <ArrowLeftRight size={13} />
@@ -3490,8 +3490,8 @@ export default function TeamCompare({ darkMode = false }) {
                 className={cn(
                   "md:col-span-2 xl:col-span-2 row-span-2 rounded-[32px] border p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden",
                   darkMode
-                    ? "bg-gradient-to-br from-amber-500/10 via-purple-500/5 to-transparent border-amber-500/20 shadow-[0_0_30px_rgba(245,158,11,0.05)]"
-                    : "bg-gradient-to-br from-amber-50 via-purple-50/50 to-white border-amber-200 shadow-sm"
+                    ? "bg-gradient-to-br from-amber-500/10 via-indigo-500/5 to-transparent border-amber-500/20 shadow-[0_0_30px_rgba(245,158,11,0.05)]"
+                    : "bg-gradient-to-br from-amber-50 via-indigo-50/50 to-white border-amber-200 shadow-sm"
                 )}
               >
                 <div className="absolute -top-10 -right-10 opacity-[0.03] dark:opacity-[0.05] pointer-events-none">
@@ -3711,7 +3711,7 @@ export default function TeamCompare({ darkMode = false }) {
                 )}
               >
                 <div className="flex items-center gap-2 mb-4">
-                  <Swords size={14} className="text-purple-500" />
+                  <Swords size={14} className="text-indigo-500" />
                   <span
                     className={cn(
                       "text-[10px] font-bold uppercase tracking-widest",
@@ -3880,7 +3880,7 @@ export default function TeamCompare({ darkMode = false }) {
                 )}
               >
                 <div className="flex items-center gap-2 mb-3">
-                  <Brain size={14} className="text-purple-500" />
+                  <Brain size={14} className="text-indigo-500" />
                   <span
                     className={cn(
                       "text-[10px] font-bold uppercase tracking-widest",
@@ -4103,7 +4103,7 @@ export default function TeamCompare({ darkMode = false }) {
                               "border-b",
                               darkMode ? "border-white/5" : "border-gray-100",
                               active &&
-                                (darkMode ? "bg-purple-500/10" : "bg-purple-50")
+                                (darkMode ? "bg-indigo-500/10" : "bg-indigo-50")
                             )}
                           >
                             <td className="py-2">{row?.sn}</td>
@@ -4320,7 +4320,7 @@ export default function TeamCompare({ darkMode = false }) {
                 )}
               >
                 <div className="mb-3 flex items-center gap-2">
-                  <BarChart3 size={16} className="text-purple-500" />
+                  <BarChart3 size={16} className="text-indigo-500" />
                   <h3 className="text-sm font-extrabold">
                     Market alignment & key edges
                   </h3>
@@ -4403,8 +4403,8 @@ export default function TeamCompare({ darkMode = false }) {
                     className={cn(
                       "rounded-full border px-2.5 py-1 font-bold",
                       darkMode
-                        ? "border-purple-400/20 bg-purple-500/10 text-purple-200"
-                        : "border-purple-200 bg-purple-50 text-purple-700"
+                        ? "border-indigo-400/20 bg-indigo-500/10 text-indigo-200"
+                        : "border-indigo-200 bg-indigo-50 text-indigo-700"
                     )}
                   >
                     {teamB}
@@ -4441,8 +4441,8 @@ export default function TeamCompare({ darkMode = false }) {
                           className={cn(
                             "inline-flex rounded-xl px-4 py-1.5 shadow-sm",
                             darkMode
-                              ? "bg-purple-500/20 text-purple-200"
-                              : "bg-purple-100 text-purple-800"
+                              ? "bg-indigo-500/20 text-indigo-200"
+                              : "bg-indigo-100 text-indigo-800"
                           )}
                         >
                           {teamB}

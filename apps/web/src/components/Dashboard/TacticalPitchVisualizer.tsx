@@ -152,8 +152,8 @@ export function TacticalPitchVisualizer({
               className={cn(
                 "px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest border",
                 darkMode
-                  ? "bg-purple-500/10 text-purple-300 border-purple-500/20"
-                  : "bg-purple-50 text-purple-700 border-purple-200"
+                  ? "bg-indigo-500/10 text-indigo-300 border-indigo-500/20"
+                  : "bg-indigo-50 text-indigo-700 border-indigo-200"
               )}
             >
               AI Pitch Simulator
@@ -205,7 +205,7 @@ export function TacticalPitchVisualizer({
             className={cn(
               "px-3 py-1.5 rounded-xl text-xs font-black transition-all",
               activeLayer === "xg"
-                ? "bg-purple-500 text-white shadow-md scale-[1.02]"
+                ? "bg-indigo-500 text-white shadow-md scale-[1.02]"
                 : darkMode
                 ? "text-slate-400 hover:text-white"
                 : "text-slate-600 hover:text-black"
@@ -282,7 +282,7 @@ export function TacticalPitchVisualizer({
                     <span>{teamA} LW</span>
                     <span className="text-emerald-300 font-mono">{tacticalData.leftBattleA}%</span>
                   </div>
-                  <div className="h-0.5 flex-1 mx-4 bg-gradient-to-r from-blue-500/60 via-emerald-400/80 to-purple-500/60 relative">
+                  <div className="h-0.5 flex-1 mx-4 bg-gradient-to-r from-blue-500/60 via-emerald-400/80 to-indigo-500/60 relative">
                     <span
                       className="absolute -top-3 text-[10px] font-black uppercase text-white bg-black/60 px-2 py-0.5 rounded-full border border-white/20"
                       style={{ left: `${tacticalData.leftBattleA - 10}%` }}
@@ -290,7 +290,7 @@ export function TacticalPitchVisualizer({
                       {tacticalData.leftBattleA > 50 ? `${teamA} Edge` : `${teamB} Edge`}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 bg-purple-600/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-purple-400 text-white text-[11px] font-black shadow-lg">
+                  <div className="flex items-center gap-2 bg-indigo-600/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-indigo-400 text-white text-[11px] font-black shadow-lg">
                     <span className="text-emerald-300 font-mono">{tacticalData.leftBattleB}%</span>
                     <span>{teamB} RB</span>
                   </div>
@@ -302,7 +302,7 @@ export function TacticalPitchVisualizer({
                     <span>{teamA} Spine</span>
                     <span className="text-amber-300 font-mono">{tacticalData.centerBattleA}%</span>
                   </div>
-                  <div className="h-1 flex-1 mx-6 bg-gradient-to-r from-blue-500 via-amber-400 to-purple-500 rounded-full relative shadow-[0_0_10px_rgba(251,191,36,0.5)]">
+                  <div className="h-1 flex-1 mx-6 bg-gradient-to-r from-blue-500 via-amber-400 to-indigo-500 rounded-full relative shadow-[0_0_10px_rgba(251,191,36,0.5)]">
                     <span
                       className="absolute -top-3.5 text-[10px] font-black uppercase text-amber-300 bg-black/80 px-2.5 py-0.5 rounded-full border border-amber-500/40 shadow-md"
                       style={{ left: `${tacticalData.centerBattleA - 12}%` }}
@@ -310,7 +310,7 @@ export function TacticalPitchVisualizer({
                       Midfield Control
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 bg-purple-600/80 backdrop-blur-md px-3.5 py-2 rounded-xl border border-purple-400 text-white text-xs font-black shadow-xl">
+                  <div className="flex items-center gap-2 bg-indigo-600/80 backdrop-blur-md px-3.5 py-2 rounded-xl border border-indigo-400 text-white text-xs font-black shadow-xl">
                     <span className="text-amber-300 font-mono">{tacticalData.centerBattleB}%</span>
                     <span>{teamB} Spine</span>
                   </div>
@@ -322,7 +322,7 @@ export function TacticalPitchVisualizer({
                     <span>{teamA} RW</span>
                     <span className="text-emerald-300 font-mono">{tacticalData.rightBattleA}%</span>
                   </div>
-                  <div className="h-0.5 flex-1 mx-4 bg-gradient-to-r from-blue-500/60 via-emerald-400/80 to-purple-500/60 relative">
+                  <div className="h-0.5 flex-1 mx-4 bg-gradient-to-r from-blue-500/60 via-emerald-400/80 to-indigo-500/60 relative">
                     <span
                       className="absolute -top-3 text-[10px] font-black uppercase text-white bg-black/60 px-2 py-0.5 rounded-full border border-white/20"
                       style={{ left: `${tacticalData.rightBattleA - 10}%` }}
@@ -330,7 +330,7 @@ export function TacticalPitchVisualizer({
                       {tacticalData.rightBattleA > 50 ? `${teamA} Edge` : `${teamB} Edge`}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 bg-purple-600/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-purple-400 text-white text-[11px] font-black shadow-lg">
+                  <div className="flex items-center gap-2 bg-indigo-600/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-indigo-400 text-white text-[11px] font-black shadow-lg">
                     <span className="text-emerald-300 font-mono">{tacticalData.rightBattleB}%</span>
                     <span>{teamB} LB</span>
                   </div>
@@ -348,7 +348,7 @@ export function TacticalPitchVisualizer({
                 />
                 {/* Team B Territory Glow */}
                 <div
-                  className="absolute right-10 w-96 h-96 rounded-full blur-3xl opacity-50 bg-purple-500 transition-all duration-700"
+                  className="absolute right-10 w-96 h-96 rounded-full blur-3xl opacity-50 bg-indigo-500 transition-all duration-700"
                   style={{ opacity: tacticalData.territoryB / 100 }}
                 />
 
@@ -360,7 +360,7 @@ export function TacticalPitchVisualizer({
                   </div>
                   <div className="h-8 w-px bg-white/20" />
                   <div className="text-center">
-                    <div className="text-xs font-bold text-purple-400 uppercase tracking-widest">{teamB}</div>
+                    <div className="text-xs font-bold text-indigo-400 uppercase tracking-widest">{teamB}</div>
                     <div className="text-2xl font-black text-white">{tacticalData.territoryB}%</div>
                     <div className="text-[9px] text-slate-400 uppercase">Field Tilt</div>
                   </div>
@@ -386,15 +386,15 @@ export function TacticalPitchVisualizer({
                   </span>
                 </div>
 
-                <div className="w-48 h-56 rounded-2xl border-2 border-dashed border-purple-400/80 bg-purple-500/20 backdrop-blur-sm p-3 flex flex-col justify-between text-right">
-                  <span className="text-[10px] font-black uppercase text-purple-200">
+                <div className="w-48 h-56 rounded-2xl border-2 border-dashed border-indigo-400/80 bg-indigo-500/20 backdrop-blur-sm p-3 flex flex-col justify-between text-right">
+                  <span className="text-[10px] font-black uppercase text-indigo-200">
                     {teamB} Box Danger Index
                   </span>
                   <div className="text-center">
                     <div className="text-2xl font-black text-white">
                       {(Number(statsB?.modelGoalsFor || 1.2) * 0.82).toFixed(2)}
                     </div>
-                    <div className="text-[9px] text-purple-200">Avg Box Entries / Game</div>
+                    <div className="text-[9px] text-indigo-200">Avg Box Entries / Game</div>
                   </div>
                   <span className="text-[9px] font-bold text-emerald-300 text-left">
                     Clean Sheet Likelihood: {Number(statsB?.csPercent || 25)}%
@@ -411,7 +411,7 @@ export function TacticalPitchVisualizer({
               {teamA} (Attacking Left ➔ Right)
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+              <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
               {teamB} (Attacking Right ➔ Left)
             </span>
           </div>
@@ -483,7 +483,7 @@ export function TacticalPitchVisualizer({
                       title={`${teamA} ${iv.label} Threat: ${iv.threatA}%`}
                     />
                     <div
-                      className="bg-purple-500 ml-auto transition-all duration-500"
+                      className="bg-indigo-500 ml-auto transition-all duration-500"
                       style={{ width: `${iv.threatB}%` }}
                       title={`${teamB} ${iv.label} Threat: ${iv.threatB}%`}
                     />
@@ -494,7 +494,7 @@ export function TacticalPitchVisualizer({
 
             <div className="mt-3 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] font-bold text-slate-400">
               <span className="text-blue-400">1st Half Dominance: {tacticalData.leftBattleA > 50 ? teamA : teamB}</span>
-              <span className="text-purple-400">Late Surge (75+'): Active</span>
+              <span className="text-indigo-400">Late Surge (75+'): Active</span>
             </div>
           </div>
         </div>

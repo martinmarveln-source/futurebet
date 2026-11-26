@@ -171,7 +171,7 @@ export default function WeeklyPerformanceReport({
           title: `Hi ${userName}, Master Intelligence Overview`,
           subtitle: `Admin clearance active. Live model accuracy is currently holding at ${benchmarkAccuracy}% across European leagues with high positive EV calibration.`,
           badge: "ADMIN CLEARANCE",
-          badgeColor: "border-purple-400/40 bg-purple-500/15 text-purple-300",
+          badgeColor: "border-indigo-400/40 bg-indigo-500/15 text-indigo-300",
           icon: Zap,
         };
       }
@@ -218,15 +218,15 @@ export default function WeeklyPerformanceReport({
 
       {/* Admin Simulator Toolbar */}
       {isAdmin && (
-        <div className="mb-4 p-3 rounded-2xl border border-purple-500/30 bg-purple-950/20 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="mb-4 p-3 rounded-2xl border border-indigo-500/30 bg-indigo-950/20 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2">
-            <Zap size={14} className="text-purple-400" />
-            <span className="font-bold text-purple-300">Admin Tier Preview:</span>
+            <Zap size={14} className="text-indigo-400" />
+            <span className="font-bold text-indigo-300">Admin Tier Preview:</span>
             <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10">
               <button
                 type="button"
                 onClick={() => setAdminSimTier("live")}
-                className={`px-2.5 py-1 rounded-lg font-semibold transition ${adminSimTier === "live" ? "bg-purple-600 text-white shadow-xs" : "text-gray-400 hover:text-white"}`}
+                className={`px-2.5 py-1 rounded-lg font-semibold transition ${adminSimTier === "live" ? "bg-indigo-600 text-white shadow-xs" : "text-gray-400 hover:text-white"}`}
               >
                 Live (Admin)
               </button>
@@ -298,14 +298,14 @@ export default function WeeklyPerformanceReport({
         >
           {/* Subtle Ambient Glow */}
           <div className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-blue-500/10 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-purple-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-indigo-500/10 blur-3xl" />
 
           {/* Top Brand Header Bar */}
           <div
             className={`px-6 py-5 border-b flex flex-wrap items-center justify-between gap-3 ${
               darkMode
-                ? "border-white/10 bg-gradient-to-r from-blue-950/40 via-indigo-950/30 to-purple-950/40"
-                : "border-blue-100 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50"
+                ? "border-white/10 bg-gradient-to-r from-blue-950/40 via-indigo-950/30 to-indigo-950/40"
+                : "border-blue-100 bg-gradient-to-r from-blue-50 via-indigo-50 to-indigo-50"
             }`}
           >
             <div className="flex items-center gap-2.5">

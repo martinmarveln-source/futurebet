@@ -44,11 +44,11 @@ const TeamComparisonModal = dynamic(() => import("./TeamComparisonModal"), { ssr
 const getConvictionColor = (tier) => {
   switch (tier) {
     case "Ultra":
-      return "bg-purple-600 text-white";
+      return "bg-indigo-600 text-white";
     case "Strong":
       return "bg-green-600 text-white";
     case "Moderate":
-      return "bg-yellow-500 text-black";
+      return "bg-sky-500 text-black";
     case "Weak":
       return "bg-orange-500 text-white";
     default:
@@ -127,7 +127,7 @@ function getEdgeColor(edge: number | null | undefined) {
   if (edge === null || edge === undefined) return "text-gray-400";
   if (edge >= 12) return "text-green-600 font-black";
   if (edge >= 6) return "text-green-500 font-bold";
-  if (edge >= 2) return "text-yellow-400 font-bold";
+  if (edge >= 2) return "text-sky-400 font-bold";
   if (edge >= -2) return "text-orange-400";
   return "text-red-500";
 }
@@ -426,7 +426,7 @@ function InsightBlock({ title, children, darkMode }) {
 function Meter({
   label,
   value,
-  colorClass = "from-amber-500 to-yellow-300",
+  colorClass = "from-amber-500 to-sky-300",
   darkMode,
 }) {
   const v = clamp(pct(value));
@@ -2076,8 +2076,8 @@ export default function MatchCard({
       ? {
           label: "Ultra",
           cls: darkMode
-            ? "bg-purple-500/20 border-purple-500/40 text-purple-300"
-            : "bg-purple-100 border-purple-300 text-purple-900 font-black",
+            ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-300"
+            : "bg-indigo-100 border-indigo-300 text-indigo-900 font-black",
         }
       : score >= 65
       ? {
@@ -2313,8 +2313,8 @@ export default function MatchCard({
                                       : "bg-emerald-100 text-emerald-700 border-emerald-200"
                                     : recommended.reasonTag.includes("Value")
                                     ? darkMode
-                                      ? "bg-purple-500/20 text-purple-400 border-purple-500/30"
-                                      : "bg-purple-100 text-purple-700 border-purple-200"
+                                      ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/30"
+                                      : "bg-indigo-100 text-indigo-700 border-indigo-200"
                                     : darkMode
                                     ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
                                     : "bg-blue-100 text-blue-700 border-blue-200"
@@ -2323,7 +2323,7 @@ export default function MatchCard({
                                 {recommended.reasonTag}
                               </span>
                             ) : recommended.valueEdge > 5 ? (
-                              <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest", darkMode ? "bg-purple-500/20 text-purple-400" : "bg-purple-100 text-purple-700")}>High Value</span>
+                              <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest", darkMode ? "bg-indigo-500/20 text-indigo-400" : "bg-indigo-100 text-indigo-700")}>High Value</span>
                             ) : recommended.prob >= 70 ? (
                               <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest", darkMode ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700")}>Safest Prob</span>
                             ) : (
@@ -2592,8 +2592,8 @@ export default function MatchCard({
                           "flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-sm font-black transition active:scale-[0.99]",
                           canSeeAiInsight
                             ? darkMode
-                              ? "bg-fuchsia-500/10 text-fuchsia-300 border border-fuchsia-500/30 hover:bg-fuchsia-500/20"
-                              : "bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-200 hover:bg-fuchsia-100"
+                              ? "bg-blue-500/10 text-blue-300 border border-blue-500/30 hover:bg-blue-500/20"
+                              : "bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
                             : "bg-gray-100 text-gray-500 dark:bg-white/5 dark:text-gray-400 border border-transparent"
                         )}
                       >
@@ -2961,7 +2961,7 @@ export default function MatchCard({
                           <div
                             className={cn(
                               "text-[11px] font-bold uppercase tracking-wider mb-2",
-                              darkMode ? "text-purple-400" : "text-purple-600"
+                              darkMode ? "text-indigo-400" : "text-indigo-600"
                             )}
                           >
                             Double Chance Odds
@@ -3215,7 +3215,7 @@ export default function MatchCard({
                           <div
                             className={cn(
                               "text-[11px] font-bold uppercase tracking-wider mb-2",
-                              darkMode ? "text-fuchsia-400" : "text-fuchsia-600"
+                              darkMode ? "text-blue-400" : "text-blue-600"
                             )}
                           >
                             Both Teams To Score
@@ -3284,7 +3284,7 @@ export default function MatchCard({
                   <Brain
                     className={cn(
                       "h-4 w-4",
-                      darkMode ? "text-fuchsia-300" : "text-fuchsia-600"
+                      darkMode ? "text-blue-300" : "text-blue-600"
                     )}
                   />
                 }
@@ -3305,7 +3305,7 @@ export default function MatchCard({
                     {!canSeeAiInsight && (
                       <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl backdrop-blur-md bg-black/40">
                         <div className="text-center px-6">
-                          <Lock className="mx-auto mb-2 h-6 w-6 text-yellow-400" />
+                          <Lock className="mx-auto mb-2 h-6 w-6 text-sky-400" />
                           <div className="text-sm font-extrabold text-white">
                             Premium AI Intelligence Locked
                           </div>
@@ -3336,7 +3336,7 @@ export default function MatchCard({
                               {intelligence?.recommendation?.selection || "—"}
                             </div>
                           </div>
-                          <div className="rounded-xl border p-2 text-center bg-purple-500/10 border-purple-400/30">
+                          <div className="rounded-xl border p-2 text-center bg-indigo-500/10 border-indigo-400/30">
                             <div className="text-[10px] opacity-70">
                               Confidence
                             </div>
@@ -3423,7 +3423,7 @@ export default function MatchCard({
                                   : ""}
                               </div>
                             </div>
-                            <div className="rounded-xl border p-2 text-center bg-purple-500/10 border-purple-400/30">
+                            <div className="rounded-xl border p-2 text-center bg-indigo-500/10 border-indigo-400/30">
                               <div className="text-[10px] opacity-70">
                                 Edge Tier
                               </div>
@@ -3445,8 +3445,8 @@ export default function MatchCard({
                               "rounded-2xl border p-3 text-sm font-extrabold",
                               intelligence?.confidence === "Elite"
                                 ? darkMode
-                                  ? "border-yellow-400/40 bg-yellow-500/10 text-yellow-300"
-                                  : "border-yellow-300 bg-yellow-50 text-yellow-700"
+                                  ? "border-sky-400/40 bg-sky-500/10 text-sky-300"
+                                  : "border-sky-300 bg-sky-50 text-sky-700"
                                 : intelligence?.confidence === "High"
                                 ? darkMode
                                   ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300"
@@ -3515,7 +3515,7 @@ export default function MatchCard({
               darkMode ? "border-white/10 text-white/50" : "border-gray-200 text-gray-500"
             )}>
               <div className="flex items-center gap-2 font-semibold tracking-wide uppercase">
-                <Brain size={14} className={darkMode ? "text-fuchsia-400" : "text-fuchsia-600"} />
+                <Brain size={14} className={darkMode ? "text-blue-400" : "text-blue-600"} />
                 <span>Generated by FutureBet Syndicate AI</span>
               </div>
               <div className="font-mono opacity-60 mt-2 sm:mt-0">

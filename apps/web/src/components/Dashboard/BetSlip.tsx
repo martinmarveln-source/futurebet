@@ -928,7 +928,7 @@ export default function BetSlip({ darkMode = false }) {
               className={cn(
                 "flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5",
                 activeTab === "ai"
-                  ? "bg-purple-600 text-white shadow-lg shadow-purple-500/30"
+                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
                   : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
               )}
             >
@@ -1033,7 +1033,7 @@ export default function BetSlip({ darkMode = false }) {
             <div className="mb-6 space-y-4">
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-purple-500">Total Bankroll (₦)</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Total Bankroll (₦)</label>
                   {isWalletSynced && (
                     <span className="text-[9px] font-bold text-emerald-500 flex items-center gap-1 bg-emerald-500/10 px-1.5 py-0.5 rounded">
                       <Zap size={10} /> Synced to Wallet
@@ -1056,7 +1056,7 @@ export default function BetSlip({ darkMode = false }) {
               </div>
               
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-purple-500">Risk Profile</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Risk Profile</label>
                 <select
                   value={kellyMultiplier}
                   onChange={(e) => setKellyMultiplier(Number(e.target.value))}
@@ -1084,7 +1084,7 @@ export default function BetSlip({ darkMode = false }) {
                     <div className="flex justify-between items-end">
                       <div>
                         <div className="text-[10px] text-gray-500 font-bold uppercase">Stake</div>
-                        <div className="text-sm font-black text-purple-500">
+                        <div className="text-sm font-black text-indigo-500">
                           {kb.edge > 0 ? `₦${kb.recommendedStake.toFixed(0)}` : <span className="text-[10px] text-rose-500 bg-rose-500/10 px-1.5 py-0.5 rounded">NO VALUE (₦0)</span>}
                         </div>
                       </div>
@@ -1249,8 +1249,8 @@ export default function BetSlip({ darkMode = false }) {
                 className={cn(
                   "w-full py-3 rounded-2xl text-xs font-black transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg mb-3",
                   aiAnalyzing
-                    ? "bg-purple-900/50 text-purple-200 cursor-wait"
-                    : "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white"
+                    ? "bg-indigo-900/50 text-indigo-200 cursor-wait"
+                    : "bg-gradient-to-r from-indigo-600 to-indigo-600 hover:from-indigo-500 hover:to-indigo-500 text-white"
                 )}
               >
                 {aiAnalyzing ? (
@@ -1269,8 +1269,8 @@ export default function BetSlip({ darkMode = false }) {
                 <div className={cn(
                   "relative p-4 rounded-2xl text-xs font-semibold leading-relaxed whitespace-pre-wrap text-left shadow-inner border",
                   darkMode
-                    ? "bg-purple-500/10 border-purple-500/20 text-purple-200"
-                    : "bg-purple-50 border-purple-200 text-purple-900"
+                    ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-200"
+                    : "bg-indigo-50 border-indigo-200 text-indigo-900"
                 )}>
                   <button
                     onClick={() => setAiFeedback(null)}

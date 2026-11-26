@@ -258,21 +258,21 @@ function ProgressBar({
 
 function Pill({ children, darkMode, tone = "gray" }) {
   const light = {
-    gray: "bg-gray-100 text-gray-700",
-    yellow: "bg-yellow-100 text-yellow-800",
+    gray: "bg-slate-100 text-slate-800",
+    yellow: "bg-blue-100 text-blue-800",
     blue: "bg-blue-100 text-blue-800",
-    green: "bg-green-100 text-green-800",
-    red: "bg-red-100 text-red-700",
-    purple: "bg-purple-100 text-purple-800",
+    green: "bg-emerald-100 text-emerald-800",
+    red: "bg-rose-100 text-rose-800",
+    purple: "bg-indigo-100 text-indigo-800",
   };
 
   const dark = {
-    gray: "bg-white/5 text-gray-200",
-    yellow: "bg-yellow-500/15 text-yellow-200",
+    gray: "bg-white/10 text-slate-200",
+    yellow: "bg-blue-500/15 text-blue-200",
     blue: "bg-blue-500/15 text-blue-200",
     green: "bg-emerald-500/15 text-emerald-200",
-    red: "bg-red-500/15 text-red-200",
-    purple: "bg-purple-500/15 text-purple-200",
+    red: "bg-rose-500/15 text-rose-200",
+    purple: "bg-indigo-500/15 text-indigo-200",
   };
 
   const map = darkMode ? dark : light;
@@ -771,7 +771,7 @@ const VipPickCard = React.memo(function VipPickCard({
             label="Chance (computed)"
             value={`${Math.round(chance)}%`}
             barValue={chance}
-            barColor="bg-gradient-to-r from-yellow-500 to-amber-500"
+            barColor="bg-emerald-600"
             hint="Computed probability of selected market."
           />
           <StatTile
@@ -779,7 +779,7 @@ const VipPickCard = React.memo(function VipPickCard({
             label="Rating (model)"
             value={`${Math.round(rating)}%`}
             barValue={rating}
-            barColor="bg-gradient-to-r from-blue-600 to-indigo-600"
+            barColor="bg-blue-600"
             hint="Stability & quality score."
           />
           <StatTile
@@ -787,7 +787,7 @@ const VipPickCard = React.memo(function VipPickCard({
             label="VIP score"
             value={Math.round(vipScore)}
             barValue={vipScore}
-            barColor="bg-gradient-to-r from-purple-600 to-fuchsia-600"
+            barColor="bg-indigo-600"
             hint="Composite rank from chance + rating."
           />
         </div>
@@ -1536,8 +1536,8 @@ export default function VipPick({ darkMode = false }) {
             className={cn(
               "p-5",
               darkMode
-                ? "bg-gradient-to-r from-yellow-500/10 to-transparent"
-                : "bg-gradient-to-r from-yellow-50 to-white",
+                ? "bg-gradient-to-r from-blue-500/10 to-transparent"
+                : "bg-gradient-to-r from-slate-50 to-white",
             )}
           >
             <div className="flex items-start justify-between gap-3">
@@ -1546,13 +1546,13 @@ export default function VipPick({ darkMode = false }) {
                   className={cn(
                     "w-11 h-11 rounded-2xl flex items-center justify-center border",
                     darkMode
-                      ? "bg-yellow-500/10 border-yellow-500/20"
-                      : "bg-yellow-100 border-yellow-200",
+                      ? "bg-blue-500/10 border-blue-500/20"
+                      : "bg-blue-50 border-blue-200",
                   )}
                 >
                   <Crown
                     className={cn(
-                      darkMode ? "text-yellow-200" : "text-yellow-700",
+                      darkMode ? "text-blue-300" : "text-blue-700",
                     )}
                     size={18}
                   />
@@ -1743,8 +1743,8 @@ export default function VipPick({ darkMode = false }) {
           className={cn(
             "p-5",
             darkMode
-              ? "bg-gradient-to-r from-yellow-500/10 to-transparent"
-              : "bg-gradient-to-r from-yellow-50 to-white",
+              ? "bg-gradient-to-r from-blue-500/10 to-transparent"
+              : "bg-gradient-to-r from-slate-50 to-white",
           )}
         >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -1753,13 +1753,13 @@ export default function VipPick({ darkMode = false }) {
                 className={cn(
                   "w-11 h-11 rounded-2xl flex items-center justify-center border",
                   darkMode
-                    ? "bg-yellow-500/10 border-yellow-500/20"
-                    : "bg-yellow-100 border-yellow-200",
+                    ? "bg-blue-500/10 border-blue-500/20"
+                    : "bg-blue-50 border-blue-200",
                 )}
               >
                 <Crown
                   className={cn(
-                    darkMode ? "text-yellow-200" : "text-yellow-700",
+                    darkMode ? "text-blue-300" : "text-blue-700",
                   )}
                   size={18}
                 />
@@ -2106,12 +2106,12 @@ export default function VipPick({ darkMode = false }) {
         return (
           <div className={cn(
             "rounded-3xl border-2 overflow-hidden shadow-lg",
-            darkMode ? "border-amber-500/40 bg-gradient-to-br from-amber-500/10 to-yellow-500/5" : "border-amber-400 bg-gradient-to-br from-amber-50 to-yellow-50"
+            darkMode ? "border-blue-500/40 bg-slate-900/90" : "border-blue-500/40 bg-gradient-to-br from-blue-50/70 to-white"
           )}>
-            <div className={cn("px-5 py-3 flex items-center gap-2 border-b", darkMode ? "border-amber-500/20 bg-amber-500/10" : "border-amber-200 bg-amber-100/80")}>
-              <Crown size={16} className={darkMode ? "text-amber-300" : "text-amber-700"} />
-              <span className={cn("text-xs font-black uppercase tracking-widest", darkMode ? "text-amber-300" : "text-amber-800")}>VIP Banker of the Day</span>
-              <Pill darkMode={darkMode} tone="yellow">🔑 Highest Conviction</Pill>
+            <div className={cn("px-5 py-3 flex items-center gap-2 border-b", darkMode ? "border-blue-500/20 bg-blue-500/10" : "border-blue-200 bg-blue-50")}>
+              <Crown size={16} className={darkMode ? "text-blue-300" : "text-blue-700"} />
+              <span className={cn("text-xs font-black uppercase tracking-widest", darkMode ? "text-blue-300" : "text-blue-800")}>VIP Banker of the Day</span>
+              <Pill darkMode={darkMode} tone="blue">Highest Conviction</Pill>
             </div>
             <div className="p-5">
               <div className="flex items-start justify-between gap-3">

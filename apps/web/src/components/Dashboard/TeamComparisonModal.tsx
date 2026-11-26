@@ -3261,9 +3261,9 @@ export default function TeamComparisonModal({
               <span className={cx("font-semibold", darkMode ? "text-slate-400" : "text-slate-500")}>
                 Draw: {Math.round(quantVerdict.draw)}%
               </span>
-              <span className="flex items-center gap-1.5 text-rose-500">
+              <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
                 {awayTeam}: {Math.round(quantVerdict.aWin)}%
-                <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
               </span>
             </div>
 
@@ -3276,7 +3276,7 @@ export default function TeamComparisonModal({
               )}
             >
               <div
-                className="h-full bg-gradient-to-r from-blue-600 via-indigo-500 to-cyan-400 rounded-l-full transition-all duration-1000 ease-out shadow-[0_0_12px_rgba(59,130,246,0.5)]"
+                className="h-full bg-blue-600 rounded-l-full transition-all duration-1000 ease-out"
                 style={{ width: `${Math.max(quantVerdict.hWin, 2)}%` }}
                 title={`${homeTeam}: ${quantVerdict.hWin}%`}
               />
@@ -3289,7 +3289,7 @@ export default function TeamComparisonModal({
                 title={`Draw: ${quantVerdict.draw}%`}
               />
               <div
-                className="h-full bg-gradient-to-r from-rose-500 via-pink-500 to-amber-500 rounded-r-full transition-all duration-1000 ease-out shadow-[0_0_12px_rgba(244,63,94,0.5)]"
+                className="h-full bg-emerald-600 rounded-r-full transition-all duration-1000 ease-out"
                 style={{ width: `${Math.max(quantVerdict.aWin, 2)}%` }}
                 title={`${awayTeam}: ${quantVerdict.aWin}%`}
               />
