@@ -415,6 +415,9 @@ export default function PerformanceTracker({ darkMode }) {
     queryKey: ["performanceTracker"],
     queryFn: async () => {
       const response = await fetch("/api/performance-tracker");
+      if (response.status === 401 || response.status === 403) {
+        return { tickets: [], locked: true };
+      }
       if (!response.ok) throw new Error("Failed to fetch performance data");
       return response.json();
     },

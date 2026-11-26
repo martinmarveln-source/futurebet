@@ -61,10 +61,11 @@ export default function WeeklyPerformanceReport({
     queryKey: ["performanceTracker"],
     queryFn: async () => {
       const res = await fetch("/api/performance-tracker");
-      if (!res.ok) throw new Error("Failed to fetch performance data");
+      if (res.status === 401 || res.status === 403) return { tickets: [], locked: true };
+      if (!res.ok) return { tickets: [] };
       return res.json();
     },
-    enabled: !!canSee,
+    enabled: effectiveIsVip || effectiveIsAdmin,
     refetchOnWindowFocus: false,
   });
 

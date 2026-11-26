@@ -1513,18 +1513,18 @@ export async function GET(req: Request) {
         lostCount,
         pendingCount,
         strikeRate: `${strikeRate}%`,
-        roi: `+${roiPct}%`,
+        roi: roiPct >= 0 ? `+${roiPct}%` : `${roiPct}%`,
         netProfitNaira: netProfit,
       };
 
       if (!canAccessTracking) {
-        // Strict gating: outcomes and matches withheld for Free & Silver tiers
+        // Strict gating: outcomes, stats, and matches withheld for Free & Silver tiers
         return NextResponse.json({
           success: true,
           locked: true,
           userTier,
           reason: "Curated multi-bet outcomes, leg-by-leg FT verification, and settlement audits are exclusively available to Pro and Admin members.",
-          summary,
+          summary: null,
           history: [],
         });
       }

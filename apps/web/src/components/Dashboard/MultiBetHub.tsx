@@ -1267,7 +1267,14 @@ export default function MultiBetHub({
                 </div>
 
                 <div className="space-y-2">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  <div
+                    className={cn(
+                      "inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border",
+                      darkMode
+                        ? "bg-blue-500/15 text-blue-300 border-blue-500/30"
+                        : "bg-blue-50 text-blue-700 border-blue-200"
+                    )}
+                  >
                     <ShieldCheck size={13} />
                     <span>Pro Exclusive Outcome Audit</span>
                   </div>
@@ -1290,69 +1297,25 @@ export default function MultiBetHub({
                   </p>
                 </div>
 
-                {/* TEASER METRICS CARDS */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-                  <div
-                    className={cn(
-                      "p-3.5 rounded-2xl border text-center",
-                      darkMode ? "bg-white/[0.04] border-white/10" : "bg-white border-slate-200"
-                    )}
-                  >
-                    <div className="text-[10px] font-black uppercase text-slate-400">Strike Rate</div>
-                    <div className="text-xl sm:text-2xl font-black font-mono text-emerald-400 mt-1">
-                      {historyData?.summary?.strikeRate || "85.7%"}
-                    </div>
-                  </div>
-
-                  <div
-                    className={cn(
-                      "p-3.5 rounded-2xl border text-center",
-                      darkMode ? "bg-white/[0.04] border-white/10" : "bg-white border-slate-200"
-                    )}
-                  >
-                    <div className="text-[10px] font-black uppercase text-slate-400">Total Settled</div>
-                    <div className="text-xl sm:text-2xl font-black font-mono text-white mt-1">
-                      {historyData?.summary?.totalSettled || 28}
-                    </div>
-                  </div>
-
-                  <div
-                    className={cn(
-                      "p-3.5 rounded-2xl border text-center",
-                      darkMode ? "bg-white/[0.04] border-white/10" : "bg-white border-slate-200"
-                    )}
-                  >
-                    <div className="text-[10px] font-black uppercase text-slate-400">Slips Won</div>
-                    <div className="text-xl sm:text-2xl font-black font-mono text-amber-400 mt-1">
-                      {historyData?.summary?.wonCount || 24}
-                    </div>
-                  </div>
-
-                  <div
-                    className={cn(
-                      "p-3.5 rounded-2xl border text-center",
-                      darkMode ? "bg-white/[0.04] border-white/10" : "bg-white border-slate-200"
-                    )}
-                  >
-                    <div className="text-[10px] font-black uppercase text-slate-400">Model ROI</div>
-                    <div className="text-xl sm:text-2xl font-black font-mono text-emerald-400 mt-1">
-                      {historyData?.summary?.roi || "+142%"}
-                    </div>
-                  </div>
-                </div>
-
                 {/* FEATURE BULLETS */}
-                <div className="text-left space-y-2 p-4 rounded-2xl bg-white/[0.02] border border-white/5 text-xs text-slate-300">
+                <div
+                  className={cn(
+                    "text-left space-y-2 p-4 rounded-2xl border text-xs",
+                    darkMode
+                      ? "bg-white/[0.03] border-white/10 text-slate-300"
+                      : "bg-slate-50 border-slate-200 text-slate-700"
+                  )}
+                >
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+                    <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
                     <span>Real-time automated settlement evaluated against official full-time match scores</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+                    <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
                     <span>Audit ledger of every 2+, 3+, 5+, 10+, and 1,000x Jackpot multi-bet generated</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+                    <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
                     <span>1-Click portfolio tracking to log tickets directly into your personal betting ledger</span>
                   </div>
                 </div>
