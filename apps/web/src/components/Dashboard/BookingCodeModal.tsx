@@ -247,10 +247,11 @@ export default function BookingCodeModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "attach_code",
-          slipId: slipId || bookingData?.slipId,
+          slipId: slipId || bookingData?.slipId || bookingData?.ticketId,
           ticketId: bookingData?.ticketId,
           bookmaker: selectedBookie,
           nativeCode: clean,
+          matches,
         }),
       });
 
@@ -261,11 +262,7 @@ export default function BookingCodeModal({
       setAdminCodeInput("");
       setShowAdminInput(false);
 
-      if (resData.payload) {
-        setBookingData(resData.payload);
-      } else {
-        await fetchBookingCode(selectedBookie);
-      }
+      await fetchBookingCode(selectedBookie);
       if (onCodeUpdated) onCodeUpdated(clean, selectedBookie);
     } catch (err) {
       toast.error(err.message || "Failed to attach booking code");
@@ -305,13 +302,13 @@ export default function BookingCodeModal({
             </div>
             <div>
               <h3 className="text-base font-black tracking-tight flex items-center gap-2">
-                1-Click Bookmaker Router
+                Bookmaker Booking Codes
                 <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  Native Slip
+                  Verified Slip
                 </span>
               </h3>
               <p className="text-xs text-slate-400">
-                Load this AI slip directly into <span className="font-bold text-white">{currentBookieConfig.name}</span>
+                Get the verified <span className="font-bold text-white">{currentBookieConfig.name}</span> booking code or convert via Telegram Bot
               </p>
             </div>
           </div>
@@ -539,34 +536,41 @@ export default function BookingCodeModal({
             </div>
 
             {/* Primary Action Buttons */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-800/60">
-              <button
-                onClick={handleCopyCode}
-                disabled={loading}
-                className="py-3 px-3 rounded-xl text-xs font-black bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] shadow-lg shadow-emerald-500/20"
-                title="Copy code"
-              >
-                {copied ? <Check size={14} /> : <Copy size={14} />}
-                {copied ? "Code Copied!" : "Copy Code"}
-              </button>
-
-              <a
-                href={bookingData?.webUrl || currentBookieConfig.webUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="py-3 px-3 rounded-xl text-xs font-black bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center gap-1.5 border border-slate-700 transition-all active:scale-[0.98]"
-              >
-                <ExternalLink size={14} />
-                Open {currentBookieConfig.name}
-              </a>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-800/60">
+              {isVerified ? (
+                <button
+                  onClick={handleCopyCode}
+                  disabled={loading}
+                  className="py-3 px-3 rounded-xl text-xs font-black bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] shadow-lg shadow-emerald-500/20"
+                  title="Copy verified booking code"
+                >
+                  {copied ? <Check size={14} /> : <Copy size={14} />}
+                  {copied ? "Code Copied!" : `Copy ${currentBookieConfig.name} Code`}
+                </button>
+              ) : (
+                <button
+                  onClick={handleCopyFastSlip}
+                  disabled={loading}
+                  className="py-3 px-3 rounded-xl text-xs font-black bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
+                  title="Copy picks as text"
+                >
+                  {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                  {copied ? "Picks Copied!" : "Copy Picks Text"}
+                </button>
+              )}
 
               <button
                 onClick={handleOpenConverter}
-                className="py-3 px-3 rounded-xl text-xs font-black bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/30 flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
+                className={cn(
+                  "py-3 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]",
+                  isVerified
+                    ? "bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/30"
+                    : "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20"
+                )}
                 title="Convert this slip via @ConvertBetBot on Telegram"
               >
                 <Bot size={14} />
-                Telegram Bot
+                {isVerified ? "Telegram Bot" : "Convert via Telegram Bot"}
               </button>
             </div>
           </div>
@@ -657,17 +661,6 @@ export default function BookingCodeModal({
                           </div>
                         )}
                       </div>
-                      {m.bookieSearchUrl && (
-                        <a
-                          href={m.bookieSearchUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors"
-                          title={`Search ${m.match} on ${currentBookieConfig.name}`}
-                        >
-                          <Search size={12} />
-                        </a>
-                      )}
                     </div>
                   </div>
                 );

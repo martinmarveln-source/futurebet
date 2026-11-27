@@ -2024,6 +2024,8 @@ export default function MultiBetHub({
           matches={cardModalSlip.matches || []}
           totalOdds={cardModalSlip.combinedOdds || 1}
           slipTitle={cardModalSlip.title || "FutureBet Curated Multi-Bet"}
+          bookingCodes={cardModalSlip.bookingCodes || {}}
+          slipId={cardModalSlip.slipId || cardModalSlip.id || ""}
           darkMode={darkMode}
         />
       )}

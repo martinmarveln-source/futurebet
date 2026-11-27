@@ -400,18 +400,33 @@ export async function POST(req: Request) {
 
       const bookieLower = config.slug;
 
-      // 1. Retrieve existing cached/stored payload if any exists
-      let existingPayload = codeCache.get(targetSlipId) || codeCache.get(cleanCode) || null;
+      // Also compute deterministic internalReference if matches were passed so BetSlip/Card lookups match too
+      let computedRef = "";
+      if (Array.isArray(matches) && matches.length > 0) {
+        const healed = matches.map((m, idx) => autoHealMatch(m, idx, config.searchUrl));
+        computedRef = generateTicketReference(bookmakerKey, healed);
+      }
 
-      if (!existingPayload && process.env.DATABASE_URL) {
+      // 1. Retrieve existing cached/stored payload if any exists (prefer verified rows)
+      let existingPayload = codeCache.get(targetSlipId) || (computedRef ? codeCache.get(computedRef) : null) || codeCache.get(cleanCode) || null;
+      let mergedDbNativeCodes: Record<string, string> = {};
+
+      if (process.env.DATABASE_URL) {
         try {
           const rows = await sql`
             SELECT payload, native_codes FROM futurebet_booking_codes 
-            WHERE code = ${targetSlipId} OR code = ${cleanCode} OR slip_id = ${targetSlipId}
-            LIMIT 1;
+            WHERE code = ${targetSlipId} OR code = ${cleanCode} OR slip_id = ${targetSlipId} OR code = ${computedRef || ""}
+            ORDER BY is_verified_native DESC, updated_at DESC;
           `;
-          if (rows && rows.length > 0 && rows[0]?.payload) {
-            existingPayload = rows[0].payload;
+          if (rows && rows.length > 0) {
+            for (const r of rows) {
+              if (r?.native_codes && typeof r.native_codes === "object") {
+                mergedDbNativeCodes = { ...mergedDbNativeCodes, ...r.native_codes };
+              }
+              if (!existingPayload && r?.payload) {
+                existingPayload = r.payload;
+              }
+            }
           }
         } catch (e) {
           console.warn("DB lookup during attach_code warning:", e);
@@ -419,6 +434,7 @@ export async function POST(req: Request) {
       }
 
       const updatedNativeCodes = {
+        ...mergedDbNativeCodes,
         ...(existingPayload?.nativeCodes || {}),
         [bookieLower]: cleanCode,
       };
@@ -427,6 +443,7 @@ export async function POST(req: Request) {
         ...(existingPayload || {}),
         bookingCode: cleanCode,
         ticketId: targetSlipId,
+        slipId: targetSlipId,
         bookmaker: config.name,
         bookmakerId: config.id,
         bookmakerSlug: config.slug,
@@ -439,39 +456,19 @@ export async function POST(req: Request) {
       // Update in-memory cache immediately so all concurrent users see it instantly
       codeCache.set(targetSlipId, updatedPayload);
       codeCache.set(cleanCode, updatedPayload);
+      if (computedRef) codeCache.set(computedRef, updatedPayload);
 
       // Persist to Neon Postgres DB if available
       if (process.env.DATABASE_URL) {
         try {
-          // A. Upsert into futurebet_booking_codes under targetSlipId
-          await sql`
-            INSERT INTO futurebet_booking_codes (
-              code, slip_id, bookmaker, is_verified_native, native_codes, payload, updated_at
-            )
-            VALUES (
-              ${targetSlipId},
-              ${targetSlipId},
-              ${config.name},
-              true,
-              ${JSON.stringify(updatedNativeCodes)}::jsonb,
-              ${JSON.stringify(updatedPayload)}::jsonb,
-              NOW()
-            )
-            ON CONFLICT (code) DO UPDATE SET
-              is_verified_native = true,
-              native_codes = EXCLUDED.native_codes,
-              payload = EXCLUDED.payload,
-              updated_at = NOW();
-          `;
-
-          // B. Also upsert under cleanCode so looking up by the real bookmaker code works directly
-          if (cleanCode !== targetSlipId) {
+          const keysToUpsert = Array.from(new Set([targetSlipId, cleanCode, computedRef].filter(Boolean)));
+          for (const k of keysToUpsert) {
             await sql`
               INSERT INTO futurebet_booking_codes (
                 code, slip_id, bookmaker, is_verified_native, native_codes, payload, updated_at
               )
               VALUES (
-                ${cleanCode},
+                ${k},
                 ${targetSlipId},
                 ${config.name},
                 true,
@@ -480,8 +477,9 @@ export async function POST(req: Request) {
                 NOW()
               )
               ON CONFLICT (code) DO UPDATE SET
+                slip_id = COALESCE(EXCLUDED.slip_id, futurebet_booking_codes.slip_id),
                 is_verified_native = true,
-                native_codes = EXCLUDED.native_codes,
+                native_codes = COALESCE(futurebet_booking_codes.native_codes, '{}'::jsonb) || EXCLUDED.native_codes,
                 payload = EXCLUDED.payload,
                 updated_at = NOW();
             `;
@@ -500,16 +498,16 @@ export async function POST(req: Request) {
           }
         } catch (dbErr) {
           console.error("Database persist warning:", dbErr);
-          // Non-fatal: in-memory cache holds the verified state
         }
       }
 
       return NextResponse.json({
         success: true,
-        message: `Verified ${config.name} booking code "${cleanCode}" saved successfully!`,
+        message: `Verified ${config.name} booking code "${cleanCode}" saved for all users!`,
         slipId: targetSlipId,
         bookmaker: config.name,
         code: cleanCode,
+        nativeCodes: updatedNativeCodes,
         payload: updatedPayload,
       });
     }
@@ -552,17 +550,21 @@ export async function POST(req: Request) {
       }
     }
 
-    // 2. Check futurebet_booking_codes in DB
-    if (!verifiedNativeCode && process.env.DATABASE_URL) {
+    // 2. Check futurebet_booking_codes in DB (merge all matching rows, prioritizing verified ones)
+    if (process.env.DATABASE_URL) {
       try {
         const rows = await sql`
           SELECT native_codes, is_verified_native FROM futurebet_booking_codes 
           WHERE code = ${internalReference} OR code = ${slipId || ""} OR slip_id = ${slipId || ""}
-          LIMIT 1;
+          ORDER BY is_verified_native DESC, updated_at DESC;
         `;
-        if (rows && rows.length > 0 && rows[0]?.native_codes) {
-          storedNativeCodes = { ...storedNativeCodes, ...rows[0].native_codes };
-          if (storedNativeCodes[config.slug]) {
+        if (rows && rows.length > 0) {
+          for (const r of rows) {
+            if (r?.native_codes && typeof r.native_codes === "object") {
+              storedNativeCodes = { ...r.native_codes, ...storedNativeCodes };
+            }
+          }
+          if (!verifiedNativeCode && storedNativeCodes[config.slug]) {
             verifiedNativeCode = storedNativeCodes[config.slug];
           }
         }

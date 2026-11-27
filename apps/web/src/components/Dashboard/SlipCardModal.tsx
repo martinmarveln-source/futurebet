@@ -33,6 +33,8 @@ export function SlipCardModal({
   matches = [],
   totalOdds = 1,
   slipTitle = "",
+  bookingCodes = {},
+  slipId = "",
   darkMode = true,
 }) {
   const cardRef = useRef(null);
@@ -42,6 +44,26 @@ export function SlipCardModal({
   const [downloading, setDownloading] = useState(false);
   const [copiedImg, setCopiedImg] = useState(false);
   const [ticketRef, setTicketRef] = useState("");
+  const [fetchedCodes, setFetchedCodes] = useState({});
+
+  const mergedBookingCodes = useMemo(() => {
+    const out = {};
+    const add = (src) => {
+      if (!src || typeof src !== "object") return;
+      Object.entries(src).forEach(([k, v]) => {
+        if (v && String(v).trim()) out[String(k).toLowerCase()] = String(v).trim().toUpperCase();
+      });
+    };
+    add(bookingCodes);
+    add(fetchedCodes);
+    return out;
+  }, [bookingCodes, fetchedCodes]);
+
+  const primarySportyCode = mergedBookingCodes.sportybet || "";
+  const otherBookieCodes = useMemo(
+    () => Object.entries(mergedBookingCodes).filter(([k]) => k !== "sportybet"),
+    [mergedBookingCodes]
+  );
 
   const validMatches = useMemo(() => (Array.isArray(matches) ? matches : []), [matches]);
   const displayOdds = Number(totalOdds || 1).toFixed(2);
@@ -80,13 +102,17 @@ export function SlipCardModal({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             matches: validMatches,
+            slipId: slipId || undefined,
             code: generatedCode,
             ticketId: generatedCode,
             bookmaker: "SPORTYBET",
           }),
         });
         const data = await res.json();
-        const finalCode = data?.bookingCode || generatedCode;
+        if (data?.nativeCodes && typeof data.nativeCodes === "object") {
+          setFetchedCodes(data.nativeCodes);
+        }
+        const finalCode = (data?.isVerifiedNative && data?.bookingCode) ? data.bookingCode : generatedCode;
         setTicketRef(finalCode);
 
         // Store into localStorage client history
@@ -530,14 +556,43 @@ export function SlipCardModal({
                 </div>
               </div>
 
+              {/* Available Bookmaker Booking Codes (SportyBet Priority) */}
+              {(primarySportyCode || otherBookieCodes.length > 0) && (
+                <div className="mb-2 p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/35 flex flex-wrap items-center justify-between gap-2">
+                  {primarySportyCode ? (
+                    <div className="flex items-center gap-2">
+                      <Ticket size={14} className="text-emerald-400 shrink-0" />
+                      <span className="text-[10px] font-black uppercase tracking-wider text-emerald-300">
+                        SportyBet Code:
+                      </span>
+                      <span className="font-mono text-sm font-black tracking-widest text-white bg-emerald-600/40 px-2 py-0.5 rounded border border-emerald-400/40">
+                        {primarySportyCode}
+                      </span>
+                    </div>
+                  ) : null}
+                  {otherBookieCodes.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {otherBookieCodes.map(([bk, cd]) => (
+                        <span
+                          key={bk}
+                          className="text-[9px] font-mono font-black uppercase bg-white/10 text-slate-200 px-1.5 py-0.5 rounded border border-white/15"
+                        >
+                          {bk}: {cd}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Watermark & Clear Booking Code Reference */}
               <div className="flex items-center justify-between text-[9px] font-bold text-slate-400 tracking-wider px-1">
                 <span className="flex items-center gap-1">
                   <ShieldCheck size={12} className="text-emerald-400" />
                   futurebet.com.ng
                 </span>
-                <span className="font-mono text-amber-300 font-black bg-white/[0.06] px-2 py-0.5 rounded border border-white/10">
-                  {ticketRef}
+                <span className="font-mono text-sky-300 font-black bg-white/[0.06] px-2 py-0.5 rounded border border-white/10">
+                  {primarySportyCode ? `SPORTYBET: ${primarySportyCode}` : ticketRef}
                 </span>
               </div>
             </div>
