@@ -420,11 +420,12 @@ export async function POST(req: Request) {
           `;
           if (rows && rows.length > 0) {
             for (const r of rows) {
-              if (r?.native_codes && typeof r.native_codes === "object") {
-                mergedDbNativeCodes = { ...mergedDbNativeCodes, ...r.native_codes };
+              const nc = typeof r?.native_codes === "string" ? JSON.parse(r.native_codes) : r?.native_codes;
+              if (nc && typeof nc === "object") {
+                mergedDbNativeCodes = { ...mergedDbNativeCodes, ...nc };
               }
               if (!existingPayload && r?.payload) {
-                existingPayload = r.payload;
+                existingPayload = typeof r.payload === "string" ? JSON.parse(r.payload) : r.payload;
               }
             }
           }
@@ -458,19 +459,23 @@ export async function POST(req: Request) {
       codeCache.set(cleanCode, updatedPayload);
       if (computedRef) codeCache.set(computedRef, updatedPayload);
 
-      // Persist to Neon Postgres DB if available
+      // Persist to Neon Postgres DB
       if (process.env.DATABASE_URL) {
         try {
           const keysToUpsert = Array.from(new Set([targetSlipId, cleanCode, computedRef].filter(Boolean)));
+          const safeMatchCount = Array.isArray(matches) ? matches.length : Number(existingPayload?.matchCount || 0);
+          const safeTotalOdds = Number(existingPayload?.totalOdds || 1);
           for (const k of keysToUpsert) {
             await sql`
               INSERT INTO futurebet_booking_codes (
-                code, slip_id, bookmaker, is_verified_native, native_codes, payload, updated_at
+                code, slip_id, bookmaker, total_odds, match_count, is_verified_native, native_codes, payload, updated_at
               )
               VALUES (
                 ${k},
                 ${targetSlipId},
                 ${config.name},
+                ${safeTotalOdds},
+                ${safeMatchCount},
                 true,
                 ${JSON.stringify(updatedNativeCodes)}::jsonb,
                 ${JSON.stringify(updatedPayload)}::jsonb,
@@ -478,8 +483,9 @@ export async function POST(req: Request) {
               )
               ON CONFLICT (code) DO UPDATE SET
                 slip_id = COALESCE(EXCLUDED.slip_id, futurebet_booking_codes.slip_id),
+                bookmaker = EXCLUDED.bookmaker,
                 is_verified_native = true,
-                native_codes = COALESCE(futurebet_booking_codes.native_codes, '{}'::jsonb) || EXCLUDED.native_codes,
+                native_codes = EXCLUDED.native_codes,
                 payload = EXCLUDED.payload,
                 updated_at = NOW();
             `;
@@ -496,8 +502,12 @@ export async function POST(req: Request) {
           } catch (curatedErr) {
             console.warn("curated_multi_bet_history update skipped:", curatedErr);
           }
-        } catch (dbErr) {
-          console.error("Database persist warning:", dbErr);
+        } catch (dbErr: any) {
+          console.error("Database persist error in attach_code:", dbErr);
+          return NextResponse.json(
+            { error: `Failed to save booking code to database: ${dbErr?.message || "Unknown DB error"}` },
+            { status: 500 }
+          );
         }
       }
 
@@ -560,8 +570,9 @@ export async function POST(req: Request) {
         `;
         if (rows && rows.length > 0) {
           for (const r of rows) {
-            if (r?.native_codes && typeof r.native_codes === "object") {
-              storedNativeCodes = { ...r.native_codes, ...storedNativeCodes };
+            const nc = typeof r?.native_codes === "string" ? JSON.parse(r.native_codes) : r?.native_codes;
+            if (nc && typeof nc === "object") {
+              storedNativeCodes = { ...nc, ...storedNativeCodes };
             }
           }
           if (!verifiedNativeCode && storedNativeCodes[config.slug]) {
@@ -734,9 +745,9 @@ export async function POST(req: Request) {
             ${JSON.stringify(payload)}
           )
           ON CONFLICT (code) DO UPDATE SET
-            payload = EXCLUDED.payload,
-            is_verified_native = EXCLUDED.is_verified_native,
-            native_codes = EXCLUDED.native_codes,
+            payload = CASE WHEN futurebet_booking_codes.is_verified_native AND NOT EXCLUDED.is_verified_native THEN futurebet_booking_codes.payload ELSE EXCLUDED.payload END,
+            is_verified_native = futurebet_booking_codes.is_verified_native OR EXCLUDED.is_verified_native,
+            native_codes = COALESCE(futurebet_booking_codes.native_codes, '{}'::jsonb) || EXCLUDED.native_codes,
             updated_at = NOW();
         `;
       } catch (dbErr) {
