@@ -297,7 +297,26 @@ async function tryMintRealBookingCode(
       const opt = (m.selectedOption || "").toLowerCase();
       const combined = `${mkt} ${opt}`;
 
-      if (mkt.includes("double") || mkt === "dc" || opt.includes("1x") || opt.includes("x2") || opt === "12" || opt.includes("home or draw") || opt.includes("draw or away") || opt.includes("home or away")) {
+      const isComboBet = mkt.includes("combo") || /\band\b|&|\+/.test(opt) || /\band\b|&|\+/.test(mkt);
+      const lineMatchGlobal = combined.match(/(\d+\.\d+)/);
+      const comboLine = lineMatchGlobal ? lineMatchGlobal[1] : (combined.includes("1.5") ? "1.5" : combined.includes("3.5") ? "3.5" : "2.5");
+
+      if (isComboBet) {
+        market = "Combo";
+        const dir = combined.includes("under") ? "Under" : "Over";
+        if (combined.includes("gg") || combined.includes("gh") || combined.includes("btts") || combined.includes("both")) {
+          outcome = `GG & ${dir} ${comboLine}`;
+        } else if (combined.includes("1x") || combined.includes("home or draw") || combined.includes("home win or draw")) {
+          outcome = `1X & ${dir} ${comboLine}`;
+        } else if (combined.includes("x2") || combined.includes("draw or away") || combined.includes("away or draw") || combined.includes("away win or draw")) {
+          outcome = `X2 & ${dir} ${comboLine}`;
+        } else if (combined.includes("away") || /\b2\b/.test(opt)) {
+          outcome = `2 & ${dir} ${comboLine}`;
+        } else {
+          outcome = `1 & ${dir} ${comboLine}`;
+        }
+        line = comboLine;
+      } else if (mkt.includes("double") || mkt === "dc" || opt.includes("1x") || opt.includes("x2") || opt === "12" || opt.includes("home or draw") || opt.includes("draw or away") || opt.includes("home or away")) {
         market = "Double Chance";
         if (opt.includes("home or draw") || opt.includes("home win or draw") || opt.includes("1x") || opt === "1") outcome = "1X";
         else if (opt.includes("draw or away") || opt.includes("away win or draw") || opt.includes("x2") || opt === "2") outcome = "X2";
@@ -675,7 +694,26 @@ export async function POST(req: Request) {
             const combined = `${mkt} ${opt}`;
 
             let pick = "home win";
-            if (mkt.includes("double") || mkt === "dc" || opt.includes("1x") || opt.includes("x2") || opt === "12" || opt.includes("home or draw") || opt.includes("draw or away") || opt.includes("home or away")) {
+            const isComboBet = mkt.includes("combo") || /\band\b|&|\+/.test(opt) || /\band\b|&|\+/.test(mkt);
+            const comboLineMatch = combined.match(/(\d+\.\d+)/);
+            const comboLine = comboLineMatch ? comboLineMatch[1] : (combined.includes("1.5") ? "1.5" : combined.includes("3.5") ? "3.5" : "2.5");
+            const comboGoalDir = combined.includes("under") ? "under" : "over";
+
+            if (isComboBet) {
+              if (combined.includes("gg") || combined.includes("gh") || combined.includes("btts") || combined.includes("both")) {
+                pick = `both teams to score and ${comboGoalDir} ${comboLine}`;
+              } else if (combined.includes("1x") || combined.includes("home or draw") || combined.includes("home win or draw")) {
+                pick = `home win or draw and ${comboGoalDir} ${comboLine}`;
+              } else if (combined.includes("x2") || combined.includes("draw or away") || combined.includes("away or draw") || combined.includes("away win or draw")) {
+                pick = `away win or draw and ${comboGoalDir} ${comboLine}`;
+              } else if (combined.includes("12") || combined.includes("home or away")) {
+                pick = `home win or away win and ${comboGoalDir} ${comboLine}`;
+              } else if (combined.includes("away") || /\b2\b/.test(opt)) {
+                pick = `away win and ${comboGoalDir} ${comboLine}`;
+              } else {
+                pick = `home win and ${comboGoalDir} ${comboLine}`;
+              }
+            } else if (mkt.includes("double") || mkt === "dc" || opt.includes("1x") || opt.includes("x2") || opt === "12" || opt.includes("home or draw") || opt.includes("draw or away") || opt.includes("home or away")) {
               if (opt.includes("home or draw") || opt.includes("home win or draw") || opt.includes("1x") || opt === "1") pick = "home win or draw";
               else if (opt.includes("draw or away") || opt.includes("away win or draw") || opt.includes("x2") || opt === "2") pick = "away win or draw";
               else pick = "home win or away win";

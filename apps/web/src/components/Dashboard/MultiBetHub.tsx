@@ -500,7 +500,9 @@ export default function MultiBetHub({
       const lines = [
         `🔥 *FUTUREBET AI ACCUMULATOR* 🔥`,
         `✨ *${slip.title.toUpperCase()}*`,
-        `🎯 Combined Odds: ${slip.combinedOdds}x | ${slip.matches.length} Matches`,
+        slip.isOddsFree && Number(slip.combinedOdds || 0) <= 1
+          ? `🎯 Quantitative Model Selection | ${slip.matches.length} Matches`
+          : `🎯 Combined Odds: ${slip.combinedOdds}x | ${slip.matches.length} Matches`,
         `📊 Model Confidence: ${slip.confidence}%`,
         "",
       ];
@@ -508,8 +510,9 @@ export default function MultiBetHub({
       slip.matches.forEach((leg: any, idx: number) => {
         const cleanLeague = formatSlipLeague(leg.country, leg.league);
         const marketLabel = formatSlipMarketLabel(leg.selectedMarket, leg.selectedOption);
+        const oddsPart = Number(leg.odds || 0) > 1 ? ` @ ${Number(leg.odds).toFixed(2)}` : ` (${leg.confidence || 70}% Model)`;
         lines.push(
-          `${idx + 1}. *${leg.match}* (${cleanLeague})\n   👉 Pick: ${marketLabel} @ ${Number(leg.odds || 0).toFixed(2)}`
+          `${idx + 1}. *${leg.match}* (${cleanLeague})\n   👉 Pick: ${marketLabel}${oddsPart}`
         );
       });
 
@@ -849,15 +852,22 @@ export default function MultiBetHub({
                   slip.id.includes("jackpot") ||
                   slip.id === "longshot_1000x";
 
+                const isOddsFreeSlip = Boolean(slip.isOddsFree || slip.targetOdds === "STATS" || slip.id === "today_top_picks_15");
+
                 return (
                   <div
                     key={slip.id}
                     className={cn(
                       "p-6 rounded-3xl border transition-all duration-300 flex flex-col relative overflow-hidden group shadow-lg",
+                      isOddsFreeSlip && "md:col-span-2",
                       isSpecialJackpot
                         ? darkMode
                           ? "bg-gradient-to-br from-amber-950/40 via-slate-950 to-slate-900 border-amber-500/40 shadow-amber-500/10"
                           : "bg-gradient-to-br from-amber-50 via-white to-amber-100/50 border-amber-300 shadow-amber-100"
+                        : isOddsFreeSlip
+                        ? darkMode
+                          ? "bg-slate-900/90 border-blue-500/35 hover:border-blue-400/50"
+                          : "bg-white border-blue-200 hover:border-blue-300"
                         : darkMode
                         ? "bg-slate-900/80 hover:bg-slate-900 border-white/10 hover:border-white/20"
                         : "bg-white hover:bg-slate-50/80 border-slate-200 hover:border-slate-300"
@@ -931,15 +941,25 @@ export default function MultiBetHub({
                               "text-2xl sm:text-3xl font-black font-mono tracking-tight",
                               isSpecialJackpot
                                 ? "text-amber-400"
+                                : isOddsFreeSlip
+                                ? darkMode
+                                  ? "text-blue-300"
+                                  : "text-blue-700"
                                 : darkMode
                                 ? "text-emerald-400"
                                 : "text-emerald-600"
                             )}
                           >
-                            {Number(slip.combinedOdds || 0).toFixed(2)}x
+                            {isOddsFreeSlip
+                              ? Number(slip.combinedOdds || 0) > 1
+                                ? `~${Number(slip.combinedOdds).toFixed(2)}x`
+                                : "Top Quant"
+                              : `${Number(slip.combinedOdds || 0).toFixed(2)}x`}
                           </span>
                           <span className={cn("text-xs font-semibold", darkMode ? "text-slate-400" : "text-slate-500")}>
-                            Combined Odds • {slip.matchesCount} Selections
+                            {isOddsFreeSlip
+                              ? `Statistical Model Ranking • ${slip.matchesCount} Selections`
+                              : `Combined Odds • ${slip.matchesCount} Selections`}
                           </span>
                         </div>
 
@@ -1000,7 +1020,10 @@ export default function MultiBetHub({
 
                       {/* MATCHES LIST */}
                       {!slip.isLocked && slip.matches && slip.matches.length > 0 ? (
-                        <div className="space-y-2 mb-5 max-h-[460px] overflow-y-auto pr-1">
+                        <div className={cn(
+                          "mb-5 max-h-[460px] overflow-y-auto pr-1",
+                          isOddsFreeSlip ? "grid grid-cols-1 md:grid-cols-2 gap-2" : "space-y-2"
+                        )}>
                           {slip.matches.map((leg, idx) => {
                             const cleanLeague = formatSlipLeague(leg.country, leg.league);
                             const marketLabel = formatSlipMarketLabel(leg.selectedMarket, leg.selectedOption);
@@ -1037,6 +1060,11 @@ export default function MultiBetHub({
                                     {leg.date && <span>• {leg.date}</span>}
                                     {leg.time && <span>{leg.time}</span>}
                                   </div>
+                                  {leg.reason && (
+                                    <div className={cn("text-[10px] truncate mt-0.5", darkMode ? "text-slate-400" : "text-slate-600")} title={leg.reason}>
+                                      {leg.reason}
+                                    </div>
+                                  )}
                                 </div>
 
                                 <div className="flex items-center gap-1.5 shrink-0">
@@ -1067,7 +1095,9 @@ export default function MultiBetHub({
                                       {marketLabel}
                                     </div>
                                     <div className="text-[10px] font-mono text-slate-400 font-bold mt-0.5">
-                                      @{Number(leg.odds || 0).toFixed(2)}
+                                      {Number(leg.odds || 0) > 1
+                                        ? `@${Number(leg.odds).toFixed(2)}`
+                                        : `${leg.confidence || 70}% Model`}
                                     </div>
                                   </div>
 
@@ -1924,7 +1954,9 @@ export default function MultiBetHub({
                                               {formatSlipMarketLabel(leg.selectedMarket, leg.selectedOption)}
                                             </div>
                                             <div className="text-[10px] font-mono text-slate-400 font-bold mt-0.5">
-                                              @{Number(leg.odds || 0).toFixed(2)}
+                                              {Number(leg.odds || 0) > 1
+                                                ? `@${Number(leg.odds).toFixed(2)}`
+                                                : `${leg.confidence || 70}% Model`}
                                             </div>
                                           </div>
 

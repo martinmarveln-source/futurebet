@@ -902,6 +902,32 @@ export function formatSlipMarketLabel(selectedMarket = "", selectedOption = "") 
   const o = String(selectedOption || "").trim();
   const combined = `${m} ${o}`.toLowerCase().replace(/[:\-_]/g, " ");
 
+  // 0. Combo Bet Markets (check BEFORE single markets so "Home and Over 1.5" isn't truncated to "Home" or "Over 1.5")
+  const hasAndOrAmp = /\band\b|&|\+/.test(combined) || m.toLowerCase().includes("combo");
+  if (hasAndOrAmp) {
+    const isOver15 = combined.includes("1.5") || combined.includes("15");
+    const isOver25 = combined.includes("2.5") || combined.includes("25");
+    const isOver35 = combined.includes("3.5") || combined.includes("35");
+    const isUnder = combined.includes("under");
+    const goalPart = isOver35 ? (isUnder ? "Under 3.5" : "Over 3.5") : isOver25 ? (isUnder ? "Under 2.5" : "Over 2.5") : isOver15 ? (isUnder ? "Under 1.5" : "Over 1.5") : "";
+
+    if ((combined.includes("gg") || combined.includes("gh") || combined.includes("btts") || combined.includes("both")) && goalPart) {
+      return `GG & ${goalPart}`;
+    }
+    if ((combined.includes("1x") || combined.includes("home or draw") || combined.includes("home win or draw")) && goalPart) {
+      return `1X & ${goalPart}`;
+    }
+    if ((combined.includes("x2") || combined.includes("away or draw") || combined.includes("draw or away") || combined.includes("away win or draw")) && goalPart) {
+      return `X2 & ${goalPart}`;
+    }
+    if ((combined.includes("home") || /\b1\b/.test(combined)) && goalPart) {
+      return `Home & ${goalPart}`;
+    }
+    if ((combined.includes("away") || /\b2\b/.test(combined)) && goalPart) {
+      return `Away & ${goalPart}`;
+    }
+  }
+
   // 1X2 / Match Winner
   if (combined.includes("home win") || (m === "1X2" && o.toLowerCase() === "home")) return "Home";
   if (combined.includes("away win") || (m === "1X2" && o.toLowerCase() === "away")) return "Away";

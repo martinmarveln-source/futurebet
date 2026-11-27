@@ -16,6 +16,9 @@ export interface PresetLeg {
   reason: string;
   ftScore?: string | null;
   status?: "pending" | "won" | "lost";
+  hasBookieOdds?: boolean;
+  leagueTier?: number;
+  qualityScore?: number;
 }
 
 export interface PresetSlip {
@@ -34,6 +37,7 @@ export interface PresetSlip {
   potentialWin?: number;
   resetInfo?: string;
   status?: "pending" | "won" | "lost";
+  isOddsFree?: boolean;
   matches: PresetLeg[];
 }
 
@@ -314,6 +318,41 @@ function evaluateLegOutcome(market: string, option: string, ftScore: string): "w
 
   const mkt = (market || "").toLowerCase();
   const opt = (option || "").toLowerCase();
+  const combined = `${mkt} ${opt}`;
+
+  // 0. Combo Bet Markets (e.g. "Home and Over 1.5", "GG and Over 2.5", "1X & Over 1.5")
+  const isCombo = mkt.includes("combo") || /\band\b|&|\+/.test(opt) || /\band\b|&|\+/.test(mkt);
+  if (isCombo) {
+    const lineMatch = combined.match(/(\d+(\.\d+)?)/);
+    const line = lineMatch ? parseFloat(lineMatch[1]) : 1.5;
+    const isUnder = combined.includes("under");
+    const goalPass = isUnder ? total < line : total > line;
+    const isGg = hg > 0 && ag > 0;
+
+    if (combined.includes("gg") || combined.includes("gh") || combined.includes("btts") || combined.includes("both")) {
+      const bttsPass = combined.includes("ng") || combined.includes("no") ? !isGg : isGg;
+      return bttsPass && goalPass ? "won" : "lost";
+    }
+    if (combined.includes("1x") || combined.includes("home or draw") || combined.includes("home win or draw")) {
+      return hg >= ag && goalPass ? "won" : "lost";
+    }
+    if (combined.includes("x2") || combined.includes("draw or away") || combined.includes("away or draw") || combined.includes("away win or draw")) {
+      return ag >= hg && goalPass ? "won" : "lost";
+    }
+    if (combined.includes("12") || combined.includes("home or away")) {
+      return hg !== ag && goalPass ? "won" : "lost";
+    }
+    if (combined.includes("away") || /\b2\b/.test(opt)) {
+      return ag > hg && goalPass ? "won" : "lost";
+    }
+    if (combined.includes("draw") || /\bx\b/.test(opt)) {
+      return hg === ag && goalPass ? "won" : "lost";
+    }
+    if (combined.includes("home") || /\b1\b/.test(opt)) {
+      return hg > ag && goalPass ? "won" : "lost";
+    }
+    return "pending";
+  }
 
   // 1. Double Chance — handle all text variants (1X, X2, 12, "Home or Draw", "Away Win or Draw", etc.)
   const isDoubleChanceMkt = mkt.includes("double");
@@ -370,27 +409,409 @@ function evaluateLegOutcome(market: string, option: string, ftScore: string): "w
 }
 
 /* ------------------------------------------------------------------ */
+/*  Quantitative Context Engines: League, Table, Motivation, Form, H2H*/
+/* ------------------------------------------------------------------ */
+
+function getLeaguePrestigeInfo(countryRaw: string, leagueRaw: string): {
+  tier: 1 | 2 | 3 | 4;
+  bonus: number;
+  label: string;
+} {
+  const c = String(countryRaw || "").toLowerCase().trim();
+  const l = String(leagueRaw || "").toLowerCase().trim();
+  const full = `${c} ${l}`;
+
+  // Tier 4 Lower / Youth / Reserve / Amateur / Regional / Unpopular (check first so "Germany Bundesliga" doesn't match "Germany Regionalliga")
+  const isLowerTrap =
+    /\b(u17|u18|u19|u20|u21|u23|reserve|reserves|youth|women|feminine|femenina|amateur|regional|oberliga|regionalliga|tercera|segunda rfef|serie c|serie d|league one|league two|national league|3\. liga|iii liga|ii liga|group [a-z]|primera b|primera c|division [34]|league [34]|2nd division|3rd division)\b/i.test(
+      full
+    );
+  if (isLowerTrap) {
+    return { tier: 4, bonus: -18, label: "Lower / Development Tier" };
+  }
+
+  // Tier 1: Elite European Cups, Major International Tournaments, Top 5 European Top Flights
+  const isUEFAOrIntl =
+    /(champions league|europa league|conference league|world cup|euro\b|nations league|afcon|africa cup|copa america|libertadores|club world cup)/i.test(
+      full
+    );
+  const isTop5 =
+    (c.includes("england") && /\bpremier league\b/i.test(l)) ||
+    (c.includes("spain") && /\b(laliga|la liga|primera division)\b/i.test(l) && !/2|hypermotion|segunda/i.test(l)) ||
+    (c.includes("germany") && /\bbundesliga\b/i.test(l) && !/2\.|zweite|3\.|frauen|women/i.test(l)) ||
+    (c.includes("italy") && /\bserie a\b/i.test(l) && !/femminile|women/i.test(l)) ||
+    (c.includes("france") && /\bligue 1\b/i.test(l) && !/national/i.test(l));
+
+  if (isUEFAOrIntl || isTop5) {
+    return { tier: 1, bonus: 22, label: "Elite Tier 1" };
+  }
+
+  // Tier 2: Major Established Top-Flight & Top-2nd Leagues
+  const isTier2 =
+    (c.includes("england") && /\bchampionship\b/i.test(l)) ||
+    (c.includes("portugal") && /\b(liga portugal|primeira liga)\b/i.test(l) && !/2|b\b/i.test(l)) ||
+    (c.includes("netherlands") && /\beredivisie\b/i.test(l)) ||
+    (c.includes("belgium") && /\b(pro league|jupiler|first division a)\b/i.test(l)) ||
+    (c.includes("turkey") && /\b(super lig|süper lig)\b/i.test(l) && !/1\. lig|2\. lig/i.test(l)) ||
+    (c.includes("scotland") && /\bpremiership\b/i.test(l)) ||
+    (c.includes("brazil") && /\bserie a\b/i.test(l)) ||
+    (c.includes("argentina") && /\b(liga profesional|primera division)\b/i.test(l)) ||
+    (c.includes("usa") && /\bmls\b/i.test(l)) ||
+    (c.includes("saudi") && /\b(pro league|roshn)\b/i.test(l)) ||
+    (c.includes("norway") && /\beliteserien\b/i.test(l)) ||
+    (c.includes("sweden") && /\ballsvenskan\b/i.test(l)) ||
+    (c.includes("denmark") && /\bsuperliga\b/i.test(l)) ||
+    (c.includes("austria") && /\bbundesliga\b/i.test(l) && !/2\./i.test(l)) ||
+    (c.includes("switzerland") && /\bsuper league\b/i.test(l)) ||
+    (c.includes("greece") && /\bsuper league\b/i.test(l) && !/2\b/i.test(l)) ||
+    (c.includes("japan") && /\bj1\b/i.test(l)) ||
+    (c.includes("poland") && /\bekstraklasa\b/i.test(l)) ||
+    (c.includes("czech") && /\b(first league|chance liga|1\. liga)\b/i.test(l));
+
+  if (isTier2) {
+    return { tier: 2, bonus: 12, label: "Major League Tier 2" };
+  }
+
+  // Tier 3: Competitive 2nd Divisions & Known Top-Flights
+  const isTier3 =
+    /\b(laliga2|laliga 2|2\. bundesliga|serie b|ligue 2|eredivisie|eerste divisie|j2|serie b|superettan|1st division|premier division|premier league|super league|liga 1|hnl|ekstraklasa|a-league|k league)\b/i.test(
+      l
+    ) ||
+    /^(croatia|serbia|romania|egypt|south africa|morocco|mexico|colombia|chile|australia|south korea|russia|ukraine|hungary)/i.test(
+      c
+    );
+
+  if (isTier3) {
+    return { tier: 3, bonus: 3, label: "Standard Tier 3" };
+  }
+
+  return { tier: 4, bonus: -12, label: "Secondary / Unpopular" };
+}
+
+function analyzeStandingsAndMotivation(m: any): {
+  homePos: number;
+  awayPos: number;
+  hasTable: boolean;
+  posGap: number; // positive => home much higher on table
+  ptsGap: number;
+  homeEdge: number;
+  awayEdge: number;
+  goalsMotivationBoost: number;
+  note: string;
+} {
+  const rawTable = String(m.table || m.standings || "").trim();
+  const tableParts = rawTable.split(/[|:\-\/]/).map((s) => parseInt(s.trim(), 10));
+  const homePos = tableParts.length >= 2 && Number.isFinite(tableParts[0]) && tableParts[0] > 0 ? tableParts[0] : 0;
+  const awayPos = tableParts.length >= 2 && Number.isFinite(tableParts[1]) && tableParts[1] > 0 ? tableParts[1] : 0;
+  const hasTable = homePos > 0 && awayPos > 0;
+
+  const hPts = toNum(m.hPts);
+  const aPts = toNum(m.aPts);
+  const ptsGap = hPts - aPts;
+  const posGap = hasTable ? awayPos - homePos : 0;
+
+  let homeEdge = 0;
+  let awayEdge = 0;
+  let goalsMotivationBoost = 0;
+  const notes: string[] = [];
+
+  if (hasTable) {
+    if (posGap >= 8) {
+      homeEdge += 6;
+      notes.push(`Table gap #${homePos} vs #${awayPos}`);
+    } else if (posGap >= 4) {
+      homeEdge += 3;
+      notes.push(`Higher-ranked home (#${homePos} vs #${awayPos})`);
+    } else if (posGap <= -8) {
+      awayEdge += 6;
+      notes.push(`Table gap #${awayPos} vs #${homePos}`);
+    } else if (posGap <= -4) {
+      awayEdge += 3;
+      notes.push(`Higher-ranked away (#${awayPos} vs #${homePos})`);
+    }
+
+    // Motivation zones: Title/Promotion/Europe (Top 5) & Relegation fight (>= 15)
+    if (homePos <= 4 && awayPos >= 12) {
+      homeEdge += 3;
+      goalsMotivationBoost += 3;
+      notes.push("Title/Euro push");
+    } else if (awayPos <= 4 && homePos >= 12) {
+      awayEdge += 3;
+      goalsMotivationBoost += 3;
+      notes.push("Away contender push");
+    }
+    if ((homePos >= 15 || awayPos >= 15) && Math.abs(posGap) <= 5) {
+      // Desperate six-pointer often opens up goals late
+      goalsMotivationBoost += 2;
+    }
+    if (homePos >= 8 && homePos <= 13 && awayPos >= 8 && awayPos <= 13 && Math.abs(posGap) <= 2) {
+      // Mid-table parity -> slight drag on 1X2 conviction
+      homeEdge -= 2;
+      awayEdge -= 2;
+    }
+  }
+
+  if (hPts > 0 || aPts > 0) {
+    if (ptsGap >= 15) homeEdge += 2;
+    else if (ptsGap <= -15) awayEdge += 2;
+  }
+
+  return {
+    homePos,
+    awayPos,
+    hasTable,
+    posGap,
+    ptsGap,
+    homeEdge,
+    awayEdge,
+    goalsMotivationBoost,
+    note: notes[0] || "",
+  };
+}
+
+function parseFormPoints(formRaw: any, recentRaw: any): {
+  ppg: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  count: number;
+  avgMatchGoals: number;
+} {
+  let wins = 0;
+  let draws = 0;
+  let losses = 0;
+  let goalSum = 0;
+  let scoreMatches = 0;
+
+  // Try W/D/L sequence first (last 5 chars)
+  const wdl = String(formRaw || "").toUpperCase().replace(/[^WDL]/g, "").slice(-5);
+  if (wdl.length >= 2) {
+    for (const ch of wdl) {
+      if (ch === "W") wins++;
+      else if (ch === "D") draws++;
+      else if (ch === "L") losses++;
+    }
+  }
+
+  // Also parse scorelines from H_Recent / A_Recent if available (e.g. "2-1, 1-1, 3-0" or "Team A 2-1 Team B")
+  const recentStr = String(recentRaw || "");
+  if (recentStr) {
+    const scoreMatchesArr = recentStr.match(/\b(\d+)\s*[:\-]\s*(\d+)\b/g);
+    if (scoreMatchesArr && scoreMatchesArr.length > 0) {
+      for (const s of scoreMatchesArr.slice(0, 6)) {
+        const p = parseFtScore(s);
+        if (p) {
+          goalSum += p.total;
+          scoreMatches++;
+        }
+      }
+    }
+    // If wdl wasn't populated, extract trailing W/D/L tags from recent text
+    if (wdl.length === 0) {
+      const tags = recentStr.toUpperCase().match(/\(([WDL])\)/g);
+      if (tags && tags.length > 0) {
+        for (const t of tags.slice(0, 5)) {
+          if (t.includes("W")) wins++;
+          else if (t.includes("D")) draws++;
+          else if (t.includes("L")) losses++;
+        }
+      }
+    }
+  }
+
+  const count = wins + draws + losses;
+  const ppg = count > 0 ? (wins * 3 + draws) / count : 0;
+  const avgMatchGoals = scoreMatches > 0 ? goalSum / scoreMatches : 0;
+  return { ppg, wins, draws, losses, count, avgMatchGoals };
+}
+
+function analyzeRecentMatches(m: any) {
+  const home = parseFormPoints(m.hForm, m.H_Recent || m.hRecent);
+  const away = parseFormPoints(m.aForm, m.A_Recent || m.aRecent);
+  const hasRecent = home.count >= 3 || away.count >= 3;
+  const recentDelta = home.count >= 2 && away.count >= 2 ? home.ppg - away.ppg : 0;
+
+  return {
+    hasRecent,
+    home,
+    away,
+    recentDelta,
+    homeIsHot: home.count >= 3 && home.ppg >= 2.0,
+    homeIsSlumping: home.count >= 3 && home.losses >= 3,
+    awayIsHot: away.count >= 3 && away.ppg >= 2.0,
+    awayIsSlumping: away.count >= 3 && away.losses >= 3,
+    recentGoalsAvg:
+      home.avgMatchGoals > 0 && away.avgMatchGoals > 0
+        ? (home.avgMatchGoals + away.avgMatchGoals) / 2
+        : home.avgMatchGoals || away.avgMatchGoals || 0,
+  };
+}
+
+function analyzeH2HProfile(m: any) {
+  let gp = toNum(m.H2H_GP ?? m.h2hGP);
+  let hWins = toNum(m.H2H_H ?? m.h2hH);
+  let draws = toNum(m.H2H_D ?? m.h2hD);
+  let aWins = toNum(m.H2H_A ?? m.h2hA);
+  let ov = toNum(m.H2H_OV ?? m.h2hOV);
+  let un = toNum(m.H2H_UN ?? m.h2hUN);
+  let gg = toNum(m.H2H_GG ?? m.h2hGG);
+
+  // Convert counts to percentages if values look like small integers <= gp
+  const toRate = (v: number) => (gp > 0 && v <= gp ? (v / gp) * 100 : v);
+  const hRate = toRate(hWins);
+  const dRate = toRate(draws);
+  const aRate = toRate(aWins);
+  const ovRate = toRate(ov);
+  const unRate = toRate(un);
+  const ggRate = toRate(gg);
+
+  // If H2H_GP not given, try parsing H2H_Recent scorelines
+  let recentAvgGoals = 0;
+  let recentOver15Count = 0;
+  let recentParsedCount = 0;
+  const h2hText = String(m.H2H_Recent || m.H2H_Match || "").trim();
+  if (h2hText) {
+    const matchesArr = h2hText.match(/\b(\d+)\s*[:\-]\s*(\d+)\b/g);
+    if (matchesArr && matchesArr.length > 0) {
+      let gSum = 0;
+      for (const s of matchesArr.slice(0, 6)) {
+        const p = parseFtScore(s);
+        if (p) {
+          gSum += p.total;
+          if (p.total >= 2) recentOver15Count++;
+          recentParsedCount++;
+        }
+      }
+      if (recentParsedCount > 0) {
+        recentAvgGoals = gSum / recentParsedCount;
+        if (gp === 0) gp = recentParsedCount;
+      }
+    }
+  }
+
+  return {
+    hasH2H: gp >= 2,
+    gp,
+    homeUnbeatenRate: hRate + dRate,
+    awayUnbeatenRate: aRate + dRate,
+    homeWinRate: hRate,
+    awayWinRate: aRate,
+    ov25Rate: ovRate,
+    un25Rate: unRate,
+    bttsRate: ggRate,
+    recentAvgGoals,
+    h2hOver15Rate: recentParsedCount > 0 ? (recentOver15Count / recentParsedCount) * 100 : 0,
+  };
+}
+
+function poissonPmf(k: number, lambda: number): number {
+  if (lambda <= 0) return k === 0 ? 1 : 0;
+  let fact = 1;
+  for (let i = 2; i <= k; i++) fact *= i;
+  return (Math.exp(-lambda) * Math.pow(lambda, k)) / fact;
+}
+
+function computePoissonMetrics(m: any) {
+  const hgs = toNum(m.hgs);
+  const hgc = toNum(m.hgc);
+  const ags = toNum(m.ags);
+  const agc = toNum(m.agc);
+  const avg = toNum(m.avg);
+
+  let lambdaH = hgs > 0 && agc > 0 ? (hgs + agc) / 2 : hgs || agc || (avg > 0 ? avg * 0.54 : 1.35);
+  let lambdaA = ags > 0 && hgc > 0 ? (ags + hgc) / 2 : ags || hgc || (avg > 0 ? avg * 0.46 : 1.10);
+  lambdaH = Math.max(0.25, Math.min(3.8, lambdaH));
+  lambdaA = Math.max(0.20, Math.min(3.5, lambdaA));
+  const lambdaTotal = lambdaH + lambdaA;
+
+  let pOver15 = 0;
+  let pOver25 = 0;
+  let pUnder35 = 0;
+  let pUnder25 = 0;
+  let pBtts = 0;
+  let pHomeAndOver15 = 0;
+  let pAwayAndOver15 = 0;
+  let p1XAndOver15 = 0;
+  let pX2AndOver15 = 0;
+  let pGGAndOver25 = 0;
+
+  for (let hg = 0; hg <= 6; hg++) {
+    const ph = poissonPmf(hg, lambdaH);
+    for (let ag = 0; ag <= 6; ag++) {
+      const p = ph * poissonPmf(ag, lambdaA);
+      const tot = hg + ag;
+      if (tot >= 2) pOver15 += p;
+      if (tot >= 3) pOver25 += p;
+      if (tot <= 3) pUnder35 += p;
+      if (tot <= 2) pUnder25 += p;
+      if (hg > 0 && ag > 0) {
+        pBtts += p;
+        if (tot >= 3) pGGAndOver25 += p;
+      }
+      if (hg > ag && tot >= 2) pHomeAndOver15 += p;
+      if (ag > hg && tot >= 2) pAwayAndOver15 += p;
+      if (hg >= ag && tot >= 2) p1XAndOver15 += p;
+      if (ag >= hg && tot >= 2) pX2AndOver15 += p;
+    }
+  }
+
+  return {
+    lambdaH,
+    lambdaA,
+    lambdaTotal,
+    pOver15: pOver15 * 100,
+    pOver25: pOver25 * 100,
+    pUnder35: pUnder35 * 100,
+    pUnder25: pUnder25 * 100,
+    pBtts: pBtts * 100,
+    pHomeAndOver15: pHomeAndOver15 * 100,
+    pAwayAndOver15: pAwayAndOver15 * 100,
+    p1XAndOver15: p1XAndOver15 * 100,
+    pX2AndOver15: pX2AndOver15 * 100,
+    pGGAndOver25: pGGAndOver25 * 100,
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /*  Candidate market extractor for accumulator building               */
 /* ------------------------------------------------------------------ */
-function extractEligibleMarkets(m: any): Array<{
+function extractEligibleMarkets(
+  m: any,
+  options?: { ignoreOddsAvailability?: boolean }
+): Array<{
   market: string;
   option: string;
   odds: number;
   confidence: number;
+  qualityScore: number;
+  leagueTier: 1 | 2 | 3 | 4;
+  hasBookieOdds: boolean;
   risk: "safe" | "medium" | "aggressive";
   reason: string;
 }> {
+  const ignoreOdds = Boolean(options?.ignoreOddsAvailability);
   const candidates: Array<{
     market: string;
     option: string;
     odds: number;
     confidence: number;
+    qualityScore: number;
+    leagueTier: 1 | 2 | 3 | 4;
+    hasBookieOdds: boolean;
     risk: "safe" | "medium" | "aggressive";
     reason: string;
   }> = [];
 
-  const hWin = toNum(m.homeWin || m.hWin);
-  const aWin = toNum(m.awayWin || m.aWin);
+  const country = String(m.country || m.Country || "");
+  const league = String(m.fullLeague || m.league || "");
+  const prestige = getLeaguePrestigeInfo(country, league);
+  const standings = analyzeStandingsAndMotivation(m);
+  const recent = analyzeRecentMatches(m);
+  const h2h = analyzeH2HProfile(m);
+  const poisson = computePoissonMetrics(m);
+
+  const hWin = toNum(m.homeWin);
+  const aWin = toNum(m.awayWin);
   const draw = toNum(m.draw);
   const hOdds = toNum(m.homeOdds);
   const aOdds = toNum(m.awayOdds);
@@ -410,189 +831,354 @@ function extractEligibleMarkets(m: any): Array<{
   const acs = toNum(m.acs);
   const hfts = toNum(m.hfts ?? m.hFailedToScore);
   const afts = toNum(m.afts ?? m.aFailedToScore);
-  const avgGoals = toNum(m.avg) || ((toNum(m.hgs) + toNum(m.hgc) + toNum(m.ags) + toNum(m.agc)) > 0 ? (toNum(m.hgs) + toNum(m.hgc) + toNum(m.ags) + toNum(m.agc)) / 2 : 0);
+  const avgGoals = toNum(m.avg) || poisson.lambdaTotal;
   const h2hUN = toNum(m.h2hUN ?? m.H2H_UN);
   const hOv2 = toNum(m.hOv2);
   const aOv2 = toNum(m.aOv2);
   const cleanSheetAvg = (hcs + acs) / 2;
   const ftsAvg = (hfts + afts) / 2;
   const parsedScore = parseFtScore(m.cScore || m.predictedScore);
+  const modelRating = toNum(m.rating, 50);
 
-  // 1. Double Chance 1X (Super Safe - Home Fortress Priority)
-  const calc1XOdds = dc1X >= 1.15 ? dc1X : ((hWin + draw) > 0 ? Number((1 / (((hWin + draw) / 100) * 1.08)).toFixed(2)) : 1.30);
-  if (calc1XOdds >= 1.15 && calc1XOdds <= 1.55 && (hWin + draw) >= 65) {
-    const isFortress = hppg >= 1.65 || hWin >= 48;
+  const contextTag = [
+    standings.note,
+    recent.hasRecent ? `Form ${recent.home.ppg.toFixed(1)}v${recent.away.ppg.toFixed(1)} PPG` : "",
+    h2h.hasH2H ? `H2H(${h2h.gp})` : "",
+  ].filter(Boolean).join(" • ");
+
+  const pushCandidate = (c: {
+    market: string;
+    option: string;
+    bookieOdds: number;
+    fairOdds: number;
+    confidence: number;
+    contextBonus?: number;
+    risk: "safe" | "medium" | "aggressive";
+    reason: string;
+  }) => {
+    const hasBookieOdds = c.bookieOdds >= 1.12;
+    if (!ignoreOdds && c.fairOdds <= 1.05 && !hasBookieOdds) return;
+    const finalOdds = hasBookieOdds ? Number(c.bookieOdds.toFixed(2)) : (ignoreOdds ? 0 : Number(c.fairOdds.toFixed(2)));
+    const conf = Math.round(Math.max(40, Math.min(96, c.confidence)));
+    const ratingAdj = (modelRating - 50) * 0.12;
+    const qualityScore = conf + prestige.bonus + ratingAdj + (c.contextBonus || 0);
     candidates.push({
+      market: c.market,
+      option: c.option,
+      odds: finalOdds,
+      confidence: conf,
+      qualityScore,
+      leagueTier: prestige.tier,
+      hasBookieOdds,
+      risk: c.risk,
+      reason: contextTag ? `${c.reason} (${contextTag})` : c.reason,
+    });
+  };
+
+  // Helper context adjustments for Home / Away outcomes
+  const homeFormBoost = recent.homeIsSlumping ? -10 : recent.homeIsHot ? 5 : (recent.recentDelta >= 0.7 ? 3 : 0);
+  const awayFormBoost = recent.awayIsSlumping ? -10 : recent.awayIsHot ? 5 : (recent.recentDelta <= -0.7 ? 3 : 0);
+  const h2hHomeBoost = h2h.hasH2H ? (h2h.homeUnbeatenRate >= 75 ? 4 : h2h.awayWinRate >= 65 ? -6 : 0) : 0;
+  const h2hAwayBoost = h2h.hasH2H ? (h2h.awayUnbeatenRate >= 75 ? 4 : h2h.homeWinRate >= 65 ? -6 : 0) : 0;
+  const h2hGoalBoost = h2h.hasH2H ? (h2h.ov25Rate >= 65 || h2h.recentAvgGoals >= 2.8 ? 4 : h2h.un25Rate >= 65 ? -5 : 0) : 0;
+
+  // 1. Double Chance 1X (Home Fortress + Table + Recent Form + H2H)
+  const raw1XProb = hWin + draw;
+  const fair1XOdds = raw1XProb > 0 ? Number((1 / ((raw1XProb / 100) * 1.08)).toFixed(2)) : 1.30;
+  const eff1XOdds = dc1X >= 1.15 ? dc1X : fair1XOdds;
+  const ok1XOdds = ignoreOdds || (eff1XOdds >= 1.15 && eff1XOdds <= 1.55);
+  if (ok1XOdds && raw1XProb >= 65 && !recent.homeIsSlumping && standings.awayEdge < 6) {
+    const isFortress = hppg >= 1.65 || hWin >= 48 || standings.homeEdge >= 4;
+    const adjConf = raw1XProb + (isFortress ? 3 : 0) + standings.homeEdge * 0.5 + homeFormBoost * 0.5 + h2hHomeBoost * 0.5;
+    pushCandidate({
       market: "Double Chance",
       option: "1X",
-      odds: calc1XOdds,
-      confidence: Math.round(isFortress ? Math.min(92, (hWin + draw) + 3) : Math.min(90, hWin + draw)),
+      bookieOdds: dc1X,
+      fairOdds: fair1XOdds,
+      confidence: Math.min(92, adjConf),
+      contextBonus: standings.homeEdge + homeFormBoost + h2hHomeBoost,
       risk: "safe",
-      reason: isFortress ? `Home fortress (${hppg.toFixed(2)} PPG) & ${Math.round(hWin + draw)}% 1X probability` : `Solid 1X cushion (${Math.round(hWin + draw)}%)`,
+      reason: isFortress ? `Home fortress (${hppg.toFixed(2)} PPG) & ${Math.round(raw1XProb)}% 1X probability` : `Solid 1X cushion (${Math.round(raw1XProb)}%)`,
     });
   }
 
   // 2. Double Chance X2 (Strict Away Gate - Weed out Home Fortress traps)
-  const calcX2Odds = dcX2 >= 1.15 ? dcX2 : ((aWin + draw) > 0 ? Number((1 / (((aWin + draw) / 100) * 1.08)).toFixed(2)) : 1.32);
-  // Strict Away X2 Gate:
-  // - Never pick X2 if home team is competent at home (hppg >= 1.35 or hWin >= 35%)
-  // - Require distinct away superiority: appg >= 1.50, (appg - hppg) >= 0.25, and aWin >= 40%
-  const isHomeStrong = hppg >= 1.35 || hWin >= 35;
-  const isAwaySuperior = appg >= 1.50 && (appg - hppg) >= 0.25 && aWin >= 40;
-  if (!isHomeStrong && isAwaySuperior && calcX2Odds >= 1.15 && calcX2Odds <= 1.55 && (aWin + draw) >= 68) {
-    candidates.push({
+  const rawX2Prob = aWin + draw;
+  const fairX2Odds = rawX2Prob > 0 ? Number((1 / ((rawX2Prob / 100) * 1.08)).toFixed(2)) : 1.32;
+  const effX2Odds = dcX2 >= 1.15 ? dcX2 : fairX2Odds;
+  const isHomeStrong = hppg >= 1.35 || hWin >= 35 || recent.homeIsHot || standings.homeEdge >= 4;
+  const isAwaySuperior = (appg >= 1.50 && (appg - hppg) >= 0.25 && aWin >= 40) || standings.awayEdge >= 6;
+  const okX2Odds = ignoreOdds || (effX2Odds >= 1.15 && effX2Odds <= 1.55);
+  if (!isHomeStrong && isAwaySuperior && !recent.awayIsSlumping && okX2Odds && rawX2Prob >= 68) {
+    const adjConf = rawX2Prob + standings.awayEdge * 0.5 + awayFormBoost * 0.5 + h2hAwayBoost * 0.5;
+    pushCandidate({
       market: "Double Chance",
       option: "X2",
-      odds: calcX2Odds,
-      confidence: Math.round(Math.min(88, aWin + draw)),
+      bookieOdds: dcX2,
+      fairOdds: fairX2Odds,
+      confidence: Math.min(89, adjConf),
+      contextBonus: standings.awayEdge + awayFormBoost + h2hAwayBoost,
       risk: "safe",
-      reason: `Away road dominance (${appg.toFixed(2)} vs ${hppg.toFixed(2)} PPG) with ${Math.round(aWin + draw)}% X2 projection`,
+      reason: `Away dominance (${appg.toFixed(2)} vs ${hppg.toFixed(2)} PPG) & ${Math.round(rawX2Prob)}% X2 projection`,
     });
   }
 
   // 3. Double Chance 12 (Low Draw Risk)
-  const calc12Odds = dc12 >= 1.18 ? dc12 : (draw > 0 ? Number((1 / (((100 - draw) / 100) * 1.08)).toFixed(2)) : 1.28);
-  if (draw > 0 && draw <= 22 && (hWin >= 42 || aWin >= 42) && calc12Odds >= 1.18 && calc12Odds <= 1.45) {
-    candidates.push({
+  const fair12Odds = draw > 0 ? Number((1 / (((100 - draw) / 100) * 1.08)).toFixed(2)) : 1.28;
+  const eff12Odds = dc12 >= 1.18 ? dc12 : fair12Odds;
+  if (draw > 0 && draw <= 22 && (hWin >= 42 || aWin >= 42) && (ignoreOdds || (eff12Odds >= 1.18 && eff12Odds <= 1.45))) {
+    pushCandidate({
       market: "Double Chance",
       option: "12",
-      odds: calc12Odds,
-      confidence: Math.round(Math.min(88, 100 - draw)),
+      bookieOdds: dc12,
+      fairOdds: fair12Odds,
+      confidence: Math.min(88, 100 - draw),
       risk: "safe",
-      reason: `Low draw likelihood (${draw}%) with high decisive winner projection`,
+      reason: `Low draw probability (${draw}%) with decisive winner separation`,
     });
   }
 
-  // 4. Over 1.5 Goals (High Win Rate Banker)
-  const o15Chance = toNum(m.hgsOver15 || m.o15 || 75);
-  const calcO15Odds = o15Odds >= 1.18 ? o15Odds : (o15Chance > 0 ? Number((1 / ((o15Chance / 100) * 1.06)).toFixed(2)) : 1.26);
-  if (calcO15Odds >= 1.18 && calcO15Odds <= 1.48 && o15Chance >= 72) {
-    candidates.push({
+  // 4. Over 1.5 Goals (True Poisson + Scoring Trend Calibration — NOT hardcoded 75)
+  const teamO15Signal = [toNum(m.hgsOver15), toNum(m.agsOver15), toNum(m.hgcOver15), toNum(m.agcOver15)].filter((v) => v > 0);
+  const empO15 = teamO15Signal.length > 0 ? teamO15Signal.reduce((a, b) => a + b, 0) / teamO15Signal.length : 0;
+  const o15ModelProb = empO15 > 0 ? poisson.pOver15 * 0.65 + empO15 * 0.35 : poisson.pOver15;
+  const fairO15Odds = o15ModelProb > 0 ? Number((1 / ((o15ModelProb / 100) * 1.06)).toFixed(2)) : 1.26;
+  const effO15Odds = o15Odds >= 1.18 ? o15Odds : fairO15Odds;
+  const notLowGoalTrap = !(avgGoals > 0 && avgGoals <= 1.75 && cleanSheetAvg >= 45);
+  if (notLowGoalTrap && o15ModelProb >= 72 && (ignoreOdds || (effO15Odds >= 1.18 && effO15Odds <= 1.48))) {
+    pushCandidate({
       market: "Over 1.5",
       option: "Over 1.5",
-      odds: calcO15Odds,
-      confidence: Math.round(Math.min(88, o15Chance)),
+      bookieOdds: o15Odds,
+      fairOdds: fairO15Odds,
+      confidence: Math.min(90, o15ModelProb + h2hGoalBoost * 0.5 + standings.goalsMotivationBoost),
+      contextBonus: h2hGoalBoost + standings.goalsMotivationBoost,
       risk: "safe",
-      reason: "High combined goal conversion and positive attacking momentum",
+      reason: `Poisson ${poisson.lambdaTotal.toFixed(2)} xG (${Math.round(o15ModelProb)}% O1.5 prob)`,
     });
   }
 
-  // 5. Clean 1X2 Home Win (Home Fortress Priority)
-  if (hOdds >= 1.35 && hOdds <= 2.15 && hWin >= 50) {
-    const isFortress = hppg >= 1.65;
-    candidates.push({
+  // 5. Clean 1X2 Home Win (Home Fortress + Table + Form + H2H)
+  if ((ignoreOdds ? hWin >= 56 : (hOdds >= 1.35 && hOdds <= 2.15 && hWin >= 50)) && !recent.homeIsSlumping && standings.awayEdge < 6) {
+    const isFortress = hppg >= 1.65 || standings.homeEdge >= 5;
+    const adjConf = hWin + (isFortress ? 4 : 0) + standings.homeEdge * 0.6 + homeFormBoost * 0.6 + h2hHomeBoost * 0.5;
+    pushCandidate({
       market: "1X2",
       option: "Home",
-      odds: Number(hOdds.toFixed(2)),
-      confidence: Math.round(isFortress ? Math.min(92, hWin + 4) : hWin),
-      risk: isFortress ? "safe" : "medium",
-      reason: isFortress ? `Dominant home fortress (${hppg.toFixed(2)} PPG) & ${Math.round(hWin)}% win model` : `Clear home model edge (${Math.round(hWin)}% win likelihood)`,
+      bookieOdds: hOdds,
+      fairOdds: hWin > 0 ? Number((100 / hWin).toFixed(2)) : 1.65,
+      confidence: Math.min(92, adjConf),
+      contextBonus: standings.homeEdge + homeFormBoost + h2hHomeBoost,
+      risk: isFortress && hWin >= 58 ? "safe" : "medium",
+      reason: isFortress ? `Dominant home edge (${hppg.toFixed(2)} PPG) & ${Math.round(hWin)}% win model` : `Clear home model edge (${Math.round(hWin)}%)`,
     });
   }
 
   // 6. Clean 1X2 Away Win
-  if (aOdds >= 1.45 && aOdds <= 2.25 && aWin >= 46 && !isHomeStrong) {
-    candidates.push({
+  if ((ignoreOdds ? aWin >= 54 : (aOdds >= 1.45 && aOdds <= 2.25 && aWin >= 46)) && !isHomeStrong && !recent.awayIsSlumping) {
+    const adjConf = aWin + standings.awayEdge * 0.6 + awayFormBoost * 0.6 + h2hAwayBoost * 0.5;
+    pushCandidate({
       market: "1X2",
       option: "Away",
-      odds: Number(aOdds.toFixed(2)),
-      confidence: Math.round(aWin),
+      bookieOdds: aOdds,
+      fairOdds: aWin > 0 ? Number((100 / aWin).toFixed(2)) : 1.80,
+      confidence: Math.min(90, adjConf),
+      contextBonus: standings.awayEdge + awayFormBoost + h2hAwayBoost,
       risk: "medium",
-      reason: appg >= 1.6 ? `Superior road momentum (${appg.toFixed(2)} PPG) & ${aWin}% win model` : `Convincing away victory projection (${aWin}%)`,
+      reason: appg >= 1.6 ? `Superior road momentum (${appg.toFixed(2)} PPG) & ${Math.round(aWin)}% win model` : `Convincing away projection (${Math.round(aWin)}%)`,
     });
   }
 
   // 7. Both Teams To Score (BTTS Yes)
-  const bttsChance = toNum(m.gg || m.btts || 55);
-  const calcBttsOdds = bttsYesOdds >= 1.45 ? bttsYesOdds : (bttsChance > 0 ? Number((1 / ((bttsChance / 100) * 1.08)).toFixed(2)) : 1.72);
+  const rawBtts = toNum(m.gg || m.btts);
+  const bttsChance = rawBtts > 0 ? rawBtts * 0.65 + poisson.pBtts * 0.35 : poisson.pBtts;
+  const fairBttsOdds = bttsChance > 0 ? Number((1 / ((bttsChance / 100) * 1.08)).toFixed(2)) : 1.72;
+  const effBttsOdds = bttsYesOdds >= 1.45 ? bttsYesOdds : fairBttsOdds;
   const isBttsContradicted = cleanSheetAvg >= 45 || (hcs >= 50 && acs >= 50) || (hfts >= 40 && afts >= 40);
-  if (!isBttsContradicted && calcBttsOdds >= 1.45 && calcBttsOdds <= 2.10 && bttsChance >= 56) {
-    candidates.push({
+  const h2hBttsAdj = h2h.hasH2H ? (h2h.bttsRate >= 65 ? 4 : h2h.bttsRate <= 25 ? -6 : 0) : 0;
+  if (!isBttsContradicted && bttsChance >= 56 && (ignoreOdds || (effBttsOdds >= 1.45 && effBttsOdds <= 2.15))) {
+    pushCandidate({
       market: "BTTS",
       option: "GG",
-      odds: calcBttsOdds,
-      confidence: Math.round(bttsChance),
+      bookieOdds: bttsYesOdds,
+      fairOdds: fairBttsOdds,
+      confidence: bttsChance + h2hBttsAdj + standings.goalsMotivationBoost,
+      contextBonus: h2hBttsAdj + standings.goalsMotivationBoost,
       risk: "aggressive",
-      reason: `Both attacks averaging >1.3 goals with low clean sheet rates`,
+      reason: `Dual scoring profile (Poisson BTTS ${Math.round(poisson.pBtts)}%, ${Math.round(bttsChance)}% blended)`,
     });
   }
 
   // 8. Over 2.5 Goals
-  const o25Chance = toNum(m.ov25 || m.o25 || 52);
-  const calcO25Odds = o25Odds >= 1.48 ? o25Odds : (o25Chance > 0 ? Number((1 / ((o25Chance / 100) * 1.08)).toFixed(2)) : 1.80);
-  const isOverContradicted = (cleanSheetAvg >= 42 && ftsAvg >= 38) || (avgGoals > 0 && avgGoals <= 1.85);
-  if (!isOverContradicted && calcO25Odds >= 1.48 && calcO25Odds <= 2.25 && o25Chance >= 54) {
-    candidates.push({
+  const rawO25 = toNum(m.ov25 || m.o25);
+  const o25Chance = rawO25 > 0 ? rawO25 * 0.65 + poisson.pOver25 * 0.35 : poisson.pOver25;
+  const fairO25Odds = o25Chance > 0 ? Number((1 / ((o25Chance / 100) * 1.08)).toFixed(2)) : 1.80;
+  const effO25Odds = o25Odds >= 1.48 ? o25Odds : fairO25Odds;
+  const isOverContradicted = (cleanSheetAvg >= 42 && ftsAvg >= 38) || (avgGoals > 0 && avgGoals <= 1.85) || (h2h.hasH2H && h2h.un25Rate >= 70);
+  if (!isOverContradicted && o25Chance >= 55 && (ignoreOdds || (effO25Odds >= 1.48 && effO25Odds <= 2.25))) {
+    pushCandidate({
       market: "Over 2.5",
       option: "Over 2.5",
-      odds: calcO25Odds,
-      confidence: Math.round(o25Chance),
+      bookieOdds: o25Odds,
+      fairOdds: fairO25Odds,
+      confidence: o25Chance + h2hGoalBoost + standings.goalsMotivationBoost,
+      contextBonus: h2hGoalBoost + standings.goalsMotivationBoost,
       risk: "aggressive",
-      reason: "Open attacking profile with positive xG projection exceeding 2.5 goals",
+      reason: `High goal tempo (${poisson.lambdaTotal.toFixed(2)} xG, ${Math.round(o25Chance)}% O2.5 model)`,
     });
   }
 
   // 9. Under 2.5 Goals (Strict Empirical Defensive Proof Required)
-  // Elite defensive requirements to prevent upsets (e.g. Charlton vs Lincoln 4-0):
-  // - High Clean Sheet rate (combined cleanSheetAvg >= 45% or both teams >= 42%)
-  // - High Failed To Score rate (combined ftsAvg >= 40% or both teams >= 38%)
-  // - Strictly low avg goals (avgGoals > 0 && avgGoals <= 1.90)
-  // - Model predicted scoreline total <= 1 (predicts 0-0 or 1-0 only)
-  // - Both teams must have low Over 2.5 trends (hOv2 <= 35 && aOv2 <= 35)
-  // - un25 model probability >= 68%
   const hasCSDefense25 = cleanSheetAvg >= 45 || (hcs >= 42 && acs >= 42);
   const hasFTSSupport25 = ftsAvg >= 40 || (hfts >= 38 && afts >= 38);
   const isAvgGoalsLow25 = avgGoals > 0 && avgGoals <= 1.90;
-  const notHighOverTrend25 = (hOv2 <= 35 && aOv2 <= 35);
+  const notHighOverTrend25 = hOv2 <= 35 && aOv2 <= 35;
   const isPredLowScore25 = parsedScore && parsedScore.total <= 1;
   const h2hNotOver25 = h2hUN === 0 || h2hUN >= 60;
-
   const isUnder25Supported = un25 >= 68 && hasCSDefense25 && hasFTSSupport25 && isAvgGoalsLow25 && notHighOverTrend25 && isPredLowScore25 && h2hNotOver25;
-  const calcU25Odds = u25Odds >= 1.50 ? u25Odds : (un25 > 0 ? Number((1 / ((un25 / 100) * 1.08)).toFixed(2)) : 1.75);
+  const fairU25Odds = un25 > 0 ? Number((1 / ((un25 / 100) * 1.08)).toFixed(2)) : 1.75;
+  const effU25Odds = u25Odds >= 1.45 ? u25Odds : fairU25Odds;
 
-  if (isUnder25Supported && calcU25Odds >= 1.45 && calcU25Odds <= 2.25) {
-    const csDesc = cleanSheetAvg > 0 ? `${Math.round(cleanSheetAvg)}% clean sheet rate` : "elite defensive shape";
-    const ftsDesc = ftsAvg > 0 ? `${Math.round(ftsAvg)}% failed-to-score trend` : "low conversion rate";
-    candidates.push({
+  if (isUnder25Supported && (ignoreOdds || (effU25Odds >= 1.45 && effU25Odds <= 2.25))) {
+    pushCandidate({
       market: "Under 2.5",
       option: "Under 2.5",
-      odds: calcU25Odds,
-      confidence: Math.round(Math.min(86, un25)),
+      bookieOdds: u25Odds,
+      fairOdds: fairU25Odds,
+      confidence: Math.min(88, un25 + (h2hUN >= 65 ? 3 : 0)),
+      contextBonus: h2hUN >= 65 ? 4 : 0,
       risk: "medium",
-      reason: `Elite defensive containment verified: ${csDesc} & ${ftsDesc} (avg ${avgGoals.toFixed(2)} goals)`,
+      reason: `Defensive containment (${Math.round(cleanSheetAvg)}% CS, ${Math.round(ftsAvg)}% FTS, ${avgGoals.toFixed(2)} avg goals)`,
     });
   }
 
-  // 10. Under 3.5 Goals (Preferred Safe Defensive Cushion Market)
-  // Provides 3-goal protection against random goals (covers 0-0, 1-0, 0-1, 1-1, 2-0, 0-2, 2-1, 1-2, 3-0, 0-3)
-  const isAvgUnder35 = avgGoals === 0 || avgGoals <= 2.65;
-  const hasU35DefensiveBase = cleanSheetAvg >= 22 || ftsAvg >= 22 || (hcs >= 28 || acs >= 28) || (hfts >= 25 || afts >= 25);
+  // 10. Under 3.5 Goals (Safe Defensive Cushion)
+  const isAvgUnder35 = avgGoals === 0 || avgGoals <= 2.55;
+  const hasU35DefensiveBase = cleanSheetAvg >= 22 || ftsAvg >= 22 || hcs >= 28 || acs >= 28 || hfts >= 25 || afts >= 25;
   const isPredUnder35 = !parsedScore || parsedScore.total <= 3;
-  const notHighScoringClash = !(hOv2 >= 65 && aOv2 >= 65);
+  const notHighScoringClash = !(hOv2 >= 65 && aOv2 >= 65) && !(h2h.hasH2H && h2h.ov25Rate >= 75);
   const isUnder35Supported = (un25 >= 50 || (hppg > 0 && hppg <= 1.40 && appg > 0 && appg <= 1.40)) && isAvgUnder35 && hasU35DefensiveBase && isPredUnder35 && notHighScoringClash;
+  const fairU35Odds = un25 > 0 ? Number((1 / (Math.min(0.88, (un25 + 20) / 100) * 1.06)).toFixed(2)) : 1.28;
+  const effU35Odds = u35Odds >= 1.18 ? u35Odds : fairU35Odds;
 
-  const calcU35Odds = u35Odds >= 1.18 ? u35Odds : (un25 > 0 ? Number((1 / (Math.min(0.88, (un25 + 20) / 100) * 1.06)).toFixed(2)) : 1.28);
-  if (isUnder35Supported && calcU35Odds >= 1.18 && calcU35Odds <= 1.45) {
-    candidates.push({
+  if (isUnder35Supported && (ignoreOdds || (effU35Odds >= 1.18 && effU35Odds <= 1.45))) {
+    pushCandidate({
       market: "Under 3.5",
       option: "Under 3.5",
-      odds: calcU35Odds,
-      confidence: Math.round(Math.min(86, un25 > 0 ? un25 + 12 : 78)),
+      bookieOdds: u35Odds,
+      fairOdds: fairU35Odds,
+      confidence: Math.min(86, un25 > 0 ? un25 + 12 : 78),
       risk: "safe",
-      reason: `Defensive resilience & verified low conceding rate (${Math.round(cleanSheetAvg)}% CS / ${Math.round(ftsAvg)}% FTS)`,
+      reason: `Defensive resilience (${Math.round(cleanSheetAvg)}% CS / ${Math.round(ftsAvg)}% FTS)`,
     });
   }
 
-  // Fallback to recommended pick if available
-  if (candidates.length === 0 && m.recommended?.option && m.pickOdds >= 1.15) {
-    candidates.push({
-      market: m.recommended.market || "1X2",
-      option: m.recommended.option,
-      odds: Number(toNum(m.pickOdds, 1.5).toFixed(2)),
-      confidence: toNum(m.chance, 65),
-      risk: "medium",
-      reason: m.recommended.reason || "Algorithmic model consensus pick",
-    });
+  // 11. Combo Bet Markets (e.g. "Home and Over 1.5", "GG and Over 2.5", "1X and Over 1.5")
+  // Note: Synthesized with realistic bookmaker fair odds & clear Telegram-bot readable names!
+  if (hWin >= 52 && o15ModelProb >= 72 && poisson.pHomeAndOver15 >= 46 && !recent.homeIsSlumping && standings.awayEdge < 4) {
+    const comboOdds = hOdds >= 1.30 ? Number(Math.max(1.55, Math.min(2.65, hOdds * 1.18)).toFixed(2)) : Number((1 / ((poisson.pHomeAndOver15 / 100) * 1.08)).toFixed(2));
+    if (ignoreOdds || (comboOdds >= 1.45 && comboOdds <= 2.65)) {
+      pushCandidate({
+        market: "Combo",
+        option: "Home and Over 1.5",
+        bookieOdds: hOdds >= 1.30 ? comboOdds : 0,
+        fairOdds: comboOdds,
+        confidence: Math.round(Math.min(84, poisson.pHomeAndOver15 * 0.45 + hWin * 0.55 + standings.homeEdge * 0.5)),
+        contextBonus: standings.homeEdge + homeFormBoost,
+        risk: "medium",
+        reason: `Strong home win (${Math.round(hWin)}%) + high goal expectancy (${poisson.lambdaTotal.toFixed(2)} xG)`,
+      });
+    }
+  }
+
+  if (raw1XProb >= 68 && o15ModelProb >= 74 && poisson.p1XAndOver15 >= 58 && !recent.homeIsSlumping) {
+    const base1X = dc1X >= 1.15 ? dc1X : fair1XOdds;
+    const combo1XO15Odds = Number(Math.max(1.38, Math.min(1.95, base1X * 1.16)).toFixed(2));
+    if (ignoreOdds || (combo1XO15Odds >= 1.35 && combo1XO15Odds <= 1.95)) {
+      pushCandidate({
+        market: "Combo",
+        option: "1X and Over 1.5",
+        bookieOdds: dc1X >= 1.15 && o15Odds >= 1.15 ? combo1XO15Odds : 0,
+        fairOdds: combo1XO15Odds,
+        confidence: Math.round(Math.min(86, poisson.p1XAndOver15 * 0.5 + (raw1XProb + o15ModelProb) * 0.25)),
+        contextBonus: standings.homeEdge + h2hHomeBoost,
+        risk: "safe",
+        reason: `Home double chance + Over 1.5 goals synergy (${Math.round(poisson.p1XAndOver15)}% Poisson)`,
+      });
+    }
+  }
+
+  if (!isBttsContradicted && !isOverContradicted && bttsChance >= 58 && o25Chance >= 58 && poisson.pGGAndOver25 >= 42) {
+    const baseBtts = bttsYesOdds >= 1.40 ? bttsYesOdds : fairBttsOdds;
+    const comboGG25Odds = Number(Math.max(1.85, Math.min(2.75, baseBtts * 1.24)).toFixed(2));
+    if (ignoreOdds || (comboGG25Odds >= 1.80 && comboGG25Odds <= 2.80)) {
+      pushCandidate({
+        market: "Combo",
+        option: "GG and Over 2.5",
+        bookieOdds: bttsYesOdds >= 1.40 && o25Odds >= 1.40 ? comboGG25Odds : 0,
+        fairOdds: comboGG25Odds,
+        confidence: Math.round(Math.min(78, (bttsChance + o25Chance) * 0.42 + h2hGoalBoost)),
+        contextBonus: h2hGoalBoost + h2hBttsAdj,
+        risk: "aggressive",
+        reason: `Both teams attacking (${Math.round(bttsChance)}% BTTS) & ${Math.round(o25Chance)}% Over 2.5 projection`,
+      });
+    }
+  }
+
+  if (aWin >= 48 && o15ModelProb >= 72 && poisson.pAwayAndOver15 >= 44 && !isHomeStrong && !recent.awayIsSlumping) {
+    const comboAwayOdds = aOdds >= 1.35 ? Number(Math.max(1.65, Math.min(2.85, aOdds * 1.18)).toFixed(2)) : Number((1 / ((poisson.pAwayAndOver15 / 100) * 1.08)).toFixed(2));
+    if (ignoreOdds || (comboAwayOdds >= 1.50 && comboAwayOdds <= 2.85)) {
+      pushCandidate({
+        market: "Combo",
+        option: "Away and Over 1.5",
+        bookieOdds: aOdds >= 1.35 ? comboAwayOdds : 0,
+        fairOdds: comboAwayOdds,
+        confidence: Math.round(Math.min(82, poisson.pAwayAndOver15 * 0.45 + aWin * 0.55 + standings.awayEdge * 0.5)),
+        contextBonus: standings.awayEdge + awayFormBoost,
+        risk: "aggressive",
+        reason: `Away victory + Over 1.5 goals (${Math.round(aWin)}% away model, ${poisson.lambdaTotal.toFixed(2)} xG)`,
+      });
+    }
+  }
+
+  // Fallback to recommended pick if available (or model best direction in Odds-Free mode)
+  if (candidates.length === 0) {
+    if (m.recommended?.option && (ignoreOdds || m.pickOdds >= 1.15)) {
+      pushCandidate({
+        market: m.recommended.market || "1X2",
+        option: m.recommended.option,
+        bookieOdds: toNum(m.pickOdds),
+        fairOdds: toNum(m.pickOdds, 1.5),
+        confidence: toNum(m.chance, 65),
+        risk: "medium",
+        reason: m.recommended.reason || "Algorithmic model consensus pick",
+      });
+    } else if (ignoreOdds) {
+      // Pure statistical fallback when odds are absent
+      if (raw1XProb >= 62) {
+        pushCandidate({
+          market: "Double Chance",
+          option: "1X",
+          bookieOdds: dc1X,
+          fairOdds: fair1XOdds,
+          confidence: raw1XProb,
+          contextBonus: standings.homeEdge + homeFormBoost,
+          risk: "safe",
+          reason: `Statistical 1X edge (${Math.round(raw1XProb)}%)`,
+        });
+      } else if (o15ModelProb >= 68) {
+        pushCandidate({
+          market: "Over 1.5",
+          option: "Over 1.5",
+          bookieOdds: o15Odds,
+          fairOdds: fairO15Odds,
+          confidence: o15ModelProb,
+          contextBonus: h2hGoalBoost,
+          risk: "safe",
+          reason: `Statistical Over 1.5 model (${Math.round(o15ModelProb)}%)`,
+        });
+      }
+    }
   }
 
   return candidates;
@@ -696,8 +1282,10 @@ function buildSlip(
     }
   }
 
-  // Sort by confidence desc, then odds desc
+  // Sort by composite qualityScore desc (Confidence + League Prestige + Table/Motivation + Recent Form + H2H), then odds desc
   allCandidates.sort((a, b) => {
+    const qDiff = (b.candidate.qualityScore ?? b.candidate.confidence) - (a.candidate.qualityScore ?? a.candidate.confidence);
+    if (Math.abs(qDiff) >= 0.5) return qDiff;
     const confDiff = b.candidate.confidence - a.candidate.confidence;
     if (confDiff !== 0) return confDiff;
     return b.candidate.odds - a.candidate.odds;
@@ -707,74 +1295,19 @@ function buildSlip(
     ? Math.max(maxLegs, targetMinOdds >= 5000 ? 28 : targetMinOdds >= 3000 ? 24 : 20)
     : maxLegs;
 
-  // Pass 1: Standard pick adhering to league, market, and cross-slip limits
-  for (const item of allCandidates) {
-    const m = item.match;
-    const c = item.candidate;
-    const matchName = String(m.match || `${m.homeTeam} vs ${m.awayTeam}`);
-    const matchKey = normKey(matchName);
-    const league = String(m.fullLeague || m.league || "League");
-
-    const matchDateStr = getMatchDateStr(m);
-    if (maxAllowedDateISO && matchDateStr && matchDateStr > maxAllowedDateISO) continue;
-
-    if (usedMatches.has(matchKey)) continue;
-    if (globalUsageMap && (globalUsageMap.get(matchKey) || 0) >= 1) continue;
-    if (globalMatchMarketsMap && globalMatchMarketsMap.get(matchKey)?.has(c.market)) continue;
-
-    const leagueCount = usedLeagues.get(league) || 0;
-    if (leagueCount >= maxPerLeague) continue;
-
-    const marketCount = usedMarkets.get(c.market) || 0;
-    if (marketCount >= maxPerMarket) continue;
-
-    // Check if adding this leg exceeds targetMaxOdds prematurely (for non-jackpot)
-    const newOdds = cumulativeOdds * c.odds;
-    if (!isJackpot && chosenLegs.length + 1 < minLegs && newOdds > targetMaxOdds) {
-      continue;
-    }
-
-    chosenLegs.push({
-      match: matchName,
-      league,
-      country: String(m.country || m.Country || ""),
-      date: String(m.date || m.dateRaw || ""),
-      time: String(m.time || ""),
-      selectedMarket: c.market,
-      selectedOption: c.option,
-      odds: Number(toNum(c.odds, 1.5).toFixed(2)),
-      confidence: c.confidence,
-      reason: c.reason,
-    });
-
-    recordMatchUsage(matchKey, c.market);
-    usedLeagues.set(league, leagueCount + 1);
-    usedMarkets.set(c.market, marketCount + 1);
-    cumulativeOdds = newOdds;
-
-    if (isJackpot) {
-      if (chosenLegs.length >= minLegs && cumulativeOdds >= targetMinOdds) {
-        break;
-      }
-      if (chosenLegs.length >= maxAllowedLegs && cumulativeOdds >= targetMinOdds) {
-        break;
-      }
-    } else {
-      if (chosenLegs.length >= minLegs && cumulativeOdds >= targetMinOdds) {
-        break;
-      }
-      if (chosenLegs.length >= maxLegs) {
-        break;
-      }
-    }
-  }
-
-  // Pass 2A (Standard Slips Different-Market Reuse): If unused matches didn't fill minLegs/maxLegs/targetMinOdds,
-  // allow reusing a match up to maxGlobalUsage ONLY with a DIFFERENT market (e.g. Home Win in Slip 1, Over 1.5 in Slip 2)
-  if (!isJackpot && (chosenLegs.length < minLegs || cumulativeOdds < targetMinOdds)) {
+  // Helper to run a filtered pass over sorted candidates
+  const runSelectionPass = (opts: {
+    allowLowerTier: boolean;
+    maxUsageAllowed: number;
+    maxLeagueCap: number;
+    maxMarketCap: number;
+    stopAtCeiling?: number;
+  }) => {
     for (const item of allCandidates) {
       const m = item.match;
       const c = item.candidate;
+      if (!opts.allowLowerTier && c.leagueTier >= 4) continue;
+
       const matchName = String(m.match || `${m.homeTeam} vs ${m.awayTeam}`);
       const matchKey = normKey(matchName);
       const league = String(m.fullLeague || m.league || "League");
@@ -783,16 +1316,19 @@ function buildSlip(
       if (maxAllowedDateISO && matchDateStr && matchDateStr > maxAllowedDateISO) continue;
 
       if (usedMatches.has(matchKey)) continue;
-      if (globalUsageMap && (globalUsageMap.get(matchKey) || 0) >= maxGlobalUsage) continue;
+      if (globalUsageMap && (globalUsageMap.get(matchKey) || 0) >= opts.maxUsageAllowed) continue;
       if (globalMatchMarketsMap && globalMatchMarketsMap.get(matchKey)?.has(c.market)) continue;
 
       const leagueCount = usedLeagues.get(league) || 0;
-      if (leagueCount >= maxPerLeague + 1) continue;
+      if (leagueCount >= opts.maxLeagueCap) continue;
+
       const marketCount = usedMarkets.get(c.market) || 0;
-      if (marketCount >= maxPerMarket + 1) continue;
+      if (marketCount >= opts.maxMarketCap) continue;
 
       const newOdds = cumulativeOdds * c.odds;
-      if (chosenLegs.length + 1 < minLegs && newOdds > targetMaxOdds) continue;
+      if (!isJackpot && chosenLegs.length + 1 < minLegs && newOdds > targetMaxOdds) {
+        continue;
+      }
 
       chosenLegs.push({
         match: matchName,
@@ -805,6 +1341,9 @@ function buildSlip(
         odds: Number(toNum(c.odds, 1.5).toFixed(2)),
         confidence: c.confidence,
         reason: c.reason,
+        hasBookieOdds: c.hasBookieOdds,
+        leagueTier: c.leagueTier,
+        qualityScore: Math.round(c.qualityScore),
       });
 
       recordMatchUsage(matchKey, c.market);
@@ -812,56 +1351,65 @@ function buildSlip(
       usedMarkets.set(c.market, marketCount + 1);
       cumulativeOdds = newOdds;
 
-      if (chosenLegs.length >= minLegs && cumulativeOdds >= targetMinOdds) break;
-      if (chosenLegs.length >= maxLegs) break;
+      if (opts.stopAtCeiling) {
+        if (cumulativeOdds >= targetMinOdds || chosenLegs.length >= opts.stopAtCeiling) break;
+      } else if (isJackpot) {
+        if ((chosenLegs.length >= minLegs && cumulativeOdds >= targetMinOdds) || (chosenLegs.length >= maxAllowedLegs && cumulativeOdds >= targetMinOdds)) {
+          break;
+        }
+      } else {
+        if (chosenLegs.length >= minLegs && cumulativeOdds >= targetMinOdds) break;
+        if (chosenLegs.length >= maxLegs) break;
+      }
     }
+  };
+
+  // Pass 1: Priority Tier 1-3 Big/Major Leagues + Unused Matches ONLY
+  runSelectionPass({
+    allowLowerTier: false,
+    maxUsageAllowed: 1,
+    maxLeagueCap: maxPerLeague,
+    maxMarketCap: maxPerMarket,
+  });
+
+  // Pass 1B: If Big/Major Leagues had enough matches to fill with different-market reuse, prefer Tier 1-3 over Tier 4
+  if (!isJackpot && (chosenLegs.length < minLegs || cumulativeOdds < targetMinOdds)) {
+    runSelectionPass({
+      allowLowerTier: false,
+      maxUsageAllowed: maxGlobalUsage,
+      maxLeagueCap: maxPerLeague + 1,
+      maxMarketCap: maxPerMarket + 1,
+    });
   }
 
-  // Pass 2B (Jackpot Progressive Target Guarantee): If cumulativeOdds is still under targetMinOdds, compound additional value legs (different market required)
+  // Pass 2A: Only pull from Tier 4 Lower/Unpopular Leagues if Major Leagues didn't reach minLegs / targetMinOdds
+  if (!isJackpot && (chosenLegs.length < minLegs || cumulativeOdds < targetMinOdds)) {
+    runSelectionPass({
+      allowLowerTier: true,
+      maxUsageAllowed: maxGlobalUsage,
+      maxLeagueCap: maxPerLeague + 1,
+      maxMarketCap: maxPerMarket + 1,
+    });
+  }
+
+  // Pass 2B (Jackpot Progressive Target Guarantee): Compound additional legs (Major leagues first, then Lower if needed)
   if (isJackpot && cumulativeOdds < targetMinOdds) {
     const maxLegCeiling = targetMinOdds >= 5000 ? 30 : targetMinOdds >= 3000 ? 26 : 22;
-    for (const item of allCandidates) {
-      const m = item.match;
-      const c = item.candidate;
-      const matchName = String(m.match || `${m.homeTeam} vs ${m.awayTeam}`);
-      const matchKey = normKey(matchName);
-      const league = String(m.fullLeague || m.league || "League");
-
-      const matchDateStr = getMatchDateStr(m);
-      if (maxAllowedDateISO && matchDateStr && matchDateStr > maxAllowedDateISO) continue;
-
-      if (usedMatches.has(matchKey)) continue;
-      if (globalUsageMap && (globalUsageMap.get(matchKey) || 0) >= maxGlobalUsage) continue;
-      if (globalMatchMarketsMap && globalMatchMarketsMap.get(matchKey)?.has(c.market)) continue;
-
-      // Relax league limit to 4 and market limit to 6 for deep jackpot slips
-      const leagueCount = usedLeagues.get(league) || 0;
-      if (leagueCount >= 4) continue;
-      const marketCount = usedMarkets.get(c.market) || 0;
-      if (marketCount >= 6) continue;
-
-      const newOdds = cumulativeOdds * c.odds;
-      chosenLegs.push({
-        match: matchName,
-        league,
-        country: String(m.country || m.Country || ""),
-        date: String(m.date || m.dateRaw || ""),
-        time: String(m.time || ""),
-        selectedMarket: c.market,
-        selectedOption: c.option,
-        odds: Number(toNum(c.odds, 1.5).toFixed(2)),
-        confidence: c.confidence,
-        reason: c.reason,
+    runSelectionPass({
+      allowLowerTier: false,
+      maxUsageAllowed: maxGlobalUsage,
+      maxLeagueCap: 4,
+      maxMarketCap: 6,
+      stopAtCeiling: maxLegCeiling,
+    });
+    if (cumulativeOdds < targetMinOdds && chosenLegs.length < maxLegCeiling) {
+      runSelectionPass({
+        allowLowerTier: true,
+        maxUsageAllowed: maxGlobalUsage,
+        maxLeagueCap: 4,
+        maxMarketCap: 6,
+        stopAtCeiling: maxLegCeiling,
       });
-
-      recordMatchUsage(matchKey, c.market);
-      usedLeagues.set(league, leagueCount + 1);
-      usedMarkets.set(c.market, marketCount + 1);
-      cumulativeOdds = newOdds;
-
-      if (cumulativeOdds >= targetMinOdds || chosenLegs.length >= maxLegCeiling) {
-        break;
-      }
     }
   }
 
@@ -873,6 +1421,79 @@ function buildSlip(
   });
 
   return chosenLegs;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Today Odds-Free Quantitative Top 5-15 Builder (Model Quality Only)*/
+/* ------------------------------------------------------------------ */
+function buildOddsFreeTopSlip(
+  todayMatches: any[],
+  maxPicks = 15,
+  minConfidence = 66
+): PresetLeg[] {
+  const bestPerMatch: Array<{
+    match: any;
+    candidate: ReturnType<typeof extractEligibleMarkets>[0];
+  }> = [];
+
+  for (const m of todayMatches) {
+    const candidates = extractEligibleMarkets(m, { ignoreOddsAvailability: true })
+      .filter((c) => c.confidence >= minConfidence);
+    if (candidates.length === 0) continue;
+
+    // Pick the single strongest statistical market per fixture
+    candidates.sort((a, b) => {
+      if (b.qualityScore !== a.qualityScore) return b.qualityScore - a.qualityScore;
+      return b.confidence - a.confidence;
+    });
+    bestPerMatch.push({ match: m, candidate: candidates[0] });
+  }
+
+  // Fallback if strict minConfidence returned < 5 matches: allow >= 60% statistically sound picks
+  if (bestPerMatch.length < 5) {
+    const existingKeys = new Set(bestPerMatch.map((b) => String(b.match.match || `${b.match.homeTeam} vs ${b.match.awayTeam}`)));
+    for (const m of todayMatches) {
+      const mName = String(m.match || `${m.homeTeam} vs ${m.awayTeam}`);
+      if (existingKeys.has(mName)) continue;
+      const candidates = extractEligibleMarkets(m, { ignoreOddsAvailability: true })
+        .filter((c) => c.confidence >= 58);
+      if (candidates.length === 0) continue;
+      candidates.sort((a, b) => b.qualityScore - a.qualityScore);
+      bestPerMatch.push({ match: m, candidate: candidates[0] });
+    }
+  }
+
+  // Prioritize Tier 1-3 Big Leagues first, then sort by qualityScore desc
+  bestPerMatch.sort((a, b) => {
+    const tierA = a.candidate.leagueTier <= 3 ? 0 : 1;
+    const tierB = b.candidate.leagueTier <= 3 ? 0 : 1;
+    if (tierA !== tierB) return tierA - tierB;
+    return b.candidate.qualityScore - a.candidate.qualityScore;
+  });
+
+  const selected = bestPerMatch.slice(0, maxPicks).map(({ match: m, candidate: c }) => ({
+    match: String(m.match || `${m.homeTeam} vs ${m.awayTeam}`),
+    league: String(m.fullLeague || m.league || "League"),
+    country: String(m.country || m.Country || ""),
+    date: String(m.date || m.dateRaw || ""),
+    time: String(m.time || ""),
+    selectedMarket: c.market,
+    selectedOption: c.option,
+    odds: c.hasBookieOdds ? Number(c.odds.toFixed(2)) : 0,
+    confidence: c.confidence,
+    reason: c.reason,
+    hasBookieOdds: c.hasBookieOdds,
+    leagueTier: c.leagueTier,
+    qualityScore: Math.round(c.qualityScore),
+  }));
+
+  selected.sort((a, b) => {
+    const dtA = `${a.date || "9999"} ${a.time || "00:00"}`;
+    const dtB = `${b.date || "9999"} ${b.time || "00:00"}`;
+    return dtA.localeCompare(dtB);
+  });
+
+  return selected;
 }
 
 /* ------------------------------------------------------------------ */
@@ -1744,8 +2365,10 @@ export async function GET(req: Request) {
       `jackpot_marathon_1000x_${scope}_${todayISO}`,
       `banker_2x_${scope}_${todayISO}`,
       `value_3x_${scope}_${todayISO}`,
+      `multi_5x_${scope}_${todayISO}`,
       `multiplier_5x_${scope}_${todayISO}`,
       `mega_10x_${scope}_${todayISO}`,
+      `today_top_picks_15_${scope}_${todayISO}`,
     ];
     const excludedMap = await getExcludedMapForSlips(allSlipIdsForExclusion);
 
@@ -1882,7 +2505,7 @@ export async function GET(req: Request) {
     const odds3x = legs3x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const conf3x = legs3x.length > 0 ? Math.round(legs3x.reduce((acc, l) => acc + l.confidence, 0) / legs3x.length) : 74;
 
-    const pool5x = filterPoolByExcluded(activePool, `multiplier_5x_${scope}_${todayISO}`, excludedMap);
+    const pool5x = filterPoolByExcluded(activePool, `multi_5x_${scope}_${todayISO}`, excludedMap);
     const legs5x = buildSlip(pool5x, 5.0, 6.75, ["safe", "medium", "aggressive"], 4, 6, 2, undefined, standardUsageMap, 2, standardMarketsMap);
     const odds5x = legs5x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const conf5x = legs5x.length > 0 ? Math.round(legs5x.reduce((acc, l) => acc + l.confidence, 0) / legs5x.length) : 58;
@@ -1891,6 +2514,14 @@ export async function GET(req: Request) {
     const legs10x = buildSlip(pool10x, 10.0, 14.50, ["safe", "medium", "aggressive"], 6, 9, 2, undefined, standardUsageMap, 2, standardMarketsMap);
     const odds10x = legs10x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const conf10x = legs10x.length > 0 ? Math.round(legs10x.reduce((acc, l) => acc + l.confidence, 0) / legs10x.length) : 45;
+
+    // Dedicated Today Odds-Free Statistical Top 5-15 Slip (strictly todayMatches, ignores missing bookie odds)
+    const poolTop15 = filterPoolByExcluded(todayMatches, `today_top_picks_15_${scope}_${todayISO}`, excludedMap);
+    const legsTodayTop15 = scope === "today" ? buildOddsFreeTopSlip(poolTop15, 15, 65) : [];
+    const oddsTodayTop15 = legsTodayTop15.reduce((acc, leg) => acc * (leg.odds > 1 ? leg.odds : 1.0), 1.0);
+    const confTodayTop15 = legsTodayTop15.length > 0
+      ? Math.round(legsTodayTop15.reduce((acc, l) => acc + l.confidence, 0) / legsTodayTop15.length)
+      : 75;
 
     const standardSlips: PresetSlip[] = [
       {
@@ -1949,12 +2580,32 @@ export async function GET(req: Request) {
         description: "Elite 6 to 9-match syndicate slip spanning Europe's top leagues with high-return potential.",
         matches: canAccessPremiumTier ? legs10x : [],
       },
+      ...(scope === "today"
+        ? [
+            {
+              id: "today_top_picks_15",
+              title: "Daily Top 5–15 Statistical Picks",
+              badge: "TOP QUANT 5–15",
+              tierTag: "STATS ONLY • ODDS-FREE",
+              minTierRequired: "silver" as const,
+              isLocked: !canAccessSilverTier,
+              targetOdds: "STATS",
+              isOddsFree: true,
+              combinedOdds: Number(oddsTodayTop15.toFixed(2)),
+              matchesCount: legsTodayTop15.length,
+              confidence: confTodayTop15,
+              description:
+                "Selects the top 5–15 statistically strongest matches of today using Poisson xG, table positions, motivation, form, H2H, and major league priority — regardless of market odds availability.",
+              matches: canAccessSilverTier ? legsTodayTop15 : [],
+            },
+          ]
+        : []),
     ];
 
     // DECIDE WHICH SLIPS TO RETURN BASED ON SCOPE
     // - "jackpot" | "weekly" | "jackpots": EXCLUSIVELY returns the 4 ₦1,000,000+ Jackpot Accumulators!
     // - "weekend": Returns the 4 standard weekend slips (Fri 17:00 through Sun)
-    // - "today": Returns the 4 standard daily slips
+    // - "today": Returns the 4 standard daily slips + Today Odds-Free Top 5-15 Slip
     const activeSlips = (scope === "jackpot" || scope === "weekly" || scope === "jackpots")
       ? jackpotSlips
       : standardSlips;
@@ -1972,6 +2623,9 @@ export async function GET(req: Request) {
           { ...standardSlips[1], matches: legs3x },
           { ...standardSlips[2], matches: legs5x },
           { ...standardSlips[3], matches: legs10x },
+          ...(scope === "today" && standardSlips[4]
+            ? [{ ...standardSlips[4], matches: legsTodayTop15 }]
+            : []),
         ];
 
     persistCuratedSlips(slipsToPersist, scope, todayISO, { mondayISO, sundayISO }).catch((e) =>
