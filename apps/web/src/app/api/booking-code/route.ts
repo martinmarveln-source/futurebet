@@ -295,21 +295,21 @@ async function tryMintRealBookingCode(
 
       const mkt = (m.selectedMarket || "").toLowerCase();
       const opt = (m.selectedOption || "").toLowerCase();
+      const combined = `${mkt} ${opt}`;
 
-      if (mkt.includes("over") || mkt.includes("under")) {
-        market = "Over/Under";
-        outcome = mkt.includes("under") ? "Under" : "Over";
-        if (mkt.includes("1.5")) line = "1.5";
-        else if (mkt.includes("3.5")) line = "3.5";
-        else line = "2.5";
-      } else if (mkt.includes("double chance")) {
+      if (mkt.includes("double") || mkt === "dc" || opt.includes("1x") || opt.includes("x2") || opt === "12" || opt.includes("home or draw") || opt.includes("draw or away") || opt.includes("home or away")) {
         market = "Double Chance";
-        if (opt.includes("home or draw") || opt === "1x") outcome = "1X";
-        else if (opt.includes("draw or away") || opt === "x2") outcome = "X2";
+        if (opt.includes("home or draw") || opt.includes("home win or draw") || opt.includes("1x") || opt === "1") outcome = "1X";
+        else if (opt.includes("draw or away") || opt.includes("away win or draw") || opt.includes("x2") || opt === "2") outcome = "X2";
         else outcome = "12";
-      } else if (mkt.includes("btts") || mkt.includes("gg")) {
+      } else if (mkt.includes("over") || mkt.includes("under") || mkt.includes("o/u") || mkt.includes("goal") || opt.includes("over") || opt.includes("under")) {
+        market = "Over/Under";
+        outcome = (opt.includes("under") || mkt.includes("under")) ? "Under" : "Over";
+        const lineMatch = combined.match(/(\d+\.\d+)/);
+        line = lineMatch ? lineMatch[1] : "2.5";
+      } else if (mkt.includes("btts") || mkt.includes("both") || mkt.includes("gg") || opt === "gg" || opt === "ng") {
         market = "Both Teams To Score";
-        outcome = opt.includes("yes") || opt.includes("gg") ? "Yes" : "No";
+        outcome = opt.includes("no") || opt.includes("ng") ? "No" : "Yes";
       } else {
         market = "1X2";
         if (opt.includes("home") || opt === "1") outcome = "1";
@@ -661,17 +661,19 @@ export async function POST(req: Request) {
 
             const mkt = (m.selectedMarket || "").toLowerCase();
             const opt = (m.selectedOption || "").toLowerCase();
+            const combined = `${mkt} ${opt}`;
 
             let pick = "home win";
-            if (mkt.includes("double chance")) {
-              if (opt.includes("home or draw") || opt.includes("1x") || opt === "1") pick = "home win or draw";
-              else if (opt.includes("draw or away") || opt.includes("x2") || opt === "2") pick = "away win or draw";
+            if (mkt.includes("double") || mkt === "dc" || opt.includes("1x") || opt.includes("x2") || opt === "12" || opt.includes("home or draw") || opt.includes("draw or away") || opt.includes("home or away")) {
+              if (opt.includes("home or draw") || opt.includes("home win or draw") || opt.includes("1x") || opt === "1") pick = "home win or draw";
+              else if (opt.includes("draw or away") || opt.includes("away win or draw") || opt.includes("x2") || opt === "2") pick = "away win or draw";
               else pick = "home win or away win";
-            } else if (mkt.includes("over") || mkt.includes("under")) {
-              if (mkt.includes("1.5")) pick = mkt.includes("under") ? "under 1.5" : "over 1.5";
-              else if (mkt.includes("3.5")) pick = mkt.includes("under") ? "under 3.5" : "over 3.5";
-              else pick = mkt.includes("under") ? "under 2.5" : "over 2.5";
-            } else if (mkt.includes("btts") || mkt.includes("gg")) {
+            } else if (mkt.includes("over") || mkt.includes("under") || mkt.includes("o/u") || mkt.includes("goal") || opt.includes("over") || opt.includes("under")) {
+              const dir = (opt.includes("under") || mkt.includes("under")) ? "under" : "over";
+              const lineMatch = combined.match(/(\d+\.\d+)/);
+              const line = lineMatch ? lineMatch[1] : "2.5";
+              pick = `${dir} ${line}`;
+            } else if (mkt.includes("btts") || mkt.includes("both") || mkt.includes("gg") || opt === "gg" || opt === "ng") {
               pick = opt.includes("no") || opt.includes("ng") ? "no goal" : "both teams to score";
             } else {
               if (opt.includes("home") || opt === "1") pick = "home win";
