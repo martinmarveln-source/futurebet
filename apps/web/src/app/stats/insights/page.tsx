@@ -96,7 +96,8 @@ export default function InsightsPage() {
   };
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [minGames, setMinGames] = useState(4);
+  const [minGames, setMinGames] = useState(8);
+  const [upcomingOnly, setUpcomingOnly] = useState(true);
   const [split, setSplit] = useState("overall"); // overall, home, away
   const [viewType, setViewType] = useState("team"); // team, league
   const [isLocked, setIsLocked] = useState(false);
@@ -134,29 +135,29 @@ export default function InsightsPage() {
   }, [minGames, split, startDate, endDate, minPrediction, minConfidence, viewType, minOdds]);
 
   const sections = [
-    { key: "btts", title: "Best BTTS", icon: Target, color: "text-amber-400" },
-    { key: "nbtts", title: "Best N-BTTS", icon: Shield, color: "text-amber-600" },
+    { key: "btts", title: "Best BTTS", icon: Target, color: "text-emerald-400" },
+    { key: "nbtts", title: "Best N-BTTS", icon: Shield, color: "text-sky-400" },
     { key: "o15", title: "Best Over 1.5", icon: ArrowUp, color: "text-emerald-400" },
-    { key: "u15", title: "Best Under 1.5", icon: ArrowDown, color: "text-red-400" },
-    { key: "o25", title: "Best Over 2.5", icon: ArrowUp, color: "text-emerald-500" },
-    { key: "u25", title: "Best Under 2.5", icon: ArrowDown, color: "text-red-500" },
-    { key: "o35", title: "Best Over 3.5", icon: ArrowUp, color: "text-emerald-600" },
-    { key: "u35", title: "Best Under 3.5", icon: ArrowDown, color: "text-red-600" },
-    { key: "o45", title: "Best Over 4.5", icon: ArrowUp, color: "text-emerald-700" },
-    { key: "u45", title: "Best Under 4.5", icon: ArrowDown, color: "text-red-700" },
-    { key: "hgsO15", title: "Home Scored Over 1.5", icon: Target, color: "text-indigo-400" },
+    { key: "u15", title: "Best Under 1.5", icon: ArrowDown, color: "text-rose-400" },
+    { key: "o25", title: "Best Over 2.5", icon: ArrowUp, color: "text-emerald-400" },
+    { key: "u25", title: "Best Under 2.5", icon: ArrowDown, color: "text-rose-400" },
+    { key: "o35", title: "Best Over 3.5", icon: ArrowUp, color: "text-emerald-500" },
+    { key: "u35", title: "Best Under 3.5", icon: ArrowDown, color: "text-rose-500" },
+    { key: "o45", title: "Best Over 4.5", icon: ArrowUp, color: "text-emerald-500" },
+    { key: "u45", title: "Best Under 4.5", icon: ArrowDown, color: "text-rose-500" },
+    { key: "hgsO15", title: "Home Scored Over 1.5", icon: Target, color: "text-blue-400" },
     { key: "hgcO15", title: "Home Conceded Over 1.5", icon: AlertCircle, color: "text-rose-400" },
-    { key: "agsO15", title: "Away Scored Over 1.5", icon: Target, color: "text-purple-400" },
-    { key: "agcO15", title: "Away Conceded Over 1.5", icon: AlertCircle, color: "text-orange-400" },
+    { key: "agsO15", title: "Away Scored Over 1.5", icon: Target, color: "text-indigo-400" },
+    { key: "agcO15", title: "Away Conceded Over 1.5", icon: AlertCircle, color: "text-rose-400" },
     { key: "nfts", title: "Highest Not Failed to Score", icon: Target, color: "text-blue-400" },
-    { key: "fts", title: "Highest Failed to Score", icon: AlertCircle, color: "text-orange-400" },
+    { key: "fts", title: "Highest Failed to Score", icon: AlertCircle, color: "text-slate-300" },
     { key: "cleanSheet", title: "Best Clean Sheet", icon: Shield, color: "text-indigo-400" },
-    { key: "bestHome", title: "Strongest Home", icon: Home, color: "text-green-400" },
+    { key: "bestHome", title: "Strongest Home", icon: Home, color: "text-emerald-400" },
     { key: "worstHome", title: "Worst Home", icon: Home, color: "text-rose-500" },
-    { key: "bestAway", title: "Strongest Away", icon: Globe, color: "text-green-500" },
-    { key: "worstAway", title: "Worst Away", icon: Globe, color: "text-rose-600" },
-    { key: "homeDraw", title: "Highest Home Draw", icon: Activity, color: "text-slate-400" },
-    { key: "awayDraw", title: "Highest Away Draw", icon: Activity, color: "text-slate-400" },
+    { key: "bestAway", title: "Strongest Away", icon: Globe, color: "text-emerald-400" },
+    { key: "worstAway", title: "Worst Away", icon: Globe, color: "text-rose-500" },
+    { key: "homeDraw", title: "Highest Home Draw", icon: Activity, color: "text-slate-300" },
+    { key: "awayDraw", title: "Highest Away Draw", icon: Activity, color: "text-slate-300" },
   ];
 
   const currentData = viewType === 'team' ? data?.team : data?.league;
@@ -336,6 +337,22 @@ export default function InsightsPage() {
               />
             </div>
             
+            {/* Upcoming Only Toggle */}
+            {viewType === "team" && (
+              <button
+                type="button"
+                onClick={() => setUpcomingOnly((v) => !v)}
+                className={`px-3 py-2 rounded-lg border text-xs font-bold transition-colors ${
+                  upcomingOnly
+                    ? "bg-emerald-600/20 border-emerald-500/40 text-emerald-300"
+                    : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200"
+                }`}
+                title="Hide teams with no upcoming fixture or expired dates"
+              >
+                {upcomingOnly ? "✓ Upcoming Fixtures Only" : "Show All Teams"}
+              </button>
+            )}
+
             {/* Prediction Filter */}
             {viewType === 'team' && (
               <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg">
@@ -380,11 +397,21 @@ export default function InsightsPage() {
         <div className="relative min-h-[400px]">
           {isLocked && <PremiumOverlay message="Premium Insights Locked" />}
           
-          <div className={`grid grid-cols-1 xl:grid-cols-2 gap-6 ${isLocked ? 'opacity-20 pointer-events-none filter blur-[2px]' : ''}`}>
+          <div className={`grid gap-6 ${viewType === 'team' ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-2'} ${isLocked ? 'opacity-20 pointer-events-none filter blur-[2px]' : ''}`}>
             {sections.map(sec => {
               const Icon = sec.icon;
-              // If locked, render some dummy data to make the background blur look realistic
-              const items = isLocked ? Array(5).fill({ team: 'Locked Team', league: 'Locked League', country: 'Locked', value: 100 }) : currentData?.[sec.key];
+              const todayISO = new Intl.DateTimeFormat("en-CA", {
+                timeZone: "Africa/Lagos",
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+              }).format(new Date());
+              const rawItems = isLocked
+                ? Array(5).fill({ team: 'Locked Team', league: 'Locked League', country: 'Locked', value: 100 })
+                : currentData?.[sec.key];
+              const items = (!isLocked && viewType === 'team' && upcomingOnly && Array.isArray(rawItems))
+                ? rawItems.filter((it: any) => it.nextOpponent && (!it.nextDate || String(it.nextDate).slice(0, 10) >= todayISO))
+                : rawItems;
               if (!items || items.length === 0) return null;
             
             return (
@@ -434,16 +461,16 @@ export default function InsightsPage() {
                         // H / A venue badge
                         const venueBadge = hasNextMatch
                           ? (item.isHome
-                              ? <span className="ml-1 text-[9px] font-black text-emerald-400 bg-emerald-500/10 px-1 py-0.5 rounded">H</span>
-                              : <span className="ml-1 text-[9px] font-black text-amber-400 bg-amber-500/10 px-1 py-0.5 rounded">A</span>)
+                              ? <span className="ml-1 text-[9px] font-black text-emerald-300 bg-emerald-500/15 px-1 py-0.5 rounded">H</span>
+                              : <span className="ml-1 text-[9px] font-black text-sky-300 bg-sky-500/15 px-1 py-0.5 rounded">A</span>)
                           : null;
 
                         // Confidence badge colour
                         const conf = item.confidence;
                         const confColor = conf == null ? "" :
-                          conf >= 80 ? "text-emerald-400 bg-emerald-500/10" :
-                          conf >= 60 ? "text-amber-400 bg-amber-500/10" :
-                                       "text-red-400 bg-red-500/10";
+                          conf >= 80 ? "text-emerald-300 bg-emerald-500/15" :
+                          conf >= 60 ? "text-blue-300 bg-blue-500/15" :
+                                       "text-rose-300 bg-rose-500/15";
 
                         const val = Math.round(item.value);
                         const selectionConfig = getMarketSelection(sec.key);

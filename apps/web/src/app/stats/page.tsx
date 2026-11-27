@@ -28,13 +28,28 @@ interface SearchResult {
 }
 
 type SortBy = "alpha" | "leagues" | "teams";
+type MarketFilter = "all" | "today" | "high_o25" | "high_btts";
+
+const TOP_LEAGUE_NAMES = [
+  { country: "England", league: "Premier League", label: "Premier League" },
+  { country: "Spain", league: "LaLiga", label: "La Liga" },
+  { country: "Germany", league: "Bundesliga", label: "Bundesliga" },
+  { country: "Italy", league: "Serie A", label: "Serie A" },
+  { country: "France", league: "Ligue 1", label: "Ligue 1" },
+  { country: "England", league: "Championship", label: "Championship" },
+  { country: "Netherlands", league: "Eredivisie", label: "Eredivisie" },
+  { country: "Portugal", league: "Liga Portugal", label: "Liga Portugal" },
+];
 
 export default function StatsHub() {
   const [countries, setCountries] = useState<CountryData[]>([]);
+  const [teamEntries, setTeamEntries] = useState<SearchResult[]>([]);
+  const [todayCountByCountry, setTodayCountByCountry] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [expandedCountry, setExpandedCountry] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortBy>("alpha");
+  const [marketFilter, setMarketFilter] = useState<MarketFilter>("all");
   const [filterCountry, setFilterCountry] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -42,17 +57,62 @@ export default function StatsHub() {
   const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const fetchCountries = async () => {
+    const fetchAll = async () => {
       try {
-        const res = await fetch("/api/stats/countries");
-        const json = await res.json();
+        const [countriesRes, matchesRes] = await Promise.all([
+          fetch("/api/stats/countries"),
+          fetch("/api/matches").catch(() => null),
+        ]);
+        const json = await countriesRes.json();
         if (json.success) setCountries(json.data);
-      } finally { setLoading(false); }
+
+        if (matchesRes && matchesRes.ok) {
+          const mJson = await matchesRes.json();
+          const pool = Array.isArray(mJson?.matches) ? mJson.matches : [];
+          const todayISO = new Intl.DateTimeFormat("en-CA", {
+            timeZone: "Africa/Lagos",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          }).format(new Date());
+
+          const seenTeams = new Set<string>();
+          const teamsList: SearchResult[] = [];
+          const todayMap: Record<string, number> = {};
+
+          for (const m of pool) {
+            const c = String(m.country || m.Country || "").trim();
+            const l = String(m.league || m.fullLeague || "").trim();
+            const d = String(m.dateISO || m.dateRaw || m.date || "").slice(0, 10);
+            if (c && d === todayISO) {
+              todayMap[c.toLowerCase()] = (todayMap[c.toLowerCase()] || 0) + 1;
+            }
+            for (const t of [m.homeTeam, m.awayTeam]) {
+              const name = String(t || "").trim();
+              if (!name) continue;
+              const k = `${name.toLowerCase()}|${l.toLowerCase()}`;
+              if (seenTeams.has(k)) continue;
+              seenTeams.add(k);
+              teamsList.push({
+                type: "team",
+                label: name,
+                league: l,
+                country: c,
+                href: `/stats/team/${encodeURIComponent(name)}?league=${encodeURIComponent(l)}&country=${encodeURIComponent(c)}`,
+              });
+            }
+          }
+          setTeamEntries(teamsList);
+          setTodayCountByCountry(todayMap);
+        }
+      } finally {
+        setLoading(false);
+      }
     };
-    fetchCountries();
+    fetchAll();
   }, []);
 
-  // Build search index
+  // Build search index (leagues + teams)
   const searchIndex = useMemo<SearchResult[]>(() => {
     const results: SearchResult[] = [];
     for (const c of countries) {
@@ -66,15 +126,15 @@ export default function StatsHub() {
         });
       }
     }
-    return results;
-  }, [countries]);
+    return [...results, ...teamEntries];
+  }, [countries, teamEntries]);
 
   useEffect(() => {
     if (!search.trim()) { setSearchResults([]); setSearchOpen(false); return; }
     const q = search.toLowerCase();
     const matches = searchIndex.filter((r) =>
-      r.label.toLowerCase().includes(q) || r.country?.toLowerCase().includes(q)
-    ).slice(0, 8);
+      r.label.toLowerCase().includes(q) || r.country?.toLowerCase().includes(q) || r.league?.toLowerCase().includes(q)
+    ).slice(0, 10);
     setSearchResults(matches);
     setSearchOpen(matches.length > 0);
   }, [search, searchIndex]);
@@ -93,6 +153,14 @@ export default function StatsHub() {
       ? countries.filter((c) => c.country === filterCountry)
       : countries;
 
+    if (marketFilter === "today") {
+      list = list.filter((c) => (todayCountByCountry[c.country.toLowerCase()] || 0) > 0);
+    } else if (marketFilter === "high_o25") {
+      list = list.filter((c) => c.leagues.some((l) => Number(l.overview?.over_25_percent || 0) >= 55));
+    } else if (marketFilter === "high_btts") {
+      list = list.filter((c) => c.leagues.some((l) => Number(l.overview?.btts_percent || 0) >= 55));
+    }
+
     if (sortBy === "alpha") list = [...list].sort((a, b) => a.country.localeCompare(b.country));
     else if (sortBy === "leagues") list = [...list].sort((a, b) => b.leagues.length - a.leagues.length);
     else if (sortBy === "teams") list = [...list].sort((a, b) => {
@@ -101,7 +169,7 @@ export default function StatsHub() {
       return tb - ta;
     });
     return list;
-  }, [countries, sortBy, filterCountry]);
+  }, [countries, sortBy, filterCountry, marketFilter, todayCountByCountry]);
 
   const totalLeagues = countries.reduce((s, c) => s + c.leagues.length, 0);
   const totalTeams = countries.reduce((s, c) => s + c.leagues.reduce((ls, l) => ls + (l.teamCount ?? 0), 0), 0);
@@ -140,15 +208,35 @@ export default function StatsHub() {
           </div>
           {/* Summary pills */}
           <div className="flex gap-2 flex-wrap">
-            <span className="bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold px-3 py-1.5 rounded-full">
+            <span className="bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-semibold px-3 py-1.5 rounded-full">
               {countries.length} Countries
             </span>
-            <span className="bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold px-3 py-1.5 rounded-full">
+            <span className="bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold px-3 py-1.5 rounded-full">
               {totalLeagues} Leagues
             </span>
-            <span className="bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-semibold px-3 py-1.5 rounded-full">
+            <span className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-semibold px-3 py-1.5 rounded-full">
               {totalTeams} Teams
             </span>
+          </div>
+        </div>
+
+        {/* Popular / Top Leagues Quick-Jump Strip */}
+        <div className="mb-5">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+            Popular Leagues
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {TOP_LEAGUE_NAMES.map((item) => (
+              <Link
+                key={`${item.country}-${item.league}`}
+                href={`/stats/league/${encodeURIComponent(item.league)}?country=${encodeURIComponent(item.country)}`}
+                className="px-3 py-1.5 rounded-lg bg-[#0f172a] border border-slate-800 hover:border-blue-500/50 hover:bg-blue-500/10 text-xs font-semibold text-slate-200 hover:text-white transition-all flex items-center gap-1.5"
+              >
+                <span className="text-slate-400">{item.country}</span>
+                <span className="text-slate-600">•</span>
+                <span>{item.label}</span>
+              </Link>
+            ))}
           </div>
         </div>
 
@@ -179,16 +267,18 @@ export default function StatsHub() {
                   className="flex items-center gap-3 px-4 py-3 hover:bg-slate-800/60 transition-colors border-b border-slate-800/50 last:border-0"
                 >
                   {r.type === "league"
-                    ? <Trophy className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
-                    : <Shield className="w-3.5 h-3.5 text-indigo-400 shrink-0" />}
+                    ? <Trophy className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                    : <Shield className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-slate-200 truncate">{r.label}</div>
-                    {r.country && <div className="text-xs text-slate-500">{r.country}</div>}
+                    <div className="text-xs text-slate-400 truncate">
+                      {r.country}{r.type === "team" && r.league ? ` • ${r.league}` : ""}
+                    </div>
                   </div>
-                  <span className={cn("ml-auto text-[10px] px-2 py-0.5 rounded-full border font-medium",
+                  <span className={cn("ml-auto text-[10px] px-2 py-0.5 rounded-full border font-medium uppercase",
                     r.type === "league"
-                      ? "text-yellow-400 border-yellow-500/30 bg-yellow-500/10"
-                      : "text-indigo-400 border-indigo-500/30 bg-indigo-500/10"
+                      ? "text-blue-300 border-blue-500/30 bg-blue-500/10"
+                      : "text-emerald-300 border-emerald-500/30 bg-emerald-500/10"
                   )}>
                     {r.type}
                   </span>
@@ -200,15 +290,25 @@ export default function StatsHub() {
 
         {/* Filter / Sort bar */}
         <div className="flex items-center gap-3 mb-6 flex-wrap">
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={cn("flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-all",
-              showFilters ? "bg-blue-600/20 border-blue-500/40 text-blue-400" : "border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-600"
-            )}
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            Filters
-          </button>
+          {/* Betting DNA Market Filters */}
+          <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg p-0.5 gap-0.5 flex-wrap">
+            {([
+              ["all", "All Leagues"],
+              ["today", "Playing Today"],
+              ["high_o25", "High O2.5 (55%+)"],
+              ["high_btts", "BTTS Hotspots (55%+)"],
+            ] as [MarketFilter, string][]).map(([val, lbl]) => (
+              <button
+                key={val}
+                onClick={() => setMarketFilter(val)}
+                className={cn("px-2.5 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wide transition-all",
+                  marketFilter === val ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-slate-200"
+                )}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
 
           {/* Sort */}
           <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg p-0.5 gap-0.5">
@@ -259,7 +359,14 @@ export default function StatsHub() {
                     <div className="flex items-center gap-3">
                       <Globe2 className="w-4 h-4 text-blue-400 shrink-0" />
                       <div>
-                        <span className="font-bold text-slate-200 text-sm">{c.country}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-200 text-sm">{c.country}</span>
+                          {(todayCountByCountry[c.country.toLowerCase()] || 0) > 0 && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
+                              {todayCountByCountry[c.country.toLowerCase()]} Today
+                            </span>
+                          )}
+                        </div>
                         <div className="flex gap-2 mt-0.5">
                           <span className="text-[10px] text-slate-500">{c.leagues.length} {c.leagues.length === 1 ? "league" : "leagues"}</span>
                           <span className="text-[10px] text-slate-600">·</span>
@@ -282,18 +389,18 @@ export default function StatsHub() {
                           className="flex items-center justify-between px-4 py-3 hover:bg-slate-700/30 transition-colors group"
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
-                            <Trophy className="w-3.5 h-3.5 text-yellow-500/70 group-hover:text-yellow-400 shrink-0 transition-colors" />
+                            <Trophy className="w-3.5 h-3.5 text-blue-400/80 group-hover:text-blue-400 shrink-0 transition-colors" />
                             <span className="text-sm text-slate-300 group-hover:text-white transition-colors truncate">{l.league}</span>
                           </div>
                           <div className="flex items-center gap-2 shrink-0 ml-2">
                             {/* League quick pills */}
                             {typeof l.overview?.btts_percent === 'number' && !isNaN(l.overview.btts_percent) && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-medium">
                                 BTTS {l.overview.btts_percent}%
                               </span>
                             )}
                             {typeof l.overview?.over_25_percent === 'number' && !isNaN(l.overview.over_25_percent) && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-medium">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-300 border border-blue-500/20 font-medium">
                                 O2.5 {l.overview.over_25_percent}%
                               </span>
                             )}
