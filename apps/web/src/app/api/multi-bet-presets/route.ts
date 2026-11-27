@@ -649,13 +649,26 @@ function buildSlip(
   maxPerLeague = 2,
   maxAllowedDateISO?: string,
   globalUsageMap?: Map<string, number>,
-  maxGlobalUsage = 1
+  maxGlobalUsage = 2,
+  globalMatchMarketsMap?: Map<string, Set<string>>
 ): PresetLeg[] {
   const chosenLegs: PresetLeg[] = [];
   const usedMatches = new Set<string>();
   const usedLeagues = new Map<string, number>();
   const usedMarkets = new Map<string, number>();
   const normKey = (name: string) => String(name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  const recordMatchUsage = (matchKey: string, market: string) => {
+    usedMatches.add(matchKey);
+    if (globalUsageMap) {
+      globalUsageMap.set(matchKey, (globalUsageMap.get(matchKey) || 0) + 1);
+    }
+    if (globalMatchMarketsMap) {
+      const mSet = globalMatchMarketsMap.get(matchKey) || new Set<string>();
+      mSet.add(market);
+      globalMatchMarketsMap.set(matchKey, mSet);
+    }
+  };
 
   let cumulativeOdds = 1.0;
   const isJackpot = targetMinOdds >= 1000;
@@ -706,7 +719,8 @@ function buildSlip(
     if (maxAllowedDateISO && matchDateStr && matchDateStr > maxAllowedDateISO) continue;
 
     if (usedMatches.has(matchKey)) continue;
-    if (globalUsageMap && (globalUsageMap.get(matchKey) || 0) >= maxGlobalUsage) continue;
+    if (globalUsageMap && (globalUsageMap.get(matchKey) || 0) >= 1) continue;
+    if (globalMatchMarketsMap && globalMatchMarketsMap.get(matchKey)?.has(c.market)) continue;
 
     const leagueCount = usedLeagues.get(league) || 0;
     if (leagueCount >= maxPerLeague) continue;
@@ -733,10 +747,7 @@ function buildSlip(
       reason: c.reason,
     });
 
-    usedMatches.add(matchKey);
-    if (globalUsageMap) {
-      globalUsageMap.set(matchKey, (globalUsageMap.get(matchKey) || 0) + 1);
-    }
+    recordMatchUsage(matchKey, c.market);
     usedLeagues.set(league, leagueCount + 1);
     usedMarkets.set(c.market, marketCount + 1);
     cumulativeOdds = newOdds;
@@ -758,7 +769,8 @@ function buildSlip(
     }
   }
 
-  // Pass 2A (Standard Slips Scarce-Pool Fallback): Only if unused matches were exhausted before hitting minLegs or targetMinOdds
+  // Pass 2A (Standard Slips Different-Market Reuse): If unused matches didn't fill minLegs/maxLegs/targetMinOdds,
+  // allow reusing a match up to maxGlobalUsage ONLY with a DIFFERENT market (e.g. Home Win in Slip 1, Over 1.5 in Slip 2)
   if (!isJackpot && (chosenLegs.length < minLegs || cumulativeOdds < targetMinOdds)) {
     for (const item of allCandidates) {
       const m = item.match;
@@ -771,7 +783,8 @@ function buildSlip(
       if (maxAllowedDateISO && matchDateStr && matchDateStr > maxAllowedDateISO) continue;
 
       if (usedMatches.has(matchKey)) continue;
-      if (globalUsageMap && (globalUsageMap.get(matchKey) || 0) >= maxGlobalUsage + 1) continue;
+      if (globalUsageMap && (globalUsageMap.get(matchKey) || 0) >= maxGlobalUsage) continue;
+      if (globalMatchMarketsMap && globalMatchMarketsMap.get(matchKey)?.has(c.market)) continue;
 
       const leagueCount = usedLeagues.get(league) || 0;
       if (leagueCount >= maxPerLeague + 1) continue;
@@ -794,10 +807,7 @@ function buildSlip(
         reason: c.reason,
       });
 
-      usedMatches.add(matchKey);
-      if (globalUsageMap) {
-        globalUsageMap.set(matchKey, (globalUsageMap.get(matchKey) || 0) + 1);
-      }
+      recordMatchUsage(matchKey, c.market);
       usedLeagues.set(league, leagueCount + 1);
       usedMarkets.set(c.market, marketCount + 1);
       cumulativeOdds = newOdds;
@@ -807,7 +817,7 @@ function buildSlip(
     }
   }
 
-  // Pass 2B (Jackpot Progressive Target Guarantee): If cumulativeOdds is still under targetMinOdds, compound additional value legs
+  // Pass 2B (Jackpot Progressive Target Guarantee): If cumulativeOdds is still under targetMinOdds, compound additional value legs (different market required)
   if (isJackpot && cumulativeOdds < targetMinOdds) {
     const maxLegCeiling = targetMinOdds >= 5000 ? 30 : targetMinOdds >= 3000 ? 26 : 22;
     for (const item of allCandidates) {
@@ -821,7 +831,8 @@ function buildSlip(
       if (maxAllowedDateISO && matchDateStr && matchDateStr > maxAllowedDateISO) continue;
 
       if (usedMatches.has(matchKey)) continue;
-      if (globalUsageMap && (globalUsageMap.get(matchKey) || 0) >= (maxGlobalUsage + 1)) continue;
+      if (globalUsageMap && (globalUsageMap.get(matchKey) || 0) >= maxGlobalUsage) continue;
+      if (globalMatchMarketsMap && globalMatchMarketsMap.get(matchKey)?.has(c.market)) continue;
 
       // Relax league limit to 4 and market limit to 6 for deep jackpot slips
       const leagueCount = usedLeagues.get(league) || 0;
@@ -843,10 +854,7 @@ function buildSlip(
         reason: c.reason,
       });
 
-      usedMatches.add(matchKey);
-      if (globalUsageMap) {
-        globalUsageMap.set(matchKey, (globalUsageMap.get(matchKey) || 0) + 1);
-      }
+      recordMatchUsage(matchKey, c.market);
       usedLeagues.set(league, leagueCount + 1);
       usedMarkets.set(c.market, marketCount + 1);
       cumulativeOdds = newOdds;
@@ -1742,10 +1750,11 @@ export async function GET(req: Request) {
     const excludedMap = await getExcludedMapForSlips(allSlipIdsForExclusion);
 
     const jackpotUsageMap = new Map<string, number>();
+    const jackpotMarketsMap = new Map<string, Set<string>>();
 
     // 1. Weekend ₦1M Mega Jackpot (Friday >= 17:00 through Sunday)
     const poolWeekend1000x = filterPoolByExcluded(candidateWeekend, `jackpot_weekend_1000x_${scope}_${todayISO}`, excludedMap);
-    const legsWeekend1000x = buildSlip(poolWeekend1000x, 1000.0, 1600.0, ["safe", "medium", "aggressive"], 14, 18, 2, weekendSunISO, jackpotUsageMap, 1);
+    const legsWeekend1000x = buildSlip(poolWeekend1000x, 1000.0, 1600.0, ["safe", "medium", "aggressive"], 14, 18, 2, weekendSunISO, jackpotUsageMap, 2, jackpotMarketsMap);
     const oddsWeekend1000x = legsWeekend1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const finalOddsWeekend1000x = Number(Math.max(1000.0, oddsWeekend1000x).toFixed(2));
     const winWeekend1000x = Math.max(1000000, Math.round(1000 * finalOddsWeekend1000x));
@@ -1755,7 +1764,7 @@ export async function GET(req: Request) {
 
     // 2. 7-Day ₦2M Syndicate Acca (Monday to Sunday)
     const pool7Day1000x = filterPoolByExcluded(candidate7Day, `jackpot_7day_1000x_${scope}_${todayISO}`, excludedMap);
-    const legs7Day1000x = buildSlip(pool7Day1000x, 2000.0, 2800.0, ["safe", "medium", "aggressive"], 16, 21, 2, sundayISO, jackpotUsageMap, 1);
+    const legs7Day1000x = buildSlip(pool7Day1000x, 2000.0, 2800.0, ["safe", "medium", "aggressive"], 16, 21, 2, sundayISO, jackpotUsageMap, 2, jackpotMarketsMap);
     const odds7Day1000x = legs7Day1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const finalOdds7Day1000x = Number(Math.max(2000.0, odds7Day1000x).toFixed(2));
     const win7Day1000x = Math.max(2000000, Math.round(1000 * finalOdds7Day1000x));
@@ -1765,7 +1774,7 @@ export async function GET(req: Request) {
 
     // 3. 15-Day ₦3.5M Fortnight Builder (Next 15 days)
     const pool15Day1000x = filterPoolByExcluded(candidate15Day, `jackpot_15day_1000x_${scope}_${todayISO}`, excludedMap);
-    const legs15Day1000x = buildSlip(pool15Day1000x, 3500.0, 4800.0, ["safe", "medium", "aggressive"], 18, 24, 3, day15ISO, jackpotUsageMap, 1);
+    const legs15Day1000x = buildSlip(pool15Day1000x, 3500.0, 4800.0, ["safe", "medium", "aggressive"], 18, 24, 3, day15ISO, jackpotUsageMap, 2, jackpotMarketsMap);
     const odds15Day1000x = legs15Day1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const finalOdds15Day1000x = Number(Math.max(3500.0, odds15Day1000x).toFixed(2));
     const win15Day1000x = Math.max(3500000, Math.round(1000 * finalOdds15Day1000x));
@@ -1775,7 +1784,7 @@ export async function GET(req: Request) {
 
     // 4. 15+ Days ₦5M+ Ultra Marathon (16 to 30 days maximum calendar cap)
     const poolMarathon1000x = filterPoolByExcluded(finalMarathonPool, `jackpot_marathon_1000x_${scope}_${todayISO}`, excludedMap);
-    const legsMarathon1000x = buildSlip(poolMarathon1000x, 5000.0, 12000.0, ["safe", "medium", "aggressive"], 22, 28, 3, day30ISO, jackpotUsageMap, 1);
+    const legsMarathon1000x = buildSlip(poolMarathon1000x, 5000.0, 12000.0, ["safe", "medium", "aggressive"], 22, 28, 3, day30ISO, jackpotUsageMap, 2, jackpotMarketsMap);
     const oddsMarathon1000x = legsMarathon1000x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const finalOddsMarathon1000x = Number(Math.max(5000.0, oddsMarathon1000x).toFixed(2));
     const winMarathon1000x = Math.max(5000000, Math.round(1000 * finalOddsMarathon1000x));
@@ -1861,24 +1870,25 @@ export async function GET(req: Request) {
     // ==================================================================
     const activePool = scope === "weekend" ? candidateWeekend : candidateToday;
     const standardUsageMap = new Map<string, number>();
+    const standardMarketsMap = new Map<string, Set<string>>();
 
     const pool2x = filterPoolByExcluded(activePool, `banker_2x_${scope}_${todayISO}`, excludedMap);
-    const legs2x = buildSlip(pool2x, 2.0, 2.45, ["safe"], 2, 3, 2, undefined, standardUsageMap, 1);
+    const legs2x = buildSlip(pool2x, 2.0, 2.45, ["safe"], 2, 3, 2, undefined, standardUsageMap, 2, standardMarketsMap);
     const odds2x = legs2x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const conf2x = legs2x.length > 0 ? Math.round(legs2x.reduce((acc, l) => acc + l.confidence, 0) / legs2x.length) : 84;
 
     const pool3x = filterPoolByExcluded(activePool, `value_3x_${scope}_${todayISO}`, excludedMap);
-    const legs3x = buildSlip(pool3x, 3.0, 3.85, ["safe", "medium"], 3, 4, 2, undefined, standardUsageMap, 1);
+    const legs3x = buildSlip(pool3x, 3.0, 3.85, ["safe", "medium"], 3, 4, 2, undefined, standardUsageMap, 2, standardMarketsMap);
     const odds3x = legs3x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const conf3x = legs3x.length > 0 ? Math.round(legs3x.reduce((acc, l) => acc + l.confidence, 0) / legs3x.length) : 74;
 
     const pool5x = filterPoolByExcluded(activePool, `multiplier_5x_${scope}_${todayISO}`, excludedMap);
-    const legs5x = buildSlip(pool5x, 5.0, 6.75, ["safe", "medium", "aggressive"], 4, 6, 2, undefined, standardUsageMap, 1);
+    const legs5x = buildSlip(pool5x, 5.0, 6.75, ["safe", "medium", "aggressive"], 4, 6, 2, undefined, standardUsageMap, 2, standardMarketsMap);
     const odds5x = legs5x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const conf5x = legs5x.length > 0 ? Math.round(legs5x.reduce((acc, l) => acc + l.confidence, 0) / legs5x.length) : 58;
 
     const pool10x = filterPoolByExcluded(activePool, `mega_10x_${scope}_${todayISO}`, excludedMap);
-    const legs10x = buildSlip(pool10x, 10.0, 14.50, ["safe", "medium", "aggressive"], 6, 9, 2, undefined, standardUsageMap, 1);
+    const legs10x = buildSlip(pool10x, 10.0, 14.50, ["safe", "medium", "aggressive"], 6, 9, 2, undefined, standardUsageMap, 2, standardMarketsMap);
     const odds10x = legs10x.reduce((acc, leg) => acc * leg.odds, 1.0);
     const conf10x = legs10x.length > 0 ? Math.round(legs10x.reduce((acc, l) => acc + l.confidence, 0) / legs10x.length) : 45;
 
