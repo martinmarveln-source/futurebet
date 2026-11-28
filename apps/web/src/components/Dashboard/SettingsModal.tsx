@@ -13,6 +13,8 @@ import {
   Filter,
   Zap,
   Lock,
+  ExternalLink,
+  RefreshCw,
 } from "lucide-react";
 import useUserPermissions from "@/hooks/useUserPermissions";
 
@@ -111,11 +113,107 @@ export default function SettingsModal({
     }
   };
 
-  // ── Telegram credentials ─────────────────────────────────────────────────
+  // ── Telegram credentials & 1-click connect ───────────────────────────────
   const [telegramToken, setTelegramToken] = useState("");
   const [telegramChatId, setTelegramChatId] = useState("");
   const [touched, setTouched] = useState(false);
   const [testStatus, setTestStatus] = useState("idle"); // idle|testing|success|error
+  const [tgConnect, setTgConnect] = useState({
+    loading: false,
+    verifying: false,
+    hasSharedBot: false,
+    botUsername: "",
+    deepLink: "",
+    statusMsg: "",
+  });
+
+  useEffect(() => {
+    if (!show || !isPremium) return;
+    let cancelled = false;
+    setTgConnect((p) => ({ ...p, loading: true, statusMsg: "" }));
+    fetch("/api/telegram/connect")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.success) return;
+        setTgConnect((p) => ({
+          ...p,
+          loading: false,
+          hasSharedBot: Boolean(data.hasSharedBot),
+          botUsername: data.botUsername || "",
+          deepLink: data.deepLink || "",
+        }));
+        if (data.chatId && !telegramChatId) {
+          setTelegramChatId(String(data.chatId));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setTgConnect((p) => ({ ...p, loading: false }));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [show, isPremium]);
+
+  const handleVerifyTelegramLink = async () => {
+    setTgConnect((p) => ({ ...p, verifying: true, statusMsg: "" }));
+    try {
+      const res = await fetch("/api/telegram/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "verify" }),
+      });
+      const data = await res.json();
+      if (data.connected && data.chatId) {
+        setTelegramChatId(String(data.chatId));
+        setAlertEnabled(true);
+        setTouched(false);
+        setTgConnect((p) => ({
+          ...p,
+          verifying: false,
+          statusMsg: "Telegram connected and Auto-Alerts enabled!",
+        }));
+      } else {
+        setTgConnect((p) => ({
+          ...p,
+          verifying: false,
+          statusMsg: data.message || data.error || "Not linked yet. Tap Connect in 1 Tap, press Start in Telegram, then Verify.",
+        }));
+      }
+    } catch {
+      setTgConnect((p) => ({
+        ...p,
+        verifying: false,
+        statusMsg: "Failed to verify Telegram connection.",
+      }));
+    }
+  };
+
+  const handleDisconnectTelegram = async () => {
+    setTgConnect((p) => ({ ...p, verifying: true, statusMsg: "" }));
+    try {
+      const res = await fetch("/api/telegram/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "disconnect" }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTelegramChatId("");
+        setAlertEnabled(false);
+        setTouched(false);
+        setTgConnect((p) => ({
+          ...p,
+          verifying: false,
+          deepLink: data.deepLink || p.deepLink,
+          statusMsg: "Telegram disconnected.",
+        }));
+      } else {
+        setTgConnect((p) => ({ ...p, verifying: false }));
+      }
+    } catch {
+      setTgConnect((p) => ({ ...p, verifying: false }));
+    }
+  };
 
   // ── Auto-alert settings ──────────────────────────────────────────────────
   const [alertEnabled, setAlertEnabled] = useState(false);
@@ -219,9 +317,8 @@ export default function SettingsModal({
   // Telegram test signal
   const handleTestSignal = async () => {
     if (!telegramChatId.trim() || !isChatIdValid) return;
-    
-    // We require the token to be saved in the database first for security
-    if (!preferences?.telegram_bot_token || touched) {
+
+    if (touched) {
       alert("Please save your settings first before testing the connection.");
       return;
     }
@@ -358,6 +455,91 @@ export default function SettingsModal({
               Receive real-time notifications directly in your browser (even when the site is closed). No Telegram required.
             </p>
           </div>
+
+          {/* ── 1-Click Official FutureBet Bot Connection (Premium & Admin) ── */}
+          {isPremium && (
+            <div className={cn("rounded-2xl border p-4 space-y-3", tones.section)}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Send size={17} className={darkMode ? "text-sky-400" : "text-sky-600"} />
+                  <span className={cn("text-sm font-extrabold", tones.sectionHeader)}>
+                    Telegram Bot Alerts
+                  </span>
+                </div>
+                {telegramChatId.trim() ? (
+                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    Connected
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                    Not Linked
+                  </span>
+                )}
+              </div>
+
+              {telegramChatId.trim() ? (
+                <div className="space-y-2.5">
+                  <div className={cn("text-xs rounded-xl border px-3 py-2 flex items-center justify-between gap-2", tones.ok)}>
+                    <span className="flex items-center gap-2 font-semibold">
+                      <CheckCircle2 size={15} />
+                      Linked to Telegram Chat #{telegramChatId.trim()}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleDisconnectTelegram}
+                      disabled={tgConnect.verifying}
+                      className="text-[11px] font-bold underline opacity-80 hover:opacity-100"
+                    >
+                      Disconnect
+                    </button>
+                  </div>
+                </div>
+              ) : tgConnect.loading ? (
+                <p className={cn("text-xs", tones.muted)}>Checking shared FutureBet bot...</p>
+              ) : tgConnect.deepLink ? (
+                <div className="space-y-3">
+                  <p className={cn("text-xs leading-relaxed", tones.muted)}>
+                    Link your Telegram in 1 tap via <span className="font-bold">@{tgConnect.botUsername}</span> — no BotFather setup needed. Tap Connect, press <span className="font-bold">Start</span> in Telegram, then click Verify.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <a
+                      href={tgConnect.deepLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-extrabold transition"
+                    >
+                      <ExternalLink size={14} />
+                      1. Connect in 1 Tap
+                    </a>
+                    <button
+                      type="button"
+                      onClick={handleVerifyTelegramLink}
+                      disabled={tgConnect.verifying}
+                      className={cn(
+                        "flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-extrabold transition",
+                        tones.btn
+                      )}
+                    >
+                      <RefreshCw size={14} className={tgConnect.verifying ? "animate-spin" : ""} />
+                      {tgConnect.verifying ? "Checking..." : "2. Verify Connection"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className={cn("text-xs", tones.muted)}>
+                  {isAdmin
+                    ? "Enter your Telegram Bot Token below and click Save Settings to activate 1-click linking for all Premium users."
+                    : "Telegram shared bot link is currently unavailable. Use Web Push notifications above or contact Admin."}
+                </p>
+              )}
+
+              {tgConnect.statusMsg && (
+                <div className={cn("text-xs rounded-xl border px-3 py-2", telegramChatId.trim() ? tones.ok : tones.warn)}>
+                  {tgConnect.statusMsg}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Telegram Settings (Admin Only) */}
           {isAdmin && (
@@ -645,7 +827,7 @@ export default function SettingsModal({
         <div className={cn("px-5 py-4 border-t flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0", darkMode ? "border-gray-800" : "border-gray-200")}>
           <button
             onClick={handleTestSignal}
-            disabled={!isTokenValid || !isChatIdValid || testStatus === "testing"}
+            disabled={!telegramChatId.trim() || !isChatIdValid || testStatus === "testing"}
             className={cn(
               "w-full sm:w-auto px-4 py-2.5 rounded-xl text-sm font-extrabold transition flex items-center justify-center gap-2",
               testStatus === "success"
@@ -655,7 +837,7 @@ export default function SettingsModal({
                 : darkMode
                 ? "border border-blue-500/30 text-blue-400 bg-blue-500/10 hover:bg-blue-500/20"
                 : "border border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100",
-              (!isTokenValid || !isChatIdValid) && "opacity-50 cursor-not-allowed border-gray-500 text-gray-500 bg-transparent"
+              (!telegramChatId.trim() || !isChatIdValid) && "opacity-50 cursor-not-allowed border-gray-500 text-gray-500 bg-transparent"
             )}
           >
             {testStatus === "testing" ? "Pinging API..." : testStatus === "success" ? "Sent!" : testStatus === "error" ? "Failed" : <><BellRing size={16} /> Test Connection</>}

@@ -3,6 +3,16 @@ import sql from "@/app/api/utils/sql";
 import { format } from "date-fns";
 import { computeDerivedPickFromStats } from "@/utils/vipAlgorithm";
 import { auth } from "@/auth";
+import {
+  addScoreRecord,
+  createScoreLookupIndex,
+  evaluateMarketOutcome,
+  findScoreInIndex,
+  MISSED_RESULTS_CSV_URL,
+  parseFtScore as parseSharedFtScore,
+  parseQuotedCSV,
+  toSafeDateISO as toSharedDateISO,
+} from "@/lib/settlement";
 
 /* =========================
    CONFIG (sheet source)
@@ -222,28 +232,12 @@ function buildTicketDTO(ticketCode, rows) {
   return ticket;
 }
 
-/* ---------------- Match normalization (to map sheet rows ↔ db rows) ---------------- */
-function normMatchKey(s) {
-  return String(s || "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .replace(/[–—]/g, "-")
-    .replace(/\s*-\s*/g, " - ")
-    .trim();
-}
-
 function parseFtScore(score) {
+  const shared = parseSharedFtScore(score);
+  if (shared) return shared;
   const raw = String(score || "").trim();
   if (!raw) return null;
-
-  // allow "2:1" or "2-1"
-  const m = raw.match(/^(\d+)\s*[:\-]\s*(\d+)$/);
-  if (!m) return { type: "non_numeric", raw };
-
-  const hg = Number(m[1]);
-  const ag = Number(m[2]);
-  if (!Number.isFinite(hg) || !Number.isFinite(ag)) return null;
-  return { type: "score", hg, ag, total: hg + ag, raw: `${hg}:${ag}` };
+  return { type: "non_numeric", raw };
 }
 
 /* ---------------- Parse prediction "Market - Option" ---------------- */
@@ -251,7 +245,6 @@ function parsePrediction(pred) {
   const raw = String(pred || "").trim();
   if (!raw) return { market: "", option: "" };
 
-  // Expected: "Over/Under 2.5 - Under 2.5"
   const parts = raw.split(" - ");
   if (parts.length >= 2) {
     return {
@@ -260,121 +253,13 @@ function parsePrediction(pred) {
     };
   }
 
-  // fallback (sometimes stored as just "Under 2.5" etc.)
   return { market: raw.trim(), option: raw.trim() };
 }
 
 /* ---------------- Outcome evaluation ---------------- */
-function isOverUnderMarket(market, option) {
-  const s = `${market} ${option}`.toLowerCase();
-  return s.includes("over") || s.includes("under") || s.includes("o/u");
-}
-
-function extractLine(optionOrMarket) {
-  // returns number like 2.5, 1.5, 3.5
-  const s = String(optionOrMarket || "");
-  const m = s.match(/(\d+(\.\d+)?)/);
-  return m ? Number(m[1]) : null;
-}
-
 function evalSelectionOutcome({ prediction, ftScore }) {
-  const ft = parseFtScore(ftScore);
-  if (!ft || ft.type === "non_numeric") return "pending"; // score not ready (or weird string)
-
-  const { hg, ag, total } = ft;
   const { market, option } = parsePrediction(prediction);
-  const mkt = String(market || "").toLowerCase();
-  const opt = String(option || "").toLowerCase();
-
-  // Correct Score
-  if (mkt.includes("correct") || opt.includes(":") || opt.includes("-")) {
-    const target = parseFtScore(option);
-    if (target?.type === "score")
-      return target.hg === hg && target.ag === ag ? "won" : "lost";
-  }
-
-  // BTTS
-  if (mkt.includes("btts") || opt.includes("btts")) {
-    const yes = hg > 0 && ag > 0;
-    if (opt.includes("yes")) return yes ? "won" : "lost";
-    if (opt.includes("no")) return !yes ? "won" : "lost";
-    // if stored as just "BTTS" treat as Yes
-    return yes ? "won" : "lost";
-  }
-
-  // 1X2
-  if (
-    mkt.includes("1x2") ||
-    mkt.includes("full time result") ||
-    mkt.includes("match result")
-  ) {
-    const homeWin = hg > ag;
-    const draw = hg === ag;
-    const awayWin = ag > hg;
-
-    if (opt.includes("home")) return homeWin ? "won" : "lost";
-    if (opt.includes("draw")) return draw ? "won" : "lost";
-    if (opt.includes("away")) return awayWin ? "won" : "lost";
-  }
-
-  // Double chance
-  if (
-    mkt.includes("double") ||
-    opt.includes("1x") ||
-    opt.includes("x2") ||
-    opt.includes("12")
-  ) {
-    const homeWin = hg > ag;
-    const draw = hg === ag;
-    const awayWin = ag > hg;
-
-    if (opt.includes("1x") || (opt.includes("home") && opt.includes("draw")))
-      return homeWin || draw ? "won" : "lost";
-    if (opt.includes("x2") || (opt.includes("draw") && opt.includes("away")))
-      return draw || awayWin ? "won" : "lost";
-    if (opt.includes("12") || (opt.includes("home") && opt.includes("away")))
-      return homeWin || awayWin ? "won" : "lost";
-  }
-
-  // Over/Under (any line) — supports Over/Under + Yes/No UI
-  if (isOverUnderMarket(market, option)) {
-    const line = extractLine(option) ?? extractLine(market);
-    if (!Number.isFinite(line)) return "pending";
-
-    // Decide what the user actually picked: "over" or "under"
-    let want = null; // "over" | "under"
-
-    // Normal cases
-    if (opt.includes("over")) want = "over";
-    if (opt.includes("under")) want = "under";
-
-    // Yes/No cases (your UI: "Over 3.5 • No" means Under 3.5)
-    if (!want) {
-      const optYes = opt === "yes" || opt.includes("yes");
-      const optNo = opt === "no" || opt.includes("no");
-
-      if (optYes || optNo) {
-        // If market explicitly says Over/Under
-        if (mkt.includes("over")) want = optYes ? "over" : "under";
-        else if (mkt.includes("under")) want = optYes ? "under" : "over";
-        else if (mkt.includes("o/u") || mkt.includes("over/under")) {
-          // For "O/U 2.5 • Yes/No" assume the question is "Over?"
-          want = optYes ? "over" : "under";
-        }
-      }
-    }
-
-    if (!want) return "pending";
-
-    const isOver = total > line;
-    const isUnder = total < line || total === line; // safe (for integer lines)
-
-    if (want === "over") return isOver ? "won" : "lost";
-    if (want === "under") return isUnder ? "won" : "lost";
-  }
-
-  // If we can't interpret market/option safely, keep pending (don’t guess)
-  return "pending";
+  return evaluateMarketOutcome(market, option, ftScore);
 }
 
 /* ---------------- Fetch sheet rows (date, match, time, ftScore) ---------------- */
@@ -404,38 +289,43 @@ function combineKickoff(dateISO, timeStr) {
   return `${dateISO}T${hh}:${mm}:00`;
 }
 
-async function fetchSheetScoreMap() {
-  // Fetch from the matches_cache table instead of Google Sheet
+async function fetchSheetScoreIndex() {
   const rows = await sql`
-    SELECT match_label, home_team, ft_score
+    SELECT
+      match_date::text as match_date_str,
+      match_label,
+      home_team,
+      away_team,
+      COALESCE(
+        NULLIF(TRIM(ft_score), ''),
+        NULLIF(TRIM(raw_data->>'ftScore'), ''),
+        NULLIF(TRIM(raw_data->>'ft_score'), '')
+      ) as ft_score
     FROM matches_cache
-    WHERE match_date >= (CURRENT_DATE - INTERVAL '2 days')
-      AND ft_score IS NOT NULL
-      AND ft_score != ''
+    WHERE match_date >= ((NOW() AT TIME ZONE 'Africa/Lagos')::date - INTERVAL '4 days')
+      AND (
+        (ft_score IS NOT NULL AND TRIM(ft_score) != '')
+        OR (raw_data->>'ftScore' IS NOT NULL AND TRIM(raw_data->>'ftScore') != '')
+        OR (raw_data->>'ft_score' IS NOT NULL AND TRIM(raw_data->>'ft_score') != '')
+      )
   `;
 
-  /**
-   * Map key:
-   *   normalized-match
-   * Value:
-   *   { ftScore }
-   */
-  const map = new Map();
-
+  const index = createScoreLookupIndex();
   for (const r of rows) {
-    const ftScore = String(r.ft_score).trim();
-    if (!ftScore) continue;
-
-    if (r.match_label) map.set(normMatchKey(r.match_label), { ftScore });
-    if (r.home_team) map.set(normMatchKey(r.home_team), { ftScore });
+    addScoreRecord(index, {
+      date: r.match_date_str,
+      home: r.home_team,
+      away: r.away_team,
+      label: r.match_label,
+      score: r.ft_score,
+    });
   }
-
-  return map;
+  return index;
 }
 
 /* ---------------- Sync logic ---------------- */
 async function syncTicketSelectionsFromSheet(userId) {
-  // only pending or missing score, for recent dates (today & yesterday) to keep it light
+  // only pending or missing score, for recent dates (last 4 days) to keep it light
   const rows = await sql`
     SELECT id, match_name, match_date, prediction, status, actual_result
     FROM user_performance_tracking
@@ -445,36 +335,56 @@ async function syncTicketSelectionsFromSheet(userId) {
         status IS NULL OR LOWER(status) = 'pending'
         OR actual_result IS NULL OR actual_result = ''
       )
-      AND match_date >= (CURRENT_DATE - INTERVAL '2 days')
+      AND match_date >= ((NOW() AT TIME ZONE 'Africa/Lagos')::date - INTERVAL '4 days')
   `;
 
   if (!rows?.length) return { updated: 0 };
 
-  const sheetMap = await fetchSheetScoreMap();
-  if (!sheetMap.size) return { updated: 0 };
-
+  const scoreIndex = await fetchSheetScoreIndex();
+  let missedFetched = false;
   let updated = 0;
 
-  for (const r of rows) {
-    const dateISO = toISODateOnly(r.match_date);
-    const key = normMatchKey(r.match_name);
-    const sheet = sheetMap.get(key);
-    if (!sheet) continue;
+  async function ensureMissedResultsLoaded() {
+    if (missedFetched) return;
+    missedFetched = true;
+    try {
+      const res = await fetch(MISSED_RESULTS_CSV_URL, { cache: "no-store" });
+      if (!res.ok) return;
+      const csvRows = parseQuotedCSV(await res.text());
+      for (const sr of csvRows) {
+        addScoreRecord(scoreIndex, {
+          date: sr.match_date,
+          home: sr.home_team,
+          away: sr.away_team,
+          label: sr.match_label || (sr.home_team && sr.away_team ? `${sr.home_team} - ${sr.away_team}` : ""),
+          score: sr.ft_score,
+        });
+      }
+    } catch (_) {}
+  }
 
-    // If sheet has a score, store immediately (so it survives cleanup)
-    const hasScore =
-      sheet.ftScore && parseFtScore(sheet.ftScore)?.type === "score";
-    if (!hasScore) continue;
+  for (const r of rows) {
+    const dateISO = toSharedDateISO(r.match_date);
+    let ftScore = findScoreInIndex(scoreIndex, r.match_name, dateISO, 1);
+
+    if (!ftScore) {
+      await ensureMissedResultsLoaded();
+      ftScore = findScoreInIndex(scoreIndex, r.match_name, dateISO, 1);
+    }
+
+    if (!ftScore) continue;
+    const parsed = parseFtScore(ftScore);
+    if (!parsed || parsed.type !== "score") continue;
 
     const newStatus = evalSelectionOutcome({
       prediction: r.prediction,
-      ftScore: sheet.ftScore,
+      ftScore,
     });
 
     await sql`
       UPDATE user_performance_tracking
       SET
-        actual_result = ${sheet.ftScore},
+        actual_result = ${ftScore},
         status = ${newStatus},
         updated_at = NOW()
       WHERE id = ${r.id}
@@ -808,159 +718,58 @@ export async function POST(req) {
         return `${y}-${m}-${d}`;
       }
 
-      function normMatchKey(s) {
-        return String(s || "")
-          .toLowerCase()
-          .replace(/\s+/g, " ")
-          .replace(/[’']/g, "")
-          .trim();
-      }
-
-      function parseFTScore(v) {
-        const m = String(v || "")
-          .trim()
-          .match(/^(\d+)\s*[:\-]\s*(\d+)$/);
-        if (!m) return null;
-        const home = Number(m[1]);
-        const away = Number(m[2]);
-        if (!Number.isFinite(home) || !Number.isFinite(away)) return null;
-        return { home, away, total: home + away };
-      }
-
-      function parsePredictionToMarketOption(pred) {
-        const raw = String(pred || "").trim();
-        const parts = raw
-          .split(" - ")
-          .map((x) => x.trim())
-          .filter(Boolean);
-        if (parts.length >= 2)
-          return { market: parts[0], option: parts.slice(1).join(" - ") };
-        return { market: raw, option: "" };
-      }
-
-      function evalOutcome(prediction, ftScoreStr) {
-        const score = parseFTScore(ftScoreStr);
-        if (!score) return null;
-
-        const { market, option } = parsePredictionToMarketOption(prediction);
-        const m = String(market || "").toLowerCase();
-        const o = String(option || "").toLowerCase();
-
-        // ---- 1X2 ----
-        if (m.includes("1x2")) {
-          if (o.includes("home"))
-            return score.home > score.away ? "won" : "lost";
-          if (o.includes("draw"))
-            return score.home === score.away ? "won" : "lost";
-          if (o.includes("away"))
-            return score.away > score.home ? "won" : "lost";
-          return null;
-        }
-
-        // ---- Double Chance ----
-        if (m.includes("double chance")) {
-          const homeWin = score.home > score.away;
-          const draw = score.home === score.away;
-          const awayWin = score.away > score.home;
-
-          if (o.includes("home") && o.includes("draw"))
-            return homeWin || draw ? "won" : "lost";
-          if (o.includes("away") && o.includes("draw"))
-            return awayWin || draw ? "won" : "lost";
-          if (o.includes("home") && o.includes("away"))
-            return homeWin || awayWin ? "won" : "lost";
-          return null;
-        }
-
-        // ---- BTTS ----
-        if (m.includes("btts") || m.includes("gg")) {
-          const btts = score.home > 0 && score.away > 0;
-          if (o.includes("yes")) return btts ? "won" : "lost";
-          if (o.includes("no")) return !btts ? "won" : "lost";
-          return null;
-        }
-
-        // ---- Correct Score ----
-        if (m.includes("correct") && m.includes("score")) {
-          const pick = String(option || market || "").match(
-            /(\d+)\s*[:\-]\s*(\d+)/,
-          );
-          if (!pick) return null;
-          const ph = Number(pick[1]);
-          const pa = Number(pick[2]);
-          return score.home === ph && score.away === pa ? "won" : "lost";
-        }
-
-        // ---- Over/Under ----
-        const num = String(market).match(/(\d+(?:\.\d+)?)/);
-        if (
-          num &&
-          (m.includes("o/u") || m.includes("over") || m.includes("under"))
-        ) {
-          const line = Number(num[1]);
-          if (!Number.isFinite(line)) return null;
-
-          let want = null; // "over" | "under"
-          if (o.includes("over")) want = "over";
-          else if (o.includes("under")) want = "under";
-          else if (o === "yes") {
-            if (m.includes("over")) want = "over";
-            if (m.includes("under")) want = "under";
-          } else if (o === "no") {
-            if (m.includes("over")) want = "under";
-            if (m.includes("under")) want = "over";
-          }
-
-          if (!want) return null;
-
-          const isOver = score.total > line;
-          const isUnder = score.total < line || score.total === line; // treat equal as under for O/U
-          if (want === "over") return isOver ? "won" : "lost";
-          if (want === "under") return isUnder ? "won" : "lost";
-        }
-
-        return null;
-      }
-
       // --- target date: yesterday (since job runs 2am next day) ---
       const targetDateISO = dateISOInTZ(-1);
 
-      // 1) fetch DB instead of Google Sheet
+      // 1) fetch verified FT scores for targetDateISO (+/-1 day window in index)
       const dbScores = await sql`
-        SELECT match_label, home_team, ft_score
+        SELECT
+          match_date::text as match_date_str,
+          match_label,
+          home_team,
+          away_team,
+          COALESCE(
+            NULLIF(TRIM(ft_score), ''),
+            NULLIF(TRIM(raw_data->>'ftScore'), ''),
+            NULLIF(TRIM(raw_data->>'ft_score'), '')
+          ) as ft_score
         FROM matches_cache
-        WHERE match_date::date = ${targetDateISO}::date
-          AND ft_score IS NOT NULL
-          AND ft_score != ''
+        WHERE match_date::date >= (${targetDateISO}::date - INTERVAL '1 day')
+          AND match_date::date <= (${targetDateISO}::date + INTERVAL '1 day')
+          AND (
+            (ft_score IS NOT NULL AND TRIM(ft_score) != '')
+            OR (raw_data->>'ftScore' IS NOT NULL AND TRIM(raw_data->>'ftScore') != '')
+            OR (raw_data->>'ft_score' IS NOT NULL AND TRIM(raw_data->>'ft_score') != '')
+          )
       `;
 
-      // 2) build map for target date
-      const map = new Map(); // key -> ftScore
+      const scoreIndex = createScoreLookupIndex();
       for (const r of dbScores) {
-        const ft = String(r.ft_score).trim();
-        if (!ft) continue;
-
-        if (r.match_label) map.set(normMatchKey(r.match_label), ft);
-        if (r.home_team) map.set(normMatchKey(r.home_team), ft);
+        addScoreRecord(scoreIndex, {
+          date: r.match_date_str,
+          home: r.home_team,
+          away: r.away_team,
+          label: r.match_label,
+          score: r.ft_score,
+        });
       }
 
       // 3) fetch DB rows to update
       const pendingRows = await sql`
-    SELECT id, match_name, prediction
-    FROM user_performance_tracking
-    WHERE status = 'pending'
-      AND match_date::date = ${targetDateISO}::date
-  `;
+        SELECT id, match_name, prediction
+        FROM user_performance_tracking
+        WHERE status = 'pending'
+          AND match_date::date = ${targetDateISO}::date
+      `;
 
       let updated = 0;
       let voided = 0;
 
       for (const row of pendingRows) {
-        const key = normMatchKey(row.match_name);
-        const ft = map.get(key) || "";
+        const ft = findScoreInIndex(scoreIndex, row.match_name, targetDateISO, 1) || "";
 
         if (ft) {
-          const outcome = evalOutcome(row.prediction, ft);
+          const outcome = evalSelectionOutcome({ prediction: row.prediction, ftScore: ft });
           if (outcome === "won" || outcome === "lost") {
             await sql`
           UPDATE user_performance_tracking

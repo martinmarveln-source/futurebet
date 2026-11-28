@@ -1,6 +1,8 @@
 // @ts-nocheck
 import sql from "@/app/api/utils/sql";
 import { auth } from "@/auth";
+
+const leagueTableCache = new Map();
 async function hasCompareAccessByUserId(userId) {
   if (!userId) return false;
 
@@ -61,32 +63,39 @@ export async function GET(req) {
     const normCountry = normalize(country);
     const normLeague = normalize(league);
 
-    // Fetch from database cache instead of live Google Sheets
-    // If no country/league provided, return all rows
+    const LEAGUE_CACHE_TTL = 3 * 60 * 1000;
+    const cacheKey = `${normCountry}|${normLeague}`;
+    const cachedEntry = leagueTableCache.get(cacheKey);
+    if (cachedEntry && Date.now() - cachedEntry.ts < LEAGUE_CACHE_TTL) {
+      return Response.json({ success: true, table: cachedEntry.table }, { status: 200 });
+    }
+
+    const parseMarketRow = (r) => {
+      let ms = r.market_stats;
+      if (typeof ms === 'string' && ms) {
+        try { ms = JSON.parse(ms); } catch (e) {}
+      }
+      return { ...r, market_stats: ms, winRate: r.win_rate };
+    };
+
+    // Push country/league filters to SQL when present instead of pulling all 1,415 rows
     let table = [];
-    
     if (normCountry && normLeague) {
-      const rows = await sql`SELECT * FROM league_table_cache`;
-      table = rows.filter(
-        (r) =>
-          normalize(r.country) === normCountry &&
-          normalize(r.league) === normLeague
-      ).map(r => {
-        let ms = r.market_stats;
-        if (typeof ms === 'string' && ms) {
-          try { ms = JSON.parse(ms); } catch(e) {}
-        }
-        return { ...r, market_stats: ms, winRate: r.win_rate };
-      });
+      const rows = await sql`
+        SELECT * FROM league_table_cache
+        WHERE LOWER(REPLACE(TRIM(country), ' ', '-')) = ${normCountry}
+          AND LOWER(REPLACE(TRIM(league), ' ', '-')) = ${normLeague}
+      `;
+      table = rows.map(parseMarketRow);
+    } else if (normLeague) {
+      const rows = await sql`
+        SELECT * FROM league_table_cache
+        WHERE LOWER(REPLACE(TRIM(league), ' ', '-')) = ${normLeague}
+      `;
+      table = rows.map(parseMarketRow);
     } else {
       const rows = await sql`SELECT * FROM league_table_cache`;
-      table = rows.map(r => {
-        let ms = r.market_stats;
-        if (typeof ms === 'string' && ms) {
-          try { ms = JSON.parse(ms); } catch(e) {}
-        }
-        return { ...r, market_stats: ms, winRate: r.win_rate };
-      });
+      table = rows.map(parseMarketRow);
     }
 
     // Sort by points desc, then gd desc
@@ -99,6 +108,12 @@ export async function GET(req) {
       const gdB = parseInt(b.gd || 0, 10);
       return gdB - gdA;
     });
+
+    if (leagueTableCache.size >= 80) {
+      const firstKey = leagueTableCache.keys().next().value;
+      if (firstKey) leagueTableCache.delete(firstKey);
+    }
+    leagueTableCache.set(cacheKey, { table: sorted, ts: Date.now() });
 
     return Response.json({ success: true, table: sorted }, { status: 200 });
   } catch (error) {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "../../utils/sql";
 import Papa from "papaparse";
 import { deriveDoubleChance, deriveOverUnder } from "../../utils/oddsMath";
+import { MISSED_RESULTS_CSV_URL, parseFtScore, parseQuotedCSV, toSafeDateISO } from "@/lib/settlement";
 
 const SHEET_ID = "1vMva92Yesm1YiJeC8_1mBqb2KtTv31ByaCuJK2B9qeY";
 const SHEET_NAME = "Picks";
@@ -220,7 +221,7 @@ export async function GET(request: Request) {
                 ng = EXCLUDED.ng,
                 ov25 = EXCLUDED.ov25,
                 un25 = EXCLUDED.un25,
-                ft_score = EXCLUDED.ft_score,
+                ft_score = COALESCE(NULLIF(TRIM(EXCLUDED.ft_score), ''), matches_cache.ft_score),
                 flag = EXCLUDED.flag,
                 raw_data = EXCLUDED.raw_data,
                 synced_at = NOW()
@@ -234,11 +235,40 @@ export async function GET(request: Request) {
       );
     }
 
+    // Chained best-effort sync from missed_Results Google Sheet so Railway cron keeps FT scores up-to-date
+    let missedUpdated = 0;
+    try {
+      const missedRes = await fetch(MISSED_RESULTS_CSV_URL, { cache: "no-store" });
+      if (missedRes.ok) {
+        const missedRows = parseQuotedCSV(await missedRes.text());
+        for (const r of missedRows) {
+          const md = toSafeDateISO(r.match_date);
+          const ht = String(r.home_team || "").trim();
+          const at = String(r.away_team || "").trim();
+          const ft = String(r.ft_score || "").trim();
+          if (!md || !ht || !at || !parseFtScore(ft)) continue;
+          const updated = await sql`
+            UPDATE matches_cache
+            SET ft_score = ${ft}, synced_at = NOW()
+            WHERE match_date = ${md}::date
+              AND home_team = ${ht}
+              AND away_team = ${at}
+              AND (ft_score IS NULL OR TRIM(ft_score) = '')
+            RETURNING id
+          `;
+          if (updated?.length) missedUpdated += updated.length;
+        }
+      }
+    } catch (missedErr: any) {
+      console.warn("Chained missed_Results sync warning:", missedErr?.message);
+    }
+
     return NextResponse.json({
       success: true,
       inserted,
       skipped,
-      message: `Synced ${inserted} matches.`,
+      missedUpdated,
+      message: `Synced ${inserted} matches (${missedUpdated} missed FT scores backfilled).`,
     });
   } catch (error: any) {
     console.error("Sync error:", error);

@@ -46,6 +46,7 @@ const PerformanceTracker = dynamic(
 const TeamCompare = dynamic(() => import("@/components/Dashboard/TeamCompare"), { ssr: false });
 const GuideTab = dynamic(() => import("@/components/Dashboard/GuideTab"), { ssr: false });
 const SandboxTab = dynamic(() => import("@/components/Dashboard/SandboxTab"), { ssr: false });
+const AdminBotDrawer = dynamic(() => import("@/components/Dashboard/AdminBotDrawer"), { ssr: false });
 
 /* === UPGRADE: NORDIC THEME BACKGROUND === */
 function PremiumBackground({ darkMode }) {
@@ -292,6 +293,7 @@ export default function FutureBetDashboard() {
 
   const [compareMatch, setCompareMatch] = useState(null);
   const [showAutoPick, setShowAutoPick] = useState(false);
+  const [showAdminBot, setShowAdminBot] = useState(false);
 
   useEffect(() => {
     if (activeTab !== "explore") {
@@ -563,6 +565,7 @@ export default function FutureBetDashboard() {
             user={user}
             signOut={signOut}
             onShowSettings={() => setShowSettings(true)}
+            onOpenAdminBot={() => setShowAdminBot(true)}
             userPermissions={permissions}
           />
         </div>
@@ -1022,6 +1025,14 @@ export default function FutureBetDashboard() {
           isPremium={isAdmin || isPremium}
           isAdmin={isAdmin}
         />
+
+        {isAdmin && (
+          <AdminBotDrawer
+            show={showAdminBot}
+            onClose={() => setShowAdminBot(false)}
+            darkMode={darkMode}
+          />
+        )}
 
         {/* --- WEEKLY PERFORMANCE REPORT --- */}
         <WeeklyPerformanceReport 

@@ -11,6 +11,77 @@ const parsePct = (v: any): number => {
   return n <= 1.0 ? n * 100 : n;
 };
 
+const INSIGHTS_BASE_TTL = 5 * 60 * 1000;
+const INSIGHTS_RESP_TTL = 3 * 60 * 1000;
+const MAX_RESP_CACHE_ENTRIES = 40;
+
+let baseDataCache: {
+  today: string;
+  teams: any[];
+  oddsMap: Map<string, any>;
+  ts: number;
+  inflight: Promise<{ today: string; teams: any[]; oddsMap: Map<string, any> }> | null;
+} = { today: "", teams: [], oddsMap: new Map(), ts: 0, inflight: null };
+
+const insightsRespCache = new Map<string, { payload: any; ts: number }>();
+
+async function loadInsightsBaseData(today: string) {
+  const [rows, upcomingMatches] = await Promise.all([
+    sql`SELECT country, league, team, gp, gs, gc, pts, gd, sn, win_rate, market_stats FROM league_table_cache`,
+    sql`
+      SELECT
+        home_team,
+        away_team,
+        raw_data->>'homeOdds' AS home_odds,
+        raw_data->>'drawOdds' AS draw_odds,
+        raw_data->>'awayOdds' AS away_odds,
+        raw_data->>'o15Odds' AS o15_odds,
+        raw_data->>'u15Odds' AS u15_odds,
+        raw_data->>'o25Odds' AS o25_odds,
+        raw_data->>'u25Odds' AS u25_odds,
+        raw_data->>'o35Odds' AS o35_odds,
+        raw_data->>'u35Odds' AS u35_odds,
+        raw_data->>'o45Odds' AS o45_odds,
+        raw_data->>'u45Odds' AS u45_odds,
+        raw_data->>'bttsYesOdds' AS btts_yes_odds,
+        raw_data->>'bttsNoOdds' AS btts_no_odds
+      FROM matches_cache
+      WHERE match_date >= ${today}::date AND raw_data IS NOT NULL
+      ORDER BY match_date ASC
+    `,
+  ]);
+
+  const teams = rows.map((r: any) => {
+    let ms = r.market_stats;
+    if (typeof ms === "string" && ms) { try { ms = JSON.parse(ms); } catch (_) {} }
+    return { ...r, market_stats: ms || {} };
+  });
+
+  const oddsMap = new Map<string, any>();
+  for (const m of upcomingMatches) {
+    const key = `${m.home_team?.trim().toLowerCase()}|${m.away_team?.trim().toLowerCase()}`;
+    if (!oddsMap.has(key)) {
+      oddsMap.set(key, {
+        homeOdds: m.home_odds,
+        drawOdds: m.draw_odds,
+        awayOdds: m.away_odds,
+        o15Odds: m.o15_odds,
+        u15Odds: m.u15_odds,
+        o25Odds: m.o25_odds,
+        u25Odds: m.u25_odds,
+        o35Odds: m.o35_odds,
+        u35Odds: m.u35_odds,
+        o45Odds: m.o45_odds,
+        u45Odds: m.u45_odds,
+        bttsYesOdds: m.btts_yes_odds,
+        bttsNoOdds: m.btts_no_odds,
+      });
+    }
+  }
+
+  return { today, teams, oddsMap };
+}
+
 /** Pick whichever of home/away next game is soonest. Returns null if neither has data. */
 function pickSoonestGame(
   hOpponent: string, hDate: string,
@@ -51,34 +122,36 @@ export async function GET(request: Request) {
     const endDate   = searchParams.get("endDate")   || "";
     const minPrediction = parseInt(searchParams.get("minPrediction") || "0", 10);
     const minConfidence = parseInt(searchParams.get("minConfidence") || "0", 10);
-      const minOdds = parseFloat(searchParams.get("minOdds") || "0");
-      const showWithOddsOnly = searchParams.get("showWithOddsOnly") === "true";
+    const minOdds = parseFloat(searchParams.get("minOdds") || "0");
+    const showWithOddsOnly = searchParams.get("showWithOddsOnly") === "true";
 
-    // 1. Fetch all teams
-    const rows = await sql`SELECT * FROM league_table_cache`;
-    const teams = rows.map((r: any) => {
-      let ms = r.market_stats;
-      if (typeof ms === "string" && ms) { try { ms = JSON.parse(ms); } catch (_) {} }
-      return { ...r, market_stats: ms || {} };
-    });
-
-    // 2. Lightweight odds lookup from matches_cache
     const today = new Date().toISOString().split("T")[0];
-    const upcomingMatches = await sql`
-      SELECT home_team, away_team, raw_data
-      FROM matches_cache
-      WHERE match_date >= ${today}::date AND raw_data IS NOT NULL
-      ORDER BY match_date ASC
-    `;
-    const oddsMap = new Map<string, any>();
-    for (const m of upcomingMatches) {
-      const key = `${m.home_team?.trim().toLowerCase()}|${m.away_team?.trim().toLowerCase()}`;
-      if (!oddsMap.has(key)) {
-        let raw = m.raw_data;
-        if (typeof raw === "string") { try { raw = JSON.parse(raw); } catch (_) { raw = {}; } }
-        oddsMap.set(key, raw);
-      }
+    const respKey = `${today}|${minGames}|${split}|${startDate}|${endDate}|${minPrediction}|${minConfidence}|${minOdds}|${showWithOddsOnly}`;
+    const now = Date.now();
+    const cachedResp = insightsRespCache.get(respKey);
+    if (cachedResp && now - cachedResp.ts < INSIGHTS_RESP_TTL) {
+      return NextResponse.json(cachedResp.payload);
     }
+
+    // 1 & 2. Cached base team & odds snapshots (reduces repeated full-table Neon reads on filter changes)
+    let baseData: { today: string; teams: any[]; oddsMap: Map<string, any> };
+    if (baseDataCache.today === today && baseDataCache.teams.length > 0 && now - baseDataCache.ts < INSIGHTS_BASE_TTL) {
+      baseData = { today: baseDataCache.today, teams: baseDataCache.teams, oddsMap: baseDataCache.oddsMap };
+    } else {
+      if (!baseDataCache.inflight) {
+        baseDataCache.inflight = loadInsightsBaseData(today).then((d) => {
+          baseDataCache.today = d.today;
+          baseDataCache.teams = d.teams;
+          baseDataCache.oddsMap = d.oddsMap;
+          baseDataCache.ts = Date.now();
+          return d;
+        }).finally(() => {
+          baseDataCache.inflight = null;
+        });
+      }
+      baseData = await baseDataCache.inflight;
+    }
+    const { teams, oddsMap } = baseData;
 
     // 3. Optional date filter using sheet next-match dates
     let dateFilterTeamSet: Set<string> | null = null;
@@ -406,7 +479,14 @@ export async function GET(request: Request) {
       bestHome: top15L("bestHome"), bestAway: top15L("bestAway"),
     };
 
-    return NextResponse.json({ success: true, data: { team: teamData, league: leagueData } });
+    const resultPayload = { success: true, data: { team: teamData, league: leagueData } };
+    if (insightsRespCache.size >= MAX_RESP_CACHE_ENTRIES) {
+      const oldestKey = insightsRespCache.keys().next().value;
+      if (oldestKey) insightsRespCache.delete(oldestKey);
+    }
+    insightsRespCache.set(respKey, { payload: resultPayload, ts: Date.now() });
+
+    return NextResponse.json(resultPayload);
   } catch (error) {
     console.error("Insights error:", error);
     return NextResponse.json({ success: false }, { status: 500 });

@@ -1421,11 +1421,18 @@ export async function GET(request) {
       });
     }
 
-    return Response.json({
-      matches: finalMatches,
-      summary: payload.summary,
-      exportAccess,
-    });
+    return Response.json(
+      {
+        matches: finalMatches,
+        summary: payload.summary,
+        exportAccess,
+      },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=60, stale-while-revalidate=180",
+        },
+      },
+    );
   } catch (error) {
     console.error("GET /api/matches error:", error);
 

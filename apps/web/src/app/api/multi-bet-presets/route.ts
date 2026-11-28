@@ -2,6 +2,17 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import sql from "@/app/api/utils/sql";
 import { GET as getMatches } from "../matches/route";
+import {
+  addScoreRecord,
+  createScoreLookupIndex,
+  evaluateMarketOutcome as evaluateLegOutcome,
+  findScoreInIndex,
+  MISSED_RESULTS_CSV_URL,
+  normMatchName,
+  parseFtScore,
+  parseQuotedCSV,
+  toSafeDateISO,
+} from "@/lib/settlement";
 
 export interface PresetLeg {
   match: string;
@@ -98,6 +109,21 @@ async function ensureHistoryTable() {
 /* ------------------------------------------------------------------ */
 const excludedMatchesCache = new Map<string, Set<string>>();
 const adminTrimmedCache = new Map<string, { matches: PresetLeg[]; combinedOdds: number; confidence: number }>();
+
+const LIVE_PRESET_CACHE_TTL = 2 * 60 * 1000;
+interface LivePresetBundle {
+  slips: PresetSlip[];
+  todayISO: string;
+  mondayISO: string;
+  sundayISO: string;
+  generatedAt: string;
+  insufficientTodayMatches: boolean;
+  availableTodayCount: number;
+  ts: number;
+}
+const livePresetsCache = new Map<string, LivePresetBundle>();
+const livePresetsInflight = new Map<string, Promise<LivePresetBundle | { errorStatus: number; error: string }>>();
+let lastBgAutoSettleTs = 0;
 
 async function ensureExcludedTable() {
   if (!process.env.DATABASE_URL) return;
@@ -218,20 +244,6 @@ function getMatchDateStr(m: any): string {
   return "";
 }
 
-function toSafeDateISO(val: any): string {
-  if (!val) return "";
-  if (typeof val === "string") {
-    const trimmed = val.trim();
-    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
-    if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return trimmed.slice(0, 10);
-  }
-  try {
-    const d = new Date(val);
-    if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
-  } catch {}
-  return String(val || "").slice(0, 10);
-}
-
 function getDayOfWeekInLagos(dateStr: string): number {
   if (!dateStr || !dateStr.includes("-")) return -1;
   const [y, m, d] = dateStr.split("-").map(Number);
@@ -278,136 +290,6 @@ function isMatchFinished(dateStr: string, timeStr?: string): boolean {
   } catch {
     return false;
   }
-}
-
-/* ------------------------------------------------------------------ */
-/*  Match & Score Evaluation Utilities                                */
-/* ------------------------------------------------------------------ */
-function normMatchName(s: any): string {
-  return String(s || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ")
-    .replace(/[–—]/g, "-")
-    .replace(/\s+(?:vs\.?|v\.?)\s+/g, " - ")
-    .replace(/\s*-\s*/g, " - ")
-    .trim();
-}
-
-function splitTeams(matchName: string): { home: string; away: string } {
-  const parts = String(matchName || "").split(/\s+(?:-|–|—|vs\.?|v\.?)\s+/i);
-  return {
-    home: (parts[0] || "").trim().toLowerCase(),
-    away: (parts[1] || "").trim().toLowerCase(),
-  };
-}
-
-function parseFtScore(score: string | null | undefined): { hg: number; ag: number; total: number } | null {
-  if (!score) return null;
-  const m = String(score).trim().match(/^(\d+)\s*[:\-]\s*(\d+)$/);
-  if (!m) return null;
-  const hg = parseInt(m[1], 10);
-  const ag = parseInt(m[2], 10);
-  if (isNaN(hg) || isNaN(ag)) return null;
-  return { hg, ag, total: hg + ag };
-}
-
-function evaluateLegOutcome(market: string, option: string, ftScore: string): "won" | "lost" | "pending" {
-  const parsed = parseFtScore(ftScore);
-  if (!parsed) return "pending";
-  const { hg, ag, total } = parsed;
-
-  const mkt = (market || "").toLowerCase();
-  const opt = (option || "").toLowerCase();
-  const combined = `${mkt} ${opt}`;
-
-  // 0. Combo Bet Markets (e.g. "Home and Over 1.5", "GG and Over 2.5", "1X & Over 1.5")
-  const isCombo = mkt.includes("combo") || /\band\b|&|\+/.test(opt) || /\band\b|&|\+/.test(mkt);
-  if (isCombo) {
-    const lineMatch = combined.match(/(\d+(\.\d+)?)/);
-    const line = lineMatch ? parseFloat(lineMatch[1]) : 1.5;
-    const isUnder = combined.includes("under");
-    const goalPass = isUnder ? total < line : total > line;
-    const isGg = hg > 0 && ag > 0;
-
-    if (combined.includes("gg") || combined.includes("gh") || combined.includes("btts") || combined.includes("both")) {
-      const bttsPass = combined.includes("ng") || combined.includes("no") ? !isGg : isGg;
-      return bttsPass && goalPass ? "won" : "lost";
-    }
-    if (combined.includes("1x") || combined.includes("home or draw") || combined.includes("home win or draw")) {
-      return hg >= ag && goalPass ? "won" : "lost";
-    }
-    if (combined.includes("x2") || combined.includes("draw or away") || combined.includes("away or draw") || combined.includes("away win or draw")) {
-      return ag >= hg && goalPass ? "won" : "lost";
-    }
-    if (combined.includes("12") || combined.includes("home or away")) {
-      return hg !== ag && goalPass ? "won" : "lost";
-    }
-    if (combined.includes("away") || /\b2\b/.test(opt)) {
-      return ag > hg && goalPass ? "won" : "lost";
-    }
-    if (combined.includes("draw") || /\bx\b/.test(opt)) {
-      return hg === ag && goalPass ? "won" : "lost";
-    }
-    if (combined.includes("home") || /\b1\b/.test(opt)) {
-      return hg > ag && goalPass ? "won" : "lost";
-    }
-    return "pending";
-  }
-
-  // 1. Double Chance — handle all text variants (1X, X2, 12, "Home or Draw", "Away Win or Draw", etc.)
-  const isDoubleChanceMkt = mkt.includes("double");
-  const isDoubleChanceOpt =
-    opt.includes("1x") || opt.includes("x2") || opt.includes("12") ||
-    opt.includes("home or draw") || opt.includes("home win or draw") ||
-    opt.includes("draw or away") || opt.includes("away win or draw") || opt.includes("draw or away win") ||
-    opt.includes("home or away") || opt.includes("home win or away") || opt.includes("home or away win");
-
-  if (isDoubleChanceMkt || isDoubleChanceOpt) {
-    const homeOrDraw = hg >= ag;
-    const drawOrAway = ag >= hg;
-    const homeOrAway = hg !== ag;
-
-    // Home or Draw variants
-    if (opt.includes("1x") || opt.includes("home or draw") || opt.includes("home win or draw"))
-      return homeOrDraw ? "won" : "lost";
-    // Away or Draw variants
-    if (opt.includes("x2") || opt.includes("draw or away") || opt.includes("away win or draw") || opt.includes("draw or away win"))
-      return drawOrAway ? "won" : "lost";
-    // Home or Away variants (no draw)
-    if (opt.includes("12") || opt.includes("home or away") || opt.includes("home win or away") || opt.includes("home or away win"))
-      return homeOrAway ? "won" : "lost";
-
-    // Fallback when mkt is Double Chance but option text is unrecognised
-    return "pending";
-  }
-
-  // 2. Both Teams To Score (BTTS)
-  if (mkt.includes("both") || mkt.includes("btts") || opt.includes("btts")) {
-    const isGg = hg > 0 && ag > 0;
-    if (opt.includes("yes")) return isGg ? "won" : "lost";
-    if (opt.includes("no")) return !isGg ? "won" : "lost";
-    return isGg ? "won" : "lost";
-  }
-
-  // 3. Goals Over / Under
-  if (mkt.includes("goal") || mkt.includes("over") || mkt.includes("under") || opt.includes("over") || opt.includes("under")) {
-    const lineMatch = (opt + " " + mkt).match(/(\d+(\.\d+)?)/);
-    const line = lineMatch ? parseFloat(lineMatch[1]) : 2.5;
-
-    if (opt.includes("over") || (!opt.includes("under") && mkt.includes("over"))) return total > line ? "won" : "lost";
-    if (opt.includes("under") || (!opt.includes("over") && mkt.includes("under"))) return total < line ? "won" : "lost";
-  }
-
-  // 4. Full Time Result (1X2) — also handles market stored as plain "1X2", "Home", "Away", "Draw" options
-  if (mkt.includes("result") || mkt.includes("1x2") || mkt.includes("match") || mkt === "1x2" || mkt === "fulltime" || mkt === "full time result") {
-    if (opt.includes("home") || opt === "1" || opt === "home win") return hg > ag ? "won" : "lost";
-    if (opt.includes("away") || opt === "2" || opt === "away win") return ag > hg ? "won" : "lost";
-    if (opt.includes("draw") || opt === "x") return hg === ag ? "won" : "lost";
-  }
-
-  return "pending";
 }
 
 /* ------------------------------------------------------------------ */
@@ -1501,45 +1383,6 @@ function buildOddsFreeTopSlip(
 /* ------------------------------------------------------------------ */
 /*  Persistence & Auto-Settlement Engine                              */
 /* ------------------------------------------------------------------ */
-function normalizeTeam(str: string): string {
-  return String(str || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // strip accents
-    .replace(/[^a-z0-9]/g, " ")     // replace all punctuation/hyphens with space
-    .replace(/\b(fc|cf|sc|ac|afc|united|utd|city|town|club|athletic|wanderers|rovers|the|de|la|del|da|do|pr)\b/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function teamsMatch(teamA: string, teamB: string): boolean {
-  const a = normalizeTeam(teamA);
-  const b = normalizeTeam(teamB);
-  if (!a || !b) return false;
-  if (a === b) return true;
-  if (Math.min(a.length, b.length) >= 5 && (a.includes(b) || b.includes(a))) return true;
-
-  const wordsA = a.split(" ").filter((w) => w.length >= 3);
-  const wordsB = b.split(" ").filter((w) => w.length >= 3);
-  if (wordsA.length > 0 && wordsB.length > 0) {
-    const common = wordsA.filter((w) => wordsB.includes(w));
-    if (common.length > 0 && common.length >= Math.min(wordsA.length, wordsB.length)) return true;
-  }
-
-  return false;
-}
-
-function datesWithinDays(dateA: string, dateB: string, maxDays = 1): boolean {
-  if (!dateA || !dateB) return true;
-  const a = toSafeDateISO(dateA);
-  const b = toSafeDateISO(dateB);
-  if (!a || !b || a.length < 10 || b.length < 10) return true;
-  const tA = Date.parse(`${a}T12:00:00Z`);
-  const tB = Date.parse(`${b}T12:00:00Z`);
-  if (!Number.isFinite(tA) || !Number.isFinite(tB)) return true;
-  return Math.abs(tA - tB) <= maxDays * 86400000;
-}
-
 async function persistCuratedSlips(
   slips: PresetSlip[],
   scope: string,
@@ -1664,101 +1507,58 @@ async function autoSettlePendingSlips() {
       `;
     } catch {}
 
-    interface MatchRecord {
-      date: string;
-      home: string;
-      away: string;
-      label: string;
-      score: string;
-    }
-
-    const matchRecords: MatchRecord[] = [];
-    const directMap = new Map<string, { score: string; date: string }>();
+    const scoreIndex = createScoreLookupIndex();
 
     for (const fm of finishedMatches || []) {
-      const score = String(fm.score || "").trim();
-      if (!score || !/^\d+\s*[:\-]\s*\d+$/.test(score)) continue;
-
-      const d = toSafeDateISO(fm.match_date_str);
-      const h = String(fm.home_team || "").trim();
-      const a = String(fm.away_team || "").trim();
-      const label = String(fm.match_label || "").trim();
-
-      matchRecords.push({ date: d, home: h, away: a, label, score });
-      if (h && a) {
-        if (d) {
-          directMap.set(`${d}|${normMatchName(h)} - ${normMatchName(a)}`, { score, date: d });
-        }
-        if (!directMap.has(`${normMatchName(h)} - ${normMatchName(a)}`)) {
-          directMap.set(`${normMatchName(h)} - ${normMatchName(a)}`, { score, date: d });
-        }
-      }
-      if (label) {
-        if (d) directMap.set(`${d}|${normMatchName(label)}`, { score, date: d });
-        if (!directMap.has(normMatchName(label))) {
-          directMap.set(normMatchName(label), { score, date: d });
-        }
-      }
+      addScoreRecord(scoreIndex, {
+        date: fm.match_date_str,
+        home: fm.home_team,
+        away: fm.away_team,
+        label: fm.match_label,
+        score: fm.score,
+      });
     }
 
     for (const tm of trackingMatches || []) {
-      const score = String(tm.score || "").trim();
-      if (!score || !/^\d+\s*[:\-]\s*\d+$/.test(score)) continue;
-      const d = toSafeDateISO(tm.match_date_str);
-      const mName = String(tm.match_name || "").trim();
-      if (mName) {
-        if (d) directMap.set(`${d}|${normMatchName(mName)}`, { score, date: d });
-        if (!directMap.has(normMatchName(mName))) {
-          directMap.set(normMatchName(mName), { score, date: d });
-        }
-        const { home, away } = splitTeams(mName);
-        if (home && away) {
-          matchRecords.push({ date: d, home, away, label: mName, score });
-        }
-      }
+      addScoreRecord(scoreIndex, {
+        date: tm.match_date_str,
+        label: tm.match_name,
+        score: tm.score,
+      });
     }
 
-    // Google Sheets live fallback function for any missed scores
+    // Google Sheets live fallback function for any missed scores (quote-aware & date-guarded)
     let sheetFetched = false;
     async function fetchMissedResultsSheet() {
       if (sheetFetched) return;
       sheetFetched = true;
       try {
-        const csvUrl = 'https://docs.google.com/spreadsheets/d/1FkwBHYn00egVeyKVgI7OBEU96wMmf30v-aLKosFdDok/gviz/tq?tqx=out:csv&sheet=missed_Results';
-        const res = await fetch(csvUrl, { cache: 'no-store' });
+        const res = await fetch(MISSED_RESULTS_CSV_URL, { cache: "no-store" });
         if (!res.ok) return;
         const text = await res.text();
-        const lines = text.split(/\r?\n/).filter(line => line.trim());
-        if (lines.length < 2) return;
-        const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
-        const hIdx = headers.indexOf('home_team');
-        const aIdx = headers.indexOf('away_team');
-        const sIdx = headers.indexOf('ft_score');
-        const lIdx = headers.indexOf('match_label');
-        const dIdx = headers.indexOf('match_date');
-        if (hIdx === -1 || aIdx === -1 || sIdx === -1) return;
+        const sheetRows = parseQuotedCSV(text);
 
-        for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim());
-          const score = cols[sIdx];
+        for (const row of sheetRows) {
+          const score = (row.ft_score || "").trim();
           if (!score || !/^\d+\s*[:\-]\s*\d+$/.test(score)) continue;
-          const h = cols[hIdx];
-          const a = cols[aIdx];
-          const lbl = lIdx !== -1 ? cols[lIdx] : `${h} - ${a}`;
-          const d = dIdx !== -1 ? toSafeDateISO(cols[dIdx]) : "";
+          const h = (row.home_team || "").trim();
+          const a = (row.away_team || "").trim();
+          const lbl = (row.match_label || (h && a ? `${h} - ${a}` : "")).trim();
+          const d = toSafeDateISO(row.match_date);
           if (h && a) {
-            if (d) directMap.set(`${d}|${normMatchName(h)} - ${normMatchName(a)}`, { score, date: d });
-            if (!directMap.has(`${normMatchName(h)} - ${normMatchName(a)}`)) {
-              directMap.set(`${normMatchName(h)} - ${normMatchName(a)}`, { score, date: d });
-            }
-            matchRecords.push({ date: d, home: h, away: a, label: lbl, score });
+            addScoreRecord(scoreIndex, { date: d, home: h, away: a, label: lbl, score });
 
-            // Backfill matches_cache asynchronously so subsequent queries are instant
-            sql`
-              UPDATE matches_cache 
-              SET ft_score = ${score}, synced_at = NOW()
-              WHERE home_team = ${h} AND away_team = ${a} AND (ft_score IS NULL OR ft_score = '')
-            `.catch(() => {});
+            // Date-guarded backfill into matches_cache so future fixtures are never polluted
+            if (d) {
+              sql`
+                UPDATE matches_cache 
+                SET ft_score = ${score}, synced_at = NOW()
+                WHERE match_date = ${d}::date
+                  AND home_team = ${h}
+                  AND away_team = ${a}
+                  AND (ft_score IS NULL OR ft_score = '')
+              `.catch(() => {});
+            }
           }
         }
       } catch (sheetErr) {
@@ -1767,39 +1567,7 @@ async function autoSettlePendingSlips() {
     }
 
     function findScoreForMatch(matchString: string, legDate = ""): string | null {
-      if (!matchString) return null;
-      const norm = normMatchName(matchString);
-      const safeLegDate = toSafeDateISO(legDate);
-
-      // 1. Exact date + normalized match lookup first
-      if (safeLegDate) {
-        const dated = directMap.get(`${safeLegDate}|${norm}`);
-        if (dated) return dated.score;
-      }
-
-      const exact = directMap.get(norm);
-      if (exact && datesWithinDays(exact.date, safeLegDate, 1)) {
-        return exact.score;
-      }
-
-      const { home, away } = splitTeams(matchString);
-      if (!home || !away) return null;
-
-      // 2. Team pair lookup (strictly home==home & away==away, NEVER reversed, and date-compatible)
-      for (const rec of matchRecords) {
-        if (!datesWithinDays(rec.date, safeLegDate, 1)) continue;
-        if (rec.home && rec.away && teamsMatch(rec.home, home) && teamsMatch(rec.away, away)) {
-          return rec.score;
-        }
-        if (rec.label) {
-          const recSplit = splitTeams(rec.label);
-          if (recSplit.home && recSplit.away && teamsMatch(recSplit.home, home) && teamsMatch(recSplit.away, away)) {
-            return rec.score;
-          }
-        }
-      }
-
-      return null;
+      return findScoreInIndex(scoreIndex, matchString, legDate, 1);
     }
 
     for (const slip of slipsToCheck) {
@@ -2278,28 +2046,32 @@ export async function GET(req: Request) {
       });
     }
 
-    // 2. Fetch Live Matches
-    const mockReq = new Request(req.url.replace("/multi-bet-presets", "/matches"));
-    const matchesRes = await getMatches(mockReq);
-    if (!matchesRes.ok) {
-      return NextResponse.json({ error: "Could not fetch match data." }, { status: 500 });
-    }
+    const forceRefresh = searchParams.get("refresh") === "true";
+    const todayISO = getLagosDateISO(0);
+    const cacheKey = `${scope}|${todayISO}`;
 
-    const payload = await matchesRes.json();
-    const allMatches: any[] = payload.matches || [];
+    const buildFreshBundle = async (): Promise<LivePresetBundle | { errorStatus: number; error: string }> => {
+      // 2. Fetch Live Matches
+      const mockReq = new Request(req.url.replace("/multi-bet-presets", "/matches"));
+      const matchesRes = await getMatches(mockReq);
+      if (!matchesRes.ok) {
+        return { errorStatus: 500, error: "Could not fetch match data." };
+      }
 
-    if (!allMatches.length) {
-      return NextResponse.json({ error: "No matches available currently." }, { status: 404 });
-    }
+      const payload = await matchesRes.json();
+      const allMatches: any[] = payload.matches || [];
 
-    // 3. Strict Date & Time Filtering by Scope
-    const todayISO = getLagosDateISO(0); // e.g. "2026-11-24"
-    const tomorrowISO = getLagosDateISO(1);
-    const day7ISO = getLagosDateISO(7);
-    const day15ISO = getLagosDateISO(15);
-    const day30ISO = getLagosDateISO(30); // Hard 30-day forward schedule cap (no 2027 matches)
-    const { mondayISO, sundayISO } = getCurrentMondayToSundayRange();
-    const { sunISO: weekendSunISO } = getUpcomingWeekendRange();
+      if (!allMatches.length) {
+        return { errorStatus: 404, error: "No matches available currently." };
+      }
+
+      // 3. Strict Date & Time Filtering by Scope
+      const tomorrowISO = getLagosDateISO(1);
+      const day7ISO = getLagosDateISO(7);
+      const day15ISO = getLagosDateISO(15);
+      const day30ISO = getLagosDateISO(30); // Hard 30-day forward schedule cap (no 2027 matches)
+      const { mondayISO, sundayISO } = getCurrentMondayToSundayRange();
+      const { sunISO: weekendSunISO } = getUpcomingWeekendRange();
 
     // ------------------------------------------------------------------
     // POOL 1: TODAY POOL (Strict calendar today ONLY - NEVER use tomorrow)
@@ -2661,12 +2433,63 @@ export async function GET(req: Request) {
       console.warn("Slip persistence background error:", e)
     );
 
-    // Run background auto-settlement continuously
-    autoSettlePendingSlips().catch((e) =>
-      console.warn("Auto-settle background error:", e)
-    );
+      return {
+        slips: slipsToPersist,
+        todayISO,
+        mondayISO,
+        sundayISO,
+        generatedAt: new Date().toISOString(),
+        insufficientTodayMatches: insufficientTodayMatches || false,
+        availableTodayCount: todayMatches.length,
+        ts: Date.now(),
+      };
+    };
 
-    // Attach slipId, any pre-existing verified booking_codes, and any admin-trimmed overrides
+    let bundle: LivePresetBundle;
+    const cachedBundle = !forceRefresh ? livePresetsCache.get(cacheKey) : undefined;
+    if (cachedBundle && Date.now() - cachedBundle.ts < LIVE_PRESET_CACHE_TTL) {
+      bundle = cachedBundle;
+    } else {
+      let inflight = !forceRefresh ? livePresetsInflight.get(cacheKey) : undefined;
+      if (!inflight) {
+        inflight = buildFreshBundle().then((res) => {
+          if (!("errorStatus" in res)) {
+            livePresetsCache.set(cacheKey, res);
+          }
+          return res;
+        }).finally(() => {
+          livePresetsInflight.delete(cacheKey);
+        });
+        livePresetsInflight.set(cacheKey, inflight);
+      }
+      const res = await inflight;
+      if ("errorStatus" in res) {
+        return NextResponse.json({ error: res.error }, { status: res.errorStatus });
+      }
+      bundle = res;
+    }
+
+    const { mondayISO, sundayISO } = bundle;
+
+    // Run background auto-settlement continuously (throttled to avoid redundant DB scans on rapid clicks)
+    if (Date.now() - lastBgAutoSettleTs > LIVE_PRESET_CACHE_TTL) {
+      lastBgAutoSettleTs = Date.now();
+      autoSettlePendingSlips().catch((e) =>
+        console.warn("Auto-settle background error:", e)
+      );
+    }
+
+    // Attach slipId, any pre-existing verified booking_codes, and any admin-trimmed overrides,
+    // and enforce user-tier redaction AFTER reading shared cache.
+    const activeSlips = bundle.slips.map((s) => {
+      const hasAccess = s.minTierRequired === "silver" ? canAccessSilverTier : canAccessPremiumTier;
+      return {
+        ...s,
+        isLocked: !hasAccess,
+        matches: hasAccess ? s.matches : [],
+      };
+    });
+
     const slipRecordIds = activeSlips.map(
       (s) => `${s.id}_${scope}_${s.id === "longshot_1000x" ? mondayISO : todayISO}`
     );
@@ -2722,12 +2545,12 @@ export async function GET(req: Request) {
       scope,
       todayDate: todayISO,
       weekRange: { mondayISO, sundayISO },
-      generatedAt: new Date().toISOString(),
+      generatedAt: bundle.generatedAt,
       userTier,
       slips: enhancedSlips,
       // Issue 1: Surfaces clearly when today's match pool is thin – never use tomorrow's fixtures
-      insufficientTodayMatches: insufficientTodayMatches || false,
-      availableTodayCount: todayMatches.length,
+      insufficientTodayMatches: bundle.insufficientTodayMatches,
+      availableTodayCount: bundle.availableTodayCount,
     });
   } catch (error: any) {
     console.error("Multi-Bet Presets GET error:", error);
@@ -2763,6 +2586,7 @@ export async function POST(req: Request) {
       if (role !== "admin") {
         return NextResponse.json({ error: "Admin access required to re-settle slips." }, { status: 403 });
       }
+      livePresetsCache.clear();
       await autoSettlePendingSlips();
       return NextResponse.json({
         success: true,
@@ -2857,6 +2681,7 @@ export async function POST(req: Request) {
       const sid = String(slipId);
       await addExcludedForSlip(sid, excludedMatches.map(String));
       adminTrimmedCache.delete(sid);
+      livePresetsCache.clear();
       if (process.env.DATABASE_URL) {
         try {
           await ensureHistoryTable();
@@ -2927,6 +2752,7 @@ export async function POST(req: Request) {
           : null;
 
       adminTrimmedCache.set(sid, { matches: remaining, combinedOdds: newOdds, confidence: newConf });
+      livePresetsCache.clear();
 
       if (slipRow) {
         await sql`
@@ -2960,6 +2786,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "slipId is required." }, { status: 400 });
       }
       adminTrimmedCache.delete(sid);
+      livePresetsCache.clear();
       await ensureHistoryTable();
       await sql`DELETE FROM curated_multi_bet_history WHERE id = ${sid}`;
       return NextResponse.json({ success: true, message: "Slip deleted." });

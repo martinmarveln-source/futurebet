@@ -143,6 +143,7 @@ export default function BetSlip({ darkMode = false }) {
   // AI Recommend Slip State
   const [showRecommendModal, setShowRecommendModal] = useState(false);
   const [aiRecommending, setAiRecommending] = useState(false);
+  const [aiRecommendMeta, setAiRecommendMeta] = useState(null);
   const getTodayStr = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().split('T')[0]; };
   const [recommendConfig, setRecommendConfig] = useState({ minMatches: 3, maxMatches: 5, minOdds: 1.5, maxOdds: 4.0, targetDate: getTodayStr() });
 
@@ -166,8 +167,12 @@ export default function BetSlip({ darkMode = false }) {
         throw new Error("AI analysis service is temporarily busy. Please try again.");
       }
       if (!response.ok) throw new Error(data.error || `Analysis failed (${response.status})`);
-      setAiFeedback(data.analysis);
-      toast.success("AI Slip Analysis generated!");
+      setAiFeedback({
+        analysis: data.analysis,
+        structured: data.structured || null,
+        modelUsed: data.modelUsed || "gemini-4-hydrogen",
+      });
+      toast.success("Gemini 4 Hydrogen Risk Report generated!");
     } catch (err: any) {
       toast.error("AI Analysis Error: " + (err.message || "Failed to analyze slip"));
     } finally {
@@ -178,6 +183,7 @@ export default function BetSlip({ darkMode = false }) {
   const handleAiRecommend = async () => {
     setAiRecommending(true);
     setShowRecommendModal(false);
+    setAiRecommendMeta(null);
     try {
       const response = await fetch("/api/ai-recommend-slip", {
         method: "POST",
@@ -205,8 +211,15 @@ export default function BetSlip({ darkMode = false }) {
             if (result !== false) added++; 
           } catch(e) {}
         }
+        setAiRecommendMeta({
+          summary: data.summary || "",
+          diversityNote: data.diversityNote || "",
+          combinedOdds: data.combinedOdds || null,
+          modelUsed: data.modelUsed || "gemini-4-hydrogen",
+          count: data.count || data.matches.length,
+        });
         if (added > 0) {
-          toast.success("Added " + added + " AI-recommended match" + (added > 1 ? "es" : "") + " to your betslip!");
+          toast.success("Added " + added + " Gemini 4 Hydrogen pick" + (added > 1 ? "s" : "") + " to your betslip!");
         } else {
           toast.info("Recommended matches are already in your betslip.");
         }
@@ -852,6 +865,15 @@ export default function BetSlip({ darkMode = false }) {
                           </span>
                         )}
                       </div>
+
+                      {m?.aiReason && (
+                        <p className={cn("mt-2 text-[11px] leading-snug", darkMode ? "text-emerald-300/80" : "text-emerald-800")}>
+                          <span className="font-black uppercase tracking-wider text-[9px] mr-1.5 px-1.5 py-0.5 rounded bg-emerald-500/15">
+                            {m.aiVerdict || "AI Note"}
+                          </span>
+                          {m.aiReason}
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between gap-4 pt-2 sm:pt-0 border-t sm:border-0 border-gray-100 dark:border-white/5 pl-2 sm:pl-0 mt-3 sm:mt-0">
@@ -1153,9 +1175,9 @@ export default function BetSlip({ darkMode = false }) {
             </div>
           </div>
 
-                    {/* ===== AI RECOMMEND SLIP (ADMIN ONLY) ===== */}
+          {/* ===== AI RECOMMEND SLIP (ADMIN ONLY) ===== */}
           {isAdmin && (
-            <div className="w-full mb-3">
+            <div className="w-full mb-3 space-y-2.5">
               <button
                 onClick={() => setShowRecommendModal(true)}
                 disabled={aiRecommending}
@@ -1169,14 +1191,46 @@ export default function BetSlip({ darkMode = false }) {
                 {aiRecommending ? (
                   <>
                     <div className="animate-spin h-3 w-3 border-2 border-white/20 border-t-white rounded-full" />
-                    Building AI Slip...
+                    Gemini 4 Hydrogen Building Slip...
                   </>
                 ) : (
                   <>
-                    <Sparkles size={14} /> AI Recommend Slip
+                    <Sparkles size={14} /> AI Recommend Slip (Hydrogen)
                   </>
                 )}
               </button>
+
+              {aiRecommendMeta && (
+                <div className={cn(
+                  "relative p-3.5 rounded-2xl text-xs border",
+                  darkMode
+                    ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-200"
+                    : "bg-emerald-50 border-emerald-200 text-emerald-950"
+                )}>
+                  <button
+                    onClick={() => setAiRecommendMeta(null)}
+                    className="absolute top-2 right-2 p-1 rounded-full hover:bg-black/10"
+                    aria-label="Close AI Recommend Brief"
+                  >
+                    <X size={12} />
+                  </button>
+                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                    <span className="text-[10px] font-black uppercase tracking-widest">
+                      Gemini 4 Hydrogen Brief
+                    </span>
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30">
+                      {aiRecommendMeta.modelUsed}
+                    </span>
+                    {aiRecommendMeta.combinedOdds && (
+                      <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-white/10">
+                        {aiRecommendMeta.combinedOdds}x • {aiRecommendMeta.count} legs
+                      </span>
+                    )}
+                  </div>
+                  {aiRecommendMeta.summary && <p className="font-semibold leading-relaxed mb-1">{aiRecommendMeta.summary}</p>}
+                  {aiRecommendMeta.diversityNote && <p className="text-[11px] opacity-80">{aiRecommendMeta.diversityNote}</p>}
+                </div>
+              )}
             </div>
           )}
 
@@ -1267,32 +1321,143 @@ export default function BetSlip({ darkMode = false }) {
 
               {aiFeedback && (
                 <div className={cn(
-                  "relative p-4 rounded-2xl text-xs font-semibold leading-relaxed whitespace-pre-wrap text-left shadow-inner border",
+                  "relative p-4 rounded-2xl text-xs leading-relaxed text-left shadow-inner border space-y-3",
                   darkMode
-                    ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-200"
-                    : "bg-indigo-50 border-indigo-200 text-indigo-900"
+                    ? "bg-indigo-950/35 border-indigo-500/25 text-indigo-100"
+                    : "bg-indigo-50/90 border-indigo-200 text-indigo-950"
                 )}>
                   <button
                     onClick={() => setAiFeedback(null)}
-                    className="absolute top-2 right-2 p-1.5 rounded-full hover:bg-black/10 transition"
+                    className="absolute top-3 right-3 p-1.5 rounded-full hover:bg-black/10 transition"
+                    aria-label="Close Risk Report"
                   >
-                    <X size={12} />
+                    <X size={13} />
                   </button>
-                  <div className="flex items-center gap-1.5 mb-2 font-black uppercase tracking-widest opacity-70">
-                    <AlertTriangle size={12} /> Gemini 3.5 Risk Report
-                  </div>
-                  {aiFeedback.split('\n').map((line, i) => {
-                    const boldRegex = /([*][*][^*]+[*][*])/g; const parts = line.split(boldRegex);
-                    return (
-                      <p key={i} className={line.trim() === '' ? 'mt-2' : 'mb-1'}>
-                        {parts.map((part, j) =>
-                          part.startsWith('**') && part.endsWith('**')
-                            ? <strong key={j}>{part.slice(2, -2)}</strong>
-                            : part
+
+                  {/* Report Header */}
+                  <div className="flex flex-wrap items-center gap-2 pr-6">
+                    <div className="flex items-center gap-1.5 font-black uppercase tracking-widest text-[11px]">
+                      <Brain size={14} className="text-indigo-400" />
+                      Gemini 4 Hydrogen Risk Report
+                    </div>
+                    {aiFeedback.modelUsed && (
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-indigo-500/20 border border-indigo-500/30">
+                        {aiFeedback.modelUsed}
+                      </span>
+                    )}
+                    {aiFeedback.structured?.riskRating && (
+                      <span
+                        className={cn(
+                          "px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border",
+                          aiFeedback.structured.riskRating === "HIGH"
+                            ? "bg-rose-500/20 text-rose-400 border-rose-500/30"
+                            : aiFeedback.structured.riskRating === "MODERATE"
+                            ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+                            : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
                         )}
-                      </p>
-                    );
-                  })}
+                      >
+                        {aiFeedback.structured.riskRating} RISK • {aiFeedback.structured.slipScore}/100
+                      </span>
+                    )}
+                  </div>
+
+                  {aiFeedback.structured ? (
+                    <div className="space-y-3">
+                      <div className={cn("p-3 rounded-xl border", darkMode ? "bg-black/30 border-white/10" : "bg-white border-indigo-100")}>
+                        <p className="font-bold text-xs mb-1">{aiFeedback.structured.overallVerdict}</p>
+                        <p className="text-[11px] opacity-85">{aiFeedback.structured.summary}</p>
+                        <div className="mt-2 flex flex-wrap gap-3 text-[10px] font-bold opacity-80">
+                          <span>Model Slip Prob: {aiFeedback.structured.modelSlipProbPct}%</span>
+                          <span>Book Implied Prob: {aiFeedback.structured.impliedSlipProbPct}%</span>
+                        </div>
+                      </div>
+
+                      {Array.isArray(aiFeedback.structured.correlationAlerts) && aiFeedback.structured.correlationAlerts.length > 0 && (
+                        <div className={cn("p-2.5 rounded-xl border text-[11px] font-semibold", darkMode ? "bg-amber-500/10 border-amber-500/30 text-amber-200" : "bg-amber-50 border-amber-200 text-amber-800")}>
+                          {aiFeedback.structured.correlationAlerts.map((alertTxt, idx) => (
+                            <div key={idx}>⚠️ {alertTxt}</div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
+                        {aiFeedback.structured.legs?.map((leg) => {
+                          const badgeCls =
+                            leg.status === "RISKY"
+                              ? "bg-rose-500/20 text-rose-400 border-rose-500/30"
+                              : leg.status === "CAUTION"
+                              ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+                              : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
+                          return (
+                            <div
+                              key={leg.legIndex}
+                              className={cn(
+                                "p-3 rounded-xl border space-y-1.5",
+                                darkMode ? "bg-black/25 border-white/10" : "bg-white border-indigo-100"
+                              )}
+                            >
+                              <div className="flex items-start justify-between gap-2 flex-wrap">
+                                <div className="font-extrabold text-xs">
+                                  Leg {leg.legIndex}: {leg.match}
+                                  <span className="ml-2 font-mono text-[11px] opacity-80">
+                                    [{leg.market}: {leg.option} @ {Number(leg.odds).toFixed(2)}]
+                                  </span>
+                                </div>
+                                <span className={cn("px-2 py-0.5 rounded-full text-[9px] font-black border shrink-0", badgeCls)}>
+                                  {leg.status}
+                                </span>
+                              </div>
+
+                              <div className="flex flex-wrap gap-3 text-[10px] font-bold opacity-80">
+                                <span>Model: {leg.modelProbPct}%</span>
+                                <span>Implied: {leg.impliedProbPct}%</span>
+                                {leg.fairOdds && <span>Fair: {Number(leg.fairOdds).toFixed(2)}</span>}
+                                {leg.edgePct !== null && (
+                                  <span className={leg.edgePct >= 0 ? "text-emerald-400" : "text-rose-400"}>
+                                    EV: {leg.edgePct >= 0 ? `+${leg.edgePct}%` : `${leg.edgePct}%`}
+                                  </span>
+                                )}
+                              </div>
+
+                              <p className="text-[11px] font-bold">{leg.headline}</p>
+                              <p className="text-[11px] opacity-85">{leg.dataCitation}</p>
+
+                              {leg.saferAlternative && (
+                                <div className="pt-1 flex items-center justify-between gap-2 flex-wrap">
+                                  <span className="text-[10px] font-bold text-amber-400">
+                                    Safer Option: {leg.saferAlternative.label}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      updateMatchSelection(leg.match, leg.saferAlternative.market, leg.saferAlternative.option);
+                                      toast.success(`Switched ${leg.match} to ${leg.saferAlternative.option}`);
+                                    }}
+                                    className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black transition"
+                                  >
+                                    Apply Safer Pick
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    (typeof aiFeedback === "string" ? aiFeedback : aiFeedback.analysis || "").split('\n').map((line, i) => {
+                      const boldRegex = /([*][*][^*]+[*][*])/g; const parts = line.split(boldRegex);
+                      return (
+                        <p key={i} className={line.trim() === '' ? 'mt-2' : 'mb-1'}>
+                          {parts.map((part, j) =>
+                            part.startsWith('**') && part.endsWith('**')
+                              ? <strong key={j}>{part.slice(2, -2)}</strong>
+                              : part
+                          )}
+                        </p>
+                      );
+                    })
+                  )}
                 </div>
               )}
             </div>

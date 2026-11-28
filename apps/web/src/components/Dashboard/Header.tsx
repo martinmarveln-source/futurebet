@@ -9,6 +9,7 @@ import {
   ExternalLink,
   User,
   Trophy,
+  Bot,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import useUser from "@/utils/useUser";
@@ -22,6 +23,7 @@ export default function Header({
   user,
   signOut,
   onShowSettings,
+  onOpenAdminBot,
   userPermissions,
 }) {
   const { data: currentUser, refetch: refetchUser } = useUser();
@@ -152,6 +154,21 @@ export default function Header({
                     </UpgradeButton>
                   )}
               </div>
+              {isAdmin && typeof onOpenAdminBot === "function" && (
+                <button
+                  type="button"
+                  onClick={onOpenAdminBot}
+                  className={`flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-semibold transition-transform active:scale-95 border ${
+                    darkMode
+                      ? "bg-emerald-950/60 hover:bg-emerald-900/70 border-emerald-700/60 text-emerald-300"
+                      : "bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-700"
+                  }`}
+                  title="Open FutureBet Admin AI Bot"
+                >
+                  <Bot className="h-4 w-4 text-emerald-500" />
+                  <span className="hidden sm:inline">FutureBet Bot</span>
+                </button>
+              )}
               <a
                 href="/account/portfolio"
                 className={`p-2 rounded-lg transition-transform active:scale-95 ${darkMode ? "bg-slate-800 hover:bg-slate-700" : "bg-slate-100 hover:bg-slate-200"}`}

@@ -262,6 +262,8 @@ export async function GET(
     // 5. Build response
     const responseData: any = {
       team: decodedTeamId,
+      league: teamLeague,
+      country: String(generalStatsRows?.[0]?.country || ""),
       season,
       updated_at: generalStatsRows?.[0]?.updated_at || null,
       general: { gp: 0, wins: 0, draws: 0, losses: 0, points: 0, ppg: 0 },

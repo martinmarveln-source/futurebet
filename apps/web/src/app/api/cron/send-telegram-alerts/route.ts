@@ -1,21 +1,15 @@
 import { NextResponse } from "next/server";
 import sql from "../../utils/sql";
 import { getOddsForPick } from "../../utils/oddsMath";
+import {
+  ensureTelegramPreferencesSchema,
+  resolveSharedBotToken,
+  sendTelegramMessage,
+} from "@/lib/telegram";
 
-// ── Auto-migrate new alert columns if they don't exist ──────────────────────
+// ── Auto-migrate alert columns if they don't exist ──────────────────────────
 async function ensureAlertColumns() {
-  await sql`
-    ALTER TABLE user_preferences
-      ADD COLUMN IF NOT EXISTS alert_enabled        BOOLEAN  DEFAULT FALSE,
-      ADD COLUMN IF NOT EXISTS alert_send_time      TEXT     DEFAULT '08:00',
-      ADD COLUMN IF NOT EXISTS alert_min_chance     NUMERIC  DEFAULT 60,
-      ADD COLUMN IF NOT EXISTS alert_min_rating     NUMERIC  DEFAULT 50,
-      ADD COLUMN IF NOT EXISTS alert_min_odds       NUMERIC  DEFAULT 1.0,
-      ADD COLUMN IF NOT EXISTS alert_min_hist_rate  NUMERIC  DEFAULT 0,
-      ADD COLUMN IF NOT EXISTS alert_markets        TEXT[]   DEFAULT ARRAY['homeWin','draw','awayWin'],
-      ADD COLUMN IF NOT EXISTS alert_pick_type      TEXT     DEFAULT 'all',
-      ADD COLUMN IF NOT EXISTS alert_max_matches    INT      DEFAULT 10
-  `;
+  await ensureTelegramPreferencesSchema();
 }
 
 // ── Build a rich Telegram message for one match (matches screenshot style) ──
@@ -172,14 +166,8 @@ function matchesMarket(guide: string, markets: string[]): boolean {
 
 // ── Send one Telegram message ────────────────────────────────────────────────
 async function sendTelegram(token: string, chatId: string, text: string): Promise<boolean> {
-  const url = `https://api.telegram.org/bot${token}/sendMessage`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown" }),
-  });
-  const data = await res.json();
-  return data.ok === true;
+  const res = await sendTelegramMessage(token, chatId, text, "Markdown");
+  return res.ok;
 }
 
 // ── Main cron handler ────────────────────────────────────────────────────────
@@ -193,8 +181,9 @@ export async function GET(request: Request) {
 
   try {
     await ensureAlertColumns();
+    const sharedBotToken = await resolveSharedBotToken();
 
-    // Only Premium/Admin users have access to auto-alerts
+    // Only Premium/Admin users have access to auto-alerts; allow either personal token or shared FutureBet Bot
     const users = await sql`
       SELECT
         up.user_id,
@@ -215,10 +204,8 @@ export async function GET(request: Request) {
       JOIN auth_users au ON au.id = up.user_id
       WHERE
         up.alert_enabled = TRUE
-        AND up.telegram_bot_token IS NOT NULL
-        AND up.telegram_bot_token != ''
         AND up.telegram_chat_id IS NOT NULL
-        AND up.telegram_chat_id != ''
+        AND TRIM(up.telegram_chat_id) != ''
         AND (
           au.user_role IN ('admin', 'premium')
           OR au.subscription_status IN ('admin', 'premium')
@@ -325,9 +312,15 @@ export async function GET(request: Request) {
       chunks.push(current + footer);
 
       let allOk = true;
+      const effectiveBotToken = String(user.telegram_bot_token || "").trim() || sharedBotToken;
+      if (!effectiveBotToken) {
+        results.skipped++;
+        continue;
+      }
+
       for (const chunk of chunks) {
         const ok = await sendTelegram(
-          user.telegram_bot_token,
+          effectiveBotToken,
           user.telegram_chat_id,
           chunk.trim()
         );
