@@ -16,10 +16,9 @@ import {
   MessageSquare,
   Loader2,
   RefreshCw,
-  PlusCircle,
-  AlertCircle,
+  AlertTriangle,
 } from "lucide-react";
-import { useBetslipStore } from "@/store/betslipStore";
+import useBetslipStore from "@/store/betslipStore";
 
 const QUICK_PROMPTS = [
   {
@@ -733,7 +732,7 @@ export default function AdminBotDrawer({ show, onClose, darkMode }) {
                               </>
                             ) : (
                               <>
-                                <PlusCircle className="h-3 w-3" /> Add
+                                <Plus className="h-3 w-3" /> Add
                               </>
                             )}
                           </button>
@@ -746,7 +745,7 @@ export default function AdminBotDrawer({ show, onClose, darkMode }) {
 
               {error && (
                 <div className="flex items-center gap-2 p-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
                   <span>{error}</span>
                 </div>
               )}

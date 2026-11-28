@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
-import OverallFormPill from "@/components/Stats/OverallFormPill";
 import PremiumOverlay from "@/components/Stats/PremiumOverlay";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
