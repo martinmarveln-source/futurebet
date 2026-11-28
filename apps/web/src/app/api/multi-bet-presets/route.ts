@@ -256,10 +256,10 @@ function isMatchFinished(dateStr: string, timeStr?: string): boolean {
   if (d > todayISO) return false; // Strictly in the future (tomorrow or later)
   if (d < todayISO) return true;  // Yesterday or earlier match days are past
 
-  // Today: check kickoff time if provided
-  if (!timeStr) return true;
-  const matchTime = timeStr.trim().match(/^(\d{1,2}):(\d{2})$/);
-  if (!matchTime) return true;
+  // Today: require a parseable kickoff time AND at least 110 minutes elapsed since kickoff
+  if (!timeStr) return false;
+  const matchTime = timeStr.trim().match(/(\d{1,2}):(\d{2})/);
+  if (!matchTime) return false;
 
   try {
     const lagosNow = new Date();
@@ -276,7 +276,7 @@ function isMatchFinished(dateStr: string, timeStr?: string): boolean {
     // Official FT only available if at least 110 minutes have elapsed since kickoff
     return currentMinutes >= matchMinutes + 110;
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -286,15 +286,17 @@ function isMatchFinished(dateStr: string, timeStr?: string): boolean {
 function normMatchName(s: any): string {
   return String(s || "")
     .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, " ")
     .replace(/[–—]/g, "-")
-    .replace(/\s*vs\s*/g, " - ")
+    .replace(/\s+(?:vs\.?|v\.?)\s+/g, " - ")
     .replace(/\s*-\s*/g, " - ")
     .trim();
 }
 
 function splitTeams(matchName: string): { home: string; away: string } {
-  const parts = matchName.split(/\s+[-–—vsVS]+\s+/);
+  const parts = String(matchName || "").split(/\s+(?:-|–|—|vs\.?|v\.?)\s+/i);
   return {
     home: (parts[0] || "").trim().toLowerCase(),
     away: (parts[1] || "").trim().toLowerCase(),
@@ -394,8 +396,8 @@ function evaluateLegOutcome(market: string, option: string, ftScore: string): "w
     const lineMatch = (opt + " " + mkt).match(/(\d+(\.\d+)?)/);
     const line = lineMatch ? parseFloat(lineMatch[1]) : 2.5;
 
-    if (opt.includes("over")) return total > line ? "won" : "lost";
-    if (opt.includes("under")) return total < line ? "won" : "lost";
+    if (opt.includes("over") || (!opt.includes("under") && mkt.includes("over"))) return total > line ? "won" : "lost";
+    if (opt.includes("under") || (!opt.includes("over") && mkt.includes("under"))) return total < line ? "won" : "lost";
   }
 
   // 4. Full Time Result (1X2) — also handles market stored as plain "1X2", "Home", "Away", "Draw" options
@@ -1515,20 +1517,27 @@ function teamsMatch(teamA: string, teamB: string): boolean {
   const b = normalizeTeam(teamB);
   if (!a || !b) return false;
   if (a === b) return true;
-  if (a.includes(b) || b.includes(a)) return true;
+  if (Math.min(a.length, b.length) >= 5 && (a.includes(b) || b.includes(a))) return true;
 
   const wordsA = a.split(" ").filter((w) => w.length >= 3);
   const wordsB = b.split(" ").filter((w) => w.length >= 3);
   if (wordsA.length > 0 && wordsB.length > 0) {
     const common = wordsA.filter((w) => wordsB.includes(w));
-    if (common.length >= Math.min(wordsA.length, wordsB.length)) return true;
-  }
-
-  if (a.length >= 4 && b.length >= 4 && (a.startsWith(b.slice(0, 4)) || b.startsWith(a.slice(0, 4)))) {
-    return true;
+    if (common.length > 0 && common.length >= Math.min(wordsA.length, wordsB.length)) return true;
   }
 
   return false;
+}
+
+function datesWithinDays(dateA: string, dateB: string, maxDays = 1): boolean {
+  if (!dateA || !dateB) return true;
+  const a = toSafeDateISO(dateA);
+  const b = toSafeDateISO(dateB);
+  if (!a || !b || a.length < 10 || b.length < 10) return true;
+  const tA = Date.parse(`${a}T12:00:00Z`);
+  const tB = Date.parse(`${b}T12:00:00Z`);
+  if (!Number.isFinite(tA) || !Number.isFinite(tB)) return true;
+  return Math.abs(tA - tB) <= maxDays * 86400000;
 }
 
 async function persistCuratedSlips(
@@ -1611,7 +1620,7 @@ async function autoSettlePendingSlips() {
     const slipsToCheck = await sql`
       SELECT * FROM curated_multi_bet_history
       WHERE status = 'pending' 
-         OR created_date >= (CURRENT_DATE - INTERVAL '15 days')
+         OR created_date >= ((NOW() AT TIME ZONE 'Africa/Lagos')::date - INTERVAL '15 days')
       ORDER BY created_date DESC, created_at DESC
       LIMIT 100
     `;
@@ -1631,7 +1640,7 @@ async function autoSettlePendingSlips() {
           NULLIF(TRIM(raw_data->>'ft_score'), '')
         ) as score
       FROM matches_cache
-      WHERE match_date <= CURRENT_DATE
+      WHERE match_date <= (NOW() AT TIME ZONE 'Africa/Lagos')::date
         AND (
           (ft_score IS NOT NULL AND TRIM(ft_score) != '')
           OR (raw_data->>'ftScore' IS NOT NULL AND TRIM(raw_data->>'ftScore') != '')
@@ -1645,7 +1654,7 @@ async function autoSettlePendingSlips() {
     let trackingMatches: any[] = [];
     try {
       trackingMatches = await sql`
-        SELECT match_name, actual_result as score
+        SELECT match_name, match_date::text as match_date_str, actual_result as score
         FROM user_performance_tracking
         WHERE actual_result IS NOT NULL 
           AND TRIM(actual_result) != '' 
@@ -1656,6 +1665,7 @@ async function autoSettlePendingSlips() {
     } catch {}
 
     interface MatchRecord {
+      date: string;
       home: string;
       away: string;
       label: string;
@@ -1663,36 +1673,47 @@ async function autoSettlePendingSlips() {
     }
 
     const matchRecords: MatchRecord[] = [];
-    const directMap = new Map<string, string>();
+    const directMap = new Map<string, { score: string; date: string }>();
 
     for (const fm of finishedMatches || []) {
       const score = String(fm.score || "").trim();
       if (!score || !/^\d+\s*[:\-]\s*\d+$/.test(score)) continue;
 
+      const d = toSafeDateISO(fm.match_date_str);
       const h = String(fm.home_team || "").trim();
       const a = String(fm.away_team || "").trim();
       const label = String(fm.match_label || "").trim();
 
-      matchRecords.push({ home: h, away: a, label, score });
+      matchRecords.push({ date: d, home: h, away: a, label, score });
       if (h && a) {
-        directMap.set(`${normMatchName(h)} vs ${normMatchName(a)}`, score);
-        directMap.set(`${normMatchName(h)} - ${normMatchName(a)}`, score);
-        directMap.set(`${normMatchName(h)}_${normMatchName(a)}`, score);
+        if (d) {
+          directMap.set(`${d}|${normMatchName(h)} - ${normMatchName(a)}`, { score, date: d });
+        }
+        if (!directMap.has(`${normMatchName(h)} - ${normMatchName(a)}`)) {
+          directMap.set(`${normMatchName(h)} - ${normMatchName(a)}`, { score, date: d });
+        }
       }
       if (label) {
-        directMap.set(normMatchName(label), score);
+        if (d) directMap.set(`${d}|${normMatchName(label)}`, { score, date: d });
+        if (!directMap.has(normMatchName(label))) {
+          directMap.set(normMatchName(label), { score, date: d });
+        }
       }
     }
 
     for (const tm of trackingMatches || []) {
       const score = String(tm.score || "").trim();
       if (!score || !/^\d+\s*[:\-]\s*\d+$/.test(score)) continue;
+      const d = toSafeDateISO(tm.match_date_str);
       const mName = String(tm.match_name || "").trim();
       if (mName) {
-        directMap.set(normMatchName(mName), score);
+        if (d) directMap.set(`${d}|${normMatchName(mName)}`, { score, date: d });
+        if (!directMap.has(normMatchName(mName))) {
+          directMap.set(normMatchName(mName), { score, date: d });
+        }
         const { home, away } = splitTeams(mName);
         if (home && away) {
-          matchRecords.push({ home, away, label: mName, score });
+          matchRecords.push({ date: d, home, away, label: mName, score });
         }
       }
     }
@@ -1714,6 +1735,7 @@ async function autoSettlePendingSlips() {
         const aIdx = headers.indexOf('away_team');
         const sIdx = headers.indexOf('ft_score');
         const lIdx = headers.indexOf('match_label');
+        const dIdx = headers.indexOf('match_date');
         if (hIdx === -1 || aIdx === -1 || sIdx === -1) return;
 
         for (let i = 1; i < lines.length; i++) {
@@ -1722,11 +1744,14 @@ async function autoSettlePendingSlips() {
           if (!score || !/^\d+\s*[:\-]\s*\d+$/.test(score)) continue;
           const h = cols[hIdx];
           const a = cols[aIdx];
-          const lbl = lIdx !== -1 ? cols[lIdx] : `${h} vs ${a}`;
+          const lbl = lIdx !== -1 ? cols[lIdx] : `${h} - ${a}`;
+          const d = dIdx !== -1 ? toSafeDateISO(cols[dIdx]) : "";
           if (h && a) {
-            directMap.set(`${normMatchName(h)} vs ${normMatchName(a)}`, score);
-            directMap.set(`${normMatchName(h)} - ${normMatchName(a)}`, score);
-            matchRecords.push({ home: h, away: a, label: lbl, score });
+            if (d) directMap.set(`${d}|${normMatchName(h)} - ${normMatchName(a)}`, { score, date: d });
+            if (!directMap.has(`${normMatchName(h)} - ${normMatchName(a)}`)) {
+              directMap.set(`${normMatchName(h)} - ${normMatchName(a)}`, { score, date: d });
+            }
+            matchRecords.push({ date: d, home: h, away: a, label: lbl, score });
 
             // Backfill matches_cache asynchronously so subsequent queries are instant
             sql`
@@ -1741,32 +1766,36 @@ async function autoSettlePendingSlips() {
       }
     }
 
-    function findScoreForMatch(matchString: string): string | null {
+    function findScoreForMatch(matchString: string, legDate = ""): string | null {
       if (!matchString) return null;
       const norm = normMatchName(matchString);
-      if (directMap.has(norm)) return directMap.get(norm)!;
+      const safeLegDate = toSafeDateISO(legDate);
 
-      const { home, away } = splitTeams(matchString);
-      if (home && away) {
-        const directKey = `${home}_${away}`;
-        if (directMap.has(directKey)) return directMap.get(directKey)!;
-        const revKey = `${away}_${home}`;
-        if (directMap.has(revKey)) return directMap.get(revKey)!;
+      // 1. Exact date + normalized match lookup first
+      if (safeLegDate) {
+        const dated = directMap.get(`${safeLegDate}|${norm}`);
+        if (dated) return dated.score;
       }
 
-      const stripped = matchString.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const exact = directMap.get(norm);
+      if (exact && datesWithinDays(exact.date, safeLegDate, 1)) {
+        return exact.score;
+      }
 
-      // Fuzzy check in match records
+      const { home, away } = splitTeams(matchString);
+      if (!home || !away) return null;
+
+      // 2. Team pair lookup (strictly home==home & away==away, NEVER reversed, and date-compatible)
       for (const rec of matchRecords) {
-        if (home && away && teamsMatch(rec.home, home) && teamsMatch(rec.away, away)) {
+        if (!datesWithinDays(rec.date, safeLegDate, 1)) continue;
+        if (rec.home && rec.away && teamsMatch(rec.home, home) && teamsMatch(rec.away, away)) {
           return rec.score;
         }
-        if (rec.label && teamsMatch(rec.label, matchString)) {
-          return rec.score;
-        }
-        const recStripped = `${rec.home}${rec.away}`.toLowerCase().replace(/[^a-z0-9]/g, "");
-        if (stripped && recStripped && (stripped.includes(recStripped) || recStripped.includes(stripped))) {
-          return rec.score;
+        if (rec.label) {
+          const recSplit = splitTeams(rec.label);
+          if (recSplit.home && recSplit.away && teamsMatch(recSplit.home, home) && teamsMatch(recSplit.away, away)) {
+            return rec.score;
+          }
         }
       }
 
@@ -1803,13 +1832,13 @@ async function autoSettlePendingSlips() {
           continue;
         }
 
-        // 2. If match is finished, check for verified FT score:
-        let ftScore = findScoreForMatch(leg.match);
+        // 2. If match is finished, check for verified FT score matching BOTH teams and date:
+        let ftScore = findScoreForMatch(leg.match, legDate);
 
         // If not found in DB caches, attempt live Google Sheet lookup
         if (!ftScore) {
           await fetchMissedResultsSheet();
-          ftScore = findScoreForMatch(leg.match);
+          ftScore = findScoreForMatch(leg.match, legDate);
         }
 
         if (ftScore) {

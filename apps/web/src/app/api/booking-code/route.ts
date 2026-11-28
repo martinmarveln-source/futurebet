@@ -131,12 +131,26 @@ async function ensureBookingTables() {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
     `;
-    await sql`ALTER TABLE futurebet_booking_codes ADD COLUMN IF NOT EXISTS is_verified_native BOOLEAN DEFAULT false;`;
-    await sql`ALTER TABLE futurebet_booking_codes ADD COLUMN IF NOT EXISTS native_codes JSONB DEFAULT '{}'::jsonb;`;
-    await sql`ALTER TABLE futurebet_booking_codes ADD COLUMN IF NOT EXISTS payload JSONB;`;
-    await sql`ALTER TABLE futurebet_booking_codes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();`;
   } catch (err) {
-    console.warn("Booking tables ensure warning:", err);
+    console.warn("Create futurebet_booking_codes warning:", err);
+  }
+
+  const migrations = [
+    () => sql`ALTER TABLE futurebet_booking_codes ADD COLUMN IF NOT EXISTS slip_id TEXT;`,
+    () => sql`ALTER TABLE futurebet_booking_codes ADD COLUMN IF NOT EXISTS bookmaker TEXT;`,
+    () => sql`ALTER TABLE futurebet_booking_codes ADD COLUMN IF NOT EXISTS total_odds NUMERIC;`,
+    () => sql`ALTER TABLE futurebet_booking_codes ADD COLUMN IF NOT EXISTS match_count INT;`,
+    () => sql`ALTER TABLE futurebet_booking_codes ADD COLUMN IF NOT EXISTS is_verified_native BOOLEAN DEFAULT false;`,
+    () => sql`ALTER TABLE futurebet_booking_codes ADD COLUMN IF NOT EXISTS native_codes JSONB DEFAULT '{}'::jsonb;`,
+    () => sql`ALTER TABLE futurebet_booking_codes ADD COLUMN IF NOT EXISTS payload JSONB;`,
+    () => sql`ALTER TABLE futurebet_booking_codes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();`,
+  ];
+  for (const runMigration of migrations) {
+    try {
+      await runMigration();
+    } catch (err) {
+      console.warn("futurebet_booking_codes migration warning:", err);
+    }
   }
 
   try {
